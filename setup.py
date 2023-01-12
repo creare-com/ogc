@@ -26,7 +26,7 @@ install_requires = [
     'flask',
     'lxml',
     'webob',
-    'traitlets<=3.6'
+    'traitlets'
 ]
 
 extras_require = {
