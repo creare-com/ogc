@@ -2,6 +2,7 @@ import logging
 
 import lxml, lxml.etree
 import traitlets as tl
+import numpy as np
 
 from ogc import ogc_common
 from ogc import settings
@@ -50,11 +51,14 @@ class Capabilities(ogc_common.XMLNode):
         <OnlineResource xlink:href="{self.base_url}"/>
         <AccessConstraints>{constraints}</AccessConstraints>
         <LayerLimit>1</LayerLimit>
-        <MaxWidth>1024</MaxWidth>
-        <MaxHeight>1024</MaxHeight>
+        <MaxWidth>{maxWidthWMS}</MaxWidth>
+        <MaxHeight>{maxHeightWMS}</MaxHeight>
     </Service>
 """.format(
-            self=self, constraints=settings.CONSTRAINTS
+            self=self,
+            constraints=settings.CONSTRAINTS,
+            maxWidthWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE)),
+            maxHeightWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE))
         )
 
     base_url = tl.Unicode(

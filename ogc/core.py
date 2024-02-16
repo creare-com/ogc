@@ -6,6 +6,7 @@ Currently holds some definitions for interface classes.
 import gc
 import traitlets as tl
 
+from . import settings
 from . import wcs_request_1_0_0
 from . import wms_request_1_3_0
 from . import wcs_response_1_0_0
@@ -116,12 +117,26 @@ class OGC(tl.HasTraits):
 
             from dateutil.parser import parse
 
-            assert (
-                get_coverage.width > 0
-            ), "Grid coordinates x_size must be greater than 0"
-            assert (
-                get_coverage.height > 0
-            ), "Grid coordinates y_size must be greater than 0"
+
+            if get_coverage.width == 0:
+                raise WCSException(
+                    exception_code="InvalidParameterValue",
+                    locator="VERSION",
+                    exception_text="Grid coordinates x_size must be greater than 0",
+                )
+            if get_coverage.height == 0:
+                raise WCSException(
+                    exception_code="InvalidParameterValue",
+                    locator="VERSION",
+                    exception_text="Grid coordinates y_size must be greater than 0",
+                )
+            if get_coverage.height * get_coverage.width > settings.MAX_GRID_COORDS_REQUEST_SIZE:
+                raise WCSException(
+                    exception_code="InvalidParameterValue",
+                    locator="VERSION",
+                    exception_text="Grid coordinates x_size * y_size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
+                )
+
 
             fp = coverage.layer.get_coverage(args)
 
@@ -190,8 +205,27 @@ class OGC(tl.HasTraits):
 
             coverage = self.get_coverage_from_id(get_map.layer.value)
 
-            fp = coverage.layer.get_map(args)
+            # Make sure the request size is correct
+            if get_map.width == 0:
+                raise WCSException(
+                    exception_code="InvalidParameterValue",
+                    locator="VERSION",
+                    exception_text="Grid coordinates x_size must be greater than 0",
+                )
+            if get_map.height == 0:
+                raise WCSException(
+                    exception_code="InvalidParameterValue",
+                    locator="VERSION",
+                    exception_text="Grid coordinates y_size must be greater than 0",
+                )
+            if get_map.height * get_map.width > settings.MAX_GRID_COORDS_REQUEST_SIZE:
+                raise WCSException(
+                    exception_code="InvalidParameterValue",
+                    locator="VERSION",
+                    exception_text="Grid coordinates x_size * y_size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
+                )
 
+            fp = coverage.layer.get_map(args)
             fn = coverage.identifier.split(".")[-1] + ".png"
 
             # Collect garbage

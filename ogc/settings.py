@@ -33,8 +33,8 @@ WCS_CRS = {
 USE_TIMES_LIST = False
 PAST_DAYS_INCLUDED = 7
 
-# Max WCS response size
-MAX_GRID_COORDS_REQUEST_SIZE = 2304001
+# Max WCS/WMS response size
+MAX_GRID_COORDS_REQUEST_SIZE = 1024 * 1024
 
 # WMS Capabilities limit layers
 WMS_LIMIT_LAYERS = False
