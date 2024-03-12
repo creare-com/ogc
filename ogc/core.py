@@ -82,16 +82,14 @@ class OGC(tl.HasTraits):
 
             return capabilities.to_xml()
 
-        assert "version" in args, "Must specify version."
-
-        if args["version"] == "1.0.0":
+        if "version" in args["version"] == "1.0.0":
             wcs_response = wcs_response_1_0_0
             wcs_request = wcs_request_1_0_0
         else:
             raise WCSException(
                 exception_code="InvalidParameterValue",
                 locator="VERSION",
-                exception_text="Unsupported version: %s" % args["version"],
+                exception_text="Unsupported version: %s" % (args["version"] if "version" in args else "None"),
             )
 
         if args["request"] == "DescribeCoverage":
@@ -172,15 +170,13 @@ class OGC(tl.HasTraits):
                 exception_text="Unsupported request",
             )
 
-        assert "version" in args, "Must specify version."
-
-        if args["version"] == "1.3.0":
+        if "version" in args and args["version"] == "1.3.0":
             wms_request = wms_request_1_3_0
         else:
             raise WCSException(
                 exception_code="InvalidParameterValue",
                 locator="VERSION",
-                exception_text="Unsupported version: %s" % args["version"],
+                exception_text="Unsupported version: %s" % (args["version"] if "version" in args else "None"),
             )
 
         if args["request"].lower() == "getlegendgraphic":
