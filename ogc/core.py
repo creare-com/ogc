@@ -4,6 +4,7 @@ DOCUMENTATION FOR THE PROJECT MODULE
 Currently holds some definitions for interface classes.
 """
 import gc
+import logging
 import traitlets as tl
 
 from . import settings
@@ -15,6 +16,7 @@ from . import ogc_common
 
 from ogc.ogc_common import WCSException
 
+logger = logging.getLogger(__name__)
 
 class OGC(tl.HasTraits):
 
@@ -72,8 +74,12 @@ class OGC(tl.HasTraits):
     def handle_wcs_kv(self, args):
         if args["request"] == "GetCapabilities":
             get_capabilities = wcs_request_1_0_0.GetCapabilities()
-            get_capabilities.load_from_kv(args)
-            get_capabilities.validate()
+            try:
+                get_capabilities.load_from_kv(args)
+                get_capabilities.validate()
+            except: 
+                logger.error("Failed to load and validate: ", exc_info=True)
+                raise WCSException(exception_text="Invalid arguments")
 
             capabilities = self.wcs_capabilities
 
@@ -95,8 +101,12 @@ class OGC(tl.HasTraits):
         if args["request"] == "DescribeCoverage":
 
             describe_coverage = wcs_request.DescribeCoverage()
-            describe_coverage.load_from_kv(args)
-            describe_coverage.validate()
+            try:
+                describe_coverage.load_from_kv(args)
+                describe_coverage.validate()
+            except: 
+                logger.error("Failed to load and validate: ", exc_info=True)
+                raise WCSException(exception_text="Invalid arguments")
 
             coverages = [
                 self.get_coverage_from_id(identifier.value)
@@ -108,8 +118,12 @@ class OGC(tl.HasTraits):
 
         elif args["request"] == "GetCoverage":
             get_coverage = wcs_request.GetCoverage()
-            get_coverage.load_from_kv(args)
-            get_coverage.validate()
+            try:
+                get_coverage.load_from_kv(args)
+                get_coverage.validate()
+            except: 
+                logger.error("Failed to load and validate: ", exc_info=True)
+                raise WCSException(exception_text="Invalid arguments")
 
             coverage = self.get_coverage_from_id(get_coverage.identifier.value)
 
@@ -154,8 +168,12 @@ class OGC(tl.HasTraits):
     def handle_wms_kv(self, args):
         if args["request"] == "GetCapabilities":
             get_capabilities = wms_request_1_3_0.GetCapabilities()
-            get_capabilities.load_from_kv(args)
-            get_capabilities.validate()
+            try:
+                get_capabilities.load_from_kv(args)
+                get_capabilities.validate()
+            except: 
+                logger.error("Failed to load and validate: ", exc_info=True)
+                raise WCSException(exception_text="Invalid arguments")
 
             wms_capabilities = self.wms_capabilities
 
@@ -181,8 +199,12 @@ class OGC(tl.HasTraits):
 
         if args["request"].lower() == "getlegendgraphic":
             get_legend_graphic = wms_request.GetLegendGraphic()
-            get_legend_graphic.load_from_kv(args)
-            get_legend_graphic.validate()
+            try:
+                get_legend_graphic.load_from_kv(args)
+                get_legend_graphic.validate()
+            except: 
+                logger.error("Failed to load and validate: ", exc_info=True)
+                raise WCSException(exception_text="Invalid arguments")
 
             coverage = self.get_coverage_from_id(get_legend_graphic.layer.value)
 
@@ -196,8 +218,12 @@ class OGC(tl.HasTraits):
         if args["request"].lower() == "getmap":
 
             get_map = wms_request.GetMap()
-            get_map.load_from_kv(args)
-            get_map.validate()
+            try:
+                get_map.load_from_kv(args)
+                get_map.validate()
+            except: 
+                logger.error("Failed to load and validate: ", exc_info=True)
+                raise WCSException(exception_text="Invalid arguments")
 
             coverage = self.get_coverage_from_id(get_map.layer.value)
 
@@ -221,7 +247,12 @@ class OGC(tl.HasTraits):
                     exception_text="Grid coordinates x_size * y_size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
                 )
 
-            fp = coverage.layer.get_map(args)
+            try:
+                fp = coverage.layer.get_map(args)
+            except: 
+                logger.error("Failed to get_map from layer: ", exc_info=True)
+                raise WCSException(exception_text="Invalid arguments")
+
             fn = coverage.identifier.split(".")[-1] + ".png"
 
             # Collect garbage

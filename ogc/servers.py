@@ -112,13 +112,21 @@ class FlaskServer(Flask):
         if not request.args:
             return self.home_func(ogc.endpoint)
         try:
-            # We'll filter out any characters from URl parameter values that are not in the allowlist.
-            # Note the parameter with key "params" has a serialized JSON value, leading to {}"
-            match_unapproved_chars = r'[^-A-Za-z0-9+.,_/:\{\}"]'
-            # WCS standard says argument keys can come in with any capitalization;
-            #  convert to lower-case.
+            # We'll filter out any characters from URl parameter values that
+            # are not in the allowlist.
+            # Note the parameter with key "params" has a serialized JSON value,
+            # so we allow braces, brackets, and quotes.
+            # Allowed chars are:
+            #   -, A through Z, a through z, 0 through 9,
+            #   and the characters + . , _ / : * { } ( ) [ ] "
+            allowed_chars = r'-A-Za-z0-9+.,_/:*\{\}\(\)\[\]"'
+            match_one_unallowed_char = "[^%s]" % allowed_chars
             args = {
-                k.lower(): re.sub(match_unapproved_chars, "", str(v))
+                # WCS standard says argument keys can come in with any
+                #    capitalization; convert keys to lower-case.
+                # Find every unallowed char in the value and replace it
+                #    with nothing (remove it).
+                k.lower(): re.sub(match_one_unallowed_char, "", str(v))
                 for (k, v) in request.args.items()
             }
 
