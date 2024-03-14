@@ -88,7 +88,7 @@ class OGC(tl.HasTraits):
 
             return capabilities.to_xml()
 
-        if "version" in args["version"] == "1.0.0":
+        if "version" in args and args["version"] == "1.0.0":
             wcs_response = wcs_response_1_0_0
             wcs_request = wcs_request_1_0_0
         else:
