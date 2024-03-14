@@ -6,6 +6,7 @@ Note: this should probably be seperated into sub-modules for each web
       another one.
 """
 
+import re
 from flask import Flask, request, Response, make_response, send_file
 import six
 import traceback
@@ -103,14 +104,31 @@ class FlaskServer(Flask):
             )  # bind route function call to instance method
 
     def ogc_render(self, ogc_idx):
-        print("OGC server.ogc_render", ogc_idx)
+        logger.info("OGC server.ogc_render %i", ogc_idx)
+        if request.method != "GET":
+            return respond_xml("<p>Only GET supported</p>", status=405)
+
         ogc = self.ogcs[ogc_idx]
         if not request.args:
             return self.home_func(ogc.endpoint)
         try:
-            # WCS standard says argument keys can come in with any capitalization;
-            #  convert to lower-case.
-            args = {k.lower(): str(v) for (k, v) in request.args.items()}
+            # We'll filter out any characters from URl parameter values that
+            # are not in the allowlist.
+            # Note the parameter with key "params" has a serialized JSON value,
+            # so we allow braces, brackets, and quotes.
+            # Allowed chars are:
+            #   -, A through Z, a through z, 0 through 9,
+            #   and the characters + . , _ / : * { } ( ) [ ] "
+            allowed_chars = r'-A-Za-z0-9+.,_/:*\{\}\(\)\[\]"'
+            match_one_unallowed_char = "[^%s]" % allowed_chars
+            args = {
+                # WCS standard says argument keys can come in with any
+                #    capitalization; convert keys to lower-case.
+                # Find every unallowed char in the value and replace it
+                #    with nothing (remove it).
+                k.lower(): re.sub(match_one_unallowed_char, "", str(v))
+                for (k, v) in request.args.items()
+            }
 
             if request.base_url:
                 args["base_url"] = request.base_url + "?"
@@ -118,10 +136,8 @@ class FlaskServer(Flask):
                 args["base_url"] = None
             ogc_response = None
             if args["service"].lower() == "wcs":
-                assert request.method == "GET", "error; expecting GET request"
                 ogc_response = ogc.handle_wcs_kv(args)
             elif args["service"].lower() == "wms":
-                assert request.method == "GET", "error; expecting GET request"
                 ogc_response = ogc.handle_wms_kv(args)
             if ogc_response is not None:
                 if isinstance(ogc_response, six.string_types):
@@ -134,24 +150,27 @@ class FlaskServer(Flask):
                         return send_file(
                             fp, as_attachment=as_attach, attachment_filename=fn
                         )
-                    except TypeError:  # attachment_filename was renamed to download_name in newer versions of flask
+                    except (
+                        TypeError
+                    ):  # attachment_filename was renamed to download_name in newer versions of flask
                         return send_file(fp, as_attachment=as_attach, download_name=fn)
 
-            logger.debug(dict(request.args))
+            logger.warning(
+                "Could not handle this combination of arguments: %r", dict(request.args)
+            )
+            raise WCSException("No response for this combination of arguments.")
 
-            raise RuntimeError("Request not handled properly: " + request)
         except WCSException as e:
-            # raise
-            print("OGC: server.ogc_render exception: " + str(e))
-            # traceback.print_stack()  # print to log
-            # do not want to present stack traces directly to user.
-            # e.exception_text = 'Internal application error.'
-            return respond_xml(e.to_xml(), status=500)
+            logger.error(
+                "OGC: server.ogc_render WCSException: %s", str(e), exc_info=True
+            )
+            # WCSException is raised when the client sends an invalid set of parameters.
+            # Therefore it should result in a client error, in the 400 range.
+            # Security scans have flagged a security concern when returning a 500 error,
+            # since it might imply successful command injection.
+            return respond_xml(e.to_xml(), status=400)
         except Exception as e:
-            # raise
-            print("OGC: server.ogc_render exception: " + str(e))
-            # traceback.print_stack()  # print to log
-            # do not want to present stack traces directly to user.
+            logger.error("OGC: server.ogc_render Exception: %s", str(e), exc_info=True)
             ee = WCSException()
             return respond_xml(ee.to_xml(), status=500)
 
