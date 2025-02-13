@@ -220,7 +220,7 @@ class LegendGraphic(tl.HasTraits):
             fig.set_size_inches(fig_width,fig_height,forward=True)
             
             self.cmap = mpl.colors.ListedColormap(enum_colors) #create categorical colomap to replace previous cmap
-            bounds = np.array([val-0.5 for val in np.arange(1,len(enum_values)+1)])
+            bounds = np.array([val-0.5 for val in np.arange(1,len(enum_values)+2)])
             norm = mpl.colors.BoundaryNorm(bounds, self.cmap.N)
             cb = mpl.colorbar.ColorbarBase(
                 ax,
@@ -249,7 +249,7 @@ class LegendGraphic(tl.HasTraits):
             )
 
         output = io.BytesIO()
-        fig.savefig(output, format=self.img_format)
+        fig.savefig('/opt/geowatch/local_data/test.png', format=self.img_format)
         pyplot.close("all")
         output.seek(0)
         return output
