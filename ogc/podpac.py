@@ -206,11 +206,19 @@ class LegendGraphic(tl.HasTraits):
         if self.units:
             ax = fig.add_axes([0.25, 0.05, 0.15, 0.80])
         else:
-            ax = fig.add_axes([0.25, 0.05, 0.15, 0.9])
+            ax = fig.add_axes([0.1, 0.05, 0.15, 0.9])
 
         if self.enumeration_colors:
-            enum_values = sorted(list(self.enumeration_colors.keys()))
+            enum_values = list(self.enumeration_colors.keys())
             enum_colors = list(self.enumeration_colors.values())
+            enum_labels = list(self.enumeration_legend.values())
+            
+            # Change legend dynamically 
+            max_label_width = self.get_max_text_width(enum_labels) # Estimates the max label width assuming fontsize 10
+            fig_width = 1 + max_label_width  # Base width + label-dependent width
+            fig_height = max(2.5, len(enum_colors) * 0.25)  # Adjust height based on number of labels
+            fig.set_size_inches(fig_width,fig_height,forward=True)
+            
             self.cmap = mpl.colors.ListedColormap(enum_colors) #create categorical colomap to replace previous cmap
             bounds = np.array([val-0.5 for val in np.arange(1,len(enum_values)+1)])
             norm = mpl.colors.BoundaryNorm(bounds, self.cmap.N)
@@ -221,7 +229,8 @@ class LegendGraphic(tl.HasTraits):
                 ticks=np.arange(1,len(self.enumeration_legend)+1),
             )
             if self.enumeration_legend:
-                cb.ax.set_yticklabels(list(self.enumeration_legend.values()))
+                cb.ax.set_yticklabels(enum_labels)
+
         else:
             norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
             cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
@@ -244,3 +253,16 @@ class LegendGraphic(tl.HasTraits):
         pyplot.close("all")
         output.seek(0)
         return output
+
+    def get_max_text_width(self, labels, font_size=10):
+        """Estimate max text width based on labels and font size."""
+        fig, ax = pyplot.subplots()  # Create a temporary figure
+        renderer = fig.canvas.get_renderer()  # Get renderer to measure text
+        
+        text_widths = []
+        for label in labels:
+            text = ax.text(0, 0, label, fontsize=font_size)  # Attach text to the figure
+            text_widths.append(text.get_window_extent(renderer).width)
+        
+        pyplot.close(fig)  # Close temporary figure
+        return max(text_widths) / 100  # Convert pixels to inches
