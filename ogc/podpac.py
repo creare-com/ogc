@@ -210,13 +210,15 @@ class LegendGraphic(tl.HasTraits):
 
         if self.enumeration_colors:
             enum_values = sorted(list(self.enumeration_colors.keys()))
-            bounds = np.array(enum_values + [enum_values[-1] + 1]) - 0.5
+            enum_colors = list(self.enumeration_colors.values())
+            self.cmap = mpl.colors.ListedColormap(enum_colors) #create categorical colomap to replace previous cmap
+            bounds = np.array([val-0.5 for val in np.arange(1,len(enum_values)+1)])
             norm = mpl.colors.BoundaryNorm(bounds, self.cmap.N)
             cb = mpl.colorbar.ColorbarBase(
                 ax,
                 cmap=self.cmap,
                 norm=norm,
-                ticks=list(self.enumeration_colors.keys()),
+                ticks=np.arange(1,len(self.enumeration_legend)+1),
             )
             if self.enumeration_legend:
                 cb.ax.set_yticklabels(list(self.enumeration_legend.values()))
