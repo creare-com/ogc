@@ -15,6 +15,7 @@ import numpy as np
 import xarray as xr
 import json
 import textwrap
+import re
 
 
 
@@ -207,16 +208,16 @@ class LegendGraphic(tl.HasTraits):
         )
         # check if there are units and see if they are long and need to be wrapped
         if self.units:
-            # format characters
             units = "[%s]" % self.units
-            units = units.replace("^2", "$^2\!$")
-            units = units.replace("^-6", "$^{-6}\!$")
-
             units_fontsize = 13 #defualt unit fontsize
             max_width_chars = 16 #maximum characters allowed in first line
+ 
             needs_wrap = len(units) > max_width_chars  # if characters are greater than 16 then wrap text and shrink colorbar
             # currently only allows for 2 lines
             wrapped_units = self.wrap_text(units, max_width_chars)
+            # format exponents
+            units = re.sub(r"\^(\d+)", r"$^{\1}\!$", units)            
+            units = re.sub(r"\^-(\d+)", r"$^{-\1}\!$", units)
             # add units to figure
             fig.text(
                 0.5,
