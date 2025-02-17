@@ -239,26 +239,25 @@ class LegendGraphic(tl.HasTraits):
             fig.set_size_inches(self.max_width, fig_height, forward=True)
 
             # Standard height ratio (before adjustments)
-            base_figure_height = 2.5  # Original figure height in inches
+            base_figure_height = self.height  # Original figure height in inches
             base_ax_height_ratio = 0.75  # Initial height of ax as a fraction of fig height
             # Compute the new height ratio based on the updated figure height
             adjusted_ax_height_ratio = base_ax_height_ratio * (base_figure_height / fig_height)
             # make axes smaller to fix units
-            ax = fig.add_axes([0.25, 0.05, 0.15, adjusted_ax_height_ratio])
+            ax = fig.add_axes([0.35, 0.05, 0.15, adjusted_ax_height_ratio])
             # adjust fig size to fit units            
 
         elif self.units:
             # adjust figure width based on unit length
             # add space for units
-            ax = fig.add_axes([0.25, 0.05, 0.15, 0.80])
+            ax = fig.add_axes([0.3, 0.05, 0.15, 0.80])
             # adjust fig size to fit units
             max_label_width = self.get_max_text_width([wrapped_units], units_fontsize) # Estimates the max label width assuming fontsize 10
             fig_width = max(0.8, max_label_width + 0.2) #define minimum width need or max_label width + some extra margin
             fig.set_size_inches(fig_width, self.height, forward=True)
-
         else:
             # no extra space
-            ax = fig.add_axes([0.1, 0.05, 0.3, 0.9])
+            ax = fig.add_axes([0.1, 0.05, 0.25, 0.9])
 
         if self.enumeration_colors:
             enum_values = list(self.enumeration_colors.keys())
@@ -288,10 +287,20 @@ class LegendGraphic(tl.HasTraits):
             )
             if self.enumeration_legend:
                 cb.ax.set_yticklabels(enum_labels, fontsize=font_size)
-
-        else:
+        elif self.units:
+            # already adjusted figure size
             norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
             cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
+        else:
+            # adjust figure width based on tick labels
+            norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
+            cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
+            tick_labels = [str(t) for t in cb.ax.get_yticks()]  # Convert ticks to strings
+            font_size = 10
+            max_label_width = self.get_max_text_width(tick_labels, font_size)
+            fig_width = max_label_width + 0.4
+            fig.set_size_inches(fig_width, self.height,forward=True)
+
 
 
 
