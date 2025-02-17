@@ -81,7 +81,7 @@ class Layer(tl.HasTraits):
     )
     all_times_valid = tl.Bool(default_value=False)
 
-    legend_graphic_width_inches = tl.Float(default_value=1.5)  # inches
+    legend_graphic_width_inches = tl.Float(default_value=0.7)  # inches
     legend_graphic_height_inches = tl.Float(default_value=2.5)  # inches
     legend_graphic_dpi = tl.Float(default_value=100)
 

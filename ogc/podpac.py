@@ -181,7 +181,8 @@ class Layer(ogc.Layer):
 
 
 class LegendGraphic(tl.HasTraits):
-    width = tl.Float(default_value=1.5)  # inches
+    width = tl.Float(default_value=0.7)  # inches
+    max_width = tl.Float(default_value=1.5)  # inches
     height = tl.Float(default_value=2.5)  # inches
     dpi = tl.Float(default_value=100)  # pixels per inch
     units = tl.Unicode(default_value=tl.Undefined, allow_none=True)
@@ -235,7 +236,7 @@ class LegendGraphic(tl.HasTraits):
             added_lines = wrapped_units.count("\n")
             added_height = additional_height_for_wrapped_text(self, added_lines, units_fontsize)
             fig_height = min(6.5, added_height + self.height) # add extra height to figure ensure it is less than 6.5 in
-            fig.set_size_inches(self.width, fig_height, forward=True)
+            fig.set_size_inches(self.max_width, fig_height, forward=True)
 
             # Standard height ratio (before adjustments)
             base_figure_height = 2.5  # Original figure height in inches
@@ -257,7 +258,7 @@ class LegendGraphic(tl.HasTraits):
 
         else:
             # no extra space
-            ax = fig.add_axes([0.05, 0.0125, 0.1, 0.975])
+            ax = fig.add_axes([0.1, 0.05, 0.3, 0.9])
 
         if self.enumeration_colors:
             enum_values = list(self.enumeration_colors.keys())
