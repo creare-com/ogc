@@ -255,6 +255,8 @@ class LegendGraphic(tl.HasTraits):
             max_label_width = self.get_max_text_width([wrapped_units], units_fontsize) # Estimates the max label width assuming fontsize 10
             fig_width = max(0.8, max_label_width + 0.2) #define minimum width need or max_label width + some extra margin
             fig.set_size_inches(fig_width, self.height, forward=True)
+        elif self.enumeration_colors:
+            ax = fig.add_axes([0.05, 0.0125, 0.1, 0.975])
         else:
             # no extra space
             ax = fig.add_axes([0.1, 0.05, 0.25, 0.9])
