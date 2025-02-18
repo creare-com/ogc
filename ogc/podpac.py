@@ -236,9 +236,6 @@ class LegendGraphic(tl.HasTraits):
             mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
         elif self.units:
             fig, ax = self.adjust_fig_width_for_unwrapped_units(fig, units_str)
-            # add color bars
-            norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
-            mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
         elif self.enumeration_colors:
             # set axis for enumeration
             ax = fig.add_axes([0.05, 0.0125, 0.1, 0.975])
@@ -312,7 +309,7 @@ class LegendGraphic(tl.HasTraits):
         # Compute the new height ratio based on the updated figure height
         adjusted_ax_height_ratio = base_ax_height_ratio * (base_figure_height / fig_height)
         # make axes smaller to fix units
-        ax = fig.add_axes([0.35, 0.05, 0.15, adjusted_ax_height_ratio])
+        ax = fig.add_axes([0.25, 0.05, 0.15, adjusted_ax_height_ratio])
         return fig, ax
 
     def adjust_fig_width_for_unwrapped_units(self, fig, units_str):
@@ -328,12 +325,20 @@ class LegendGraphic(tl.HasTraits):
             tuple: Updated figure and adjusted axis.
         """
         # add space for units
-        ax = fig.add_axes([0.3, 0.05, 0.15, 0.80])
+        ax = fig.add_axes([0.25, 0.05, 0.15, 0.80])
         # Estimates the max label width assuming fontsize 10
-        max_label_width = self.get_max_text_width([units_str], self.units_fontsize) 
+        max_label_width_units = self.get_max_text_width([units_str], self.units_fontsize) 
+        
+        # add color bar and see if fig width needs to be bigger for tick marks
+        norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
+        cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
+        tick_labels = [str(t) for t in cb.ax.get_yticks()]  # Convert ticks to strings
+        max_label_width_ticks = self.get_max_text_width(tick_labels, self.colorbar_fontsize)
+
         #define minimum width need or max_label width + some extra margin
-        fig_width = max(self.min_width, max_label_width + 0.2) 
+        fig_width = max(self.min_width, max_label_width_units+0.2, max_label_width_ticks+0.4) 
         fig.set_size_inches(fig_width, self.height, forward=True)
+
         return fig, ax
         
     def create_enumeration_legend(self, fig, ax):
