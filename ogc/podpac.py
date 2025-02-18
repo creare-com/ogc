@@ -181,6 +181,9 @@ class Layer(ogc.Layer):
 
 
 class LegendGraphic(tl.HasTraits):
+    """
+    A class for generating legend graphics with adjustable properties such as width, height, fonts, and color mappings.
+    """
     width = tl.Float(default_value=0.7)  # inches
     max_width = tl.Float(default_value=1.5)  # inches
     min_width = tl.Float(default_value=0.8) # inches
@@ -208,19 +211,26 @@ class LegendGraphic(tl.HasTraits):
     clim = tl.List(default_value=[None, None])
 
     def __init__(self, *args, **kwargs):
+        """
+        Initializes the LegendGraphic object with given parameters.
+        """
         super().__init__(*args, **kwargs)
 
     def legend_image(self):
-        fig = plt.figure(
-            figsize=(self.width, self.height), facecolor=self.facecolor, dpi=self.dpi
-        )
+        """
+        Generates the legend image based on provided parameters.
+        
+        Returns:
+            io.BytesIO: A byte stream containing the legend image in the specified format.
+        """
+        fig = plt.figure(figsize=(self.width, self.height), facecolor=self.facecolor, dpi=self.dpi)
         # check if there are units and see if they are longer than self.max_unit_chars
         if self.units:
             fig, needs_wrap, units_str = self.check_if_units_need_to_be_wrapped(fig)
 
         # add axis to figure, reshape figures if units. Do not reshape for enumerations or just colorbar
         if self.units and needs_wrap:
-            fig, ax = self.adjust_fig_width_for_wrapped_units(fig, units_str)
+            fig, ax = self.adjust_fig_height_for_wrapped_units(fig, units_str)
             # add color bars
             norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
             mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
@@ -247,8 +257,18 @@ class LegendGraphic(tl.HasTraits):
         return output
 
     def check_if_units_need_to_be_wrapped(self, fig):
+        """
+        Checks if the unit text needs wrapping. If so, it divieds the string into bins the
+        size of max_unit_chars.
+        
+        Args:
+            fig (matplotlib.figure.Figure): The figure object.
+        
+        Returns:
+            tuple: Updated figure, boolean flag indicating wrapping, and the wrapped unit string.
+        """
         units = "[%s]" % self.units
-        needs_wrap = len(units) > self.max_unit_chars  # if characters are greater than 16 then wrap text and shrink colorbar
+        needs_wrap = len(units)>self.max_unit_chars  #if characters are greater than 16 then wrap text, shrink colorbar
         # currently only allows for 2 lines
         wrapped_units = self.wrap_text(units, self.max_unit_chars)
         # format exponents
@@ -266,10 +286,22 @@ class LegendGraphic(tl.HasTraits):
         )
         return fig, needs_wrap, wrapped_units
     
-    def adjust_fig_width_for_wrapped_units(self, fig, wrapped_units):
+    def adjust_fig_height_for_wrapped_units(self, fig, wrapped_units):
+        """
+        Adjusts figure height to accommodate wrapped units. Will increase figure
+        size for each line of wrapped text until maximum figure height is reached
+        
+        Args:
+            fig (matplotlib.figure.Figure): The figure object.
+            wrapped_units (str): The wrapped unit string.
+        
+        Returns:
+            tuple: Updated figure and adjusted axis.
+        """
+        
         # wrap text and increase height of figure
         added_lines = wrapped_units.count("\n")
-        added_height = self.additional_height_for_wrapped_text(self, added_lines, self.units_fontsize)
+        added_height = self.additional_height_for_wrapped_text(added_lines, self.units_fontsize)
         fig_height = min(self.max_heigth, added_height + self.height) # add extra height to figure ensure it is less than 6.5 in
         # adjust fig size to fit units            
         fig.set_size_inches(self.max_width, fig_height, forward=True)
@@ -281,21 +313,42 @@ class LegendGraphic(tl.HasTraits):
         adjusted_ax_height_ratio = base_ax_height_ratio * (base_figure_height / fig_height)
         # make axes smaller to fix units
         ax = fig.add_axes([0.35, 0.05, 0.15, adjusted_ax_height_ratio])
-
-
         return fig, ax
 
     def adjust_fig_width_for_unwrapped_units(self, fig, units_str):
-        # adjust figure width based on unit length
+        """
+        Adjusts figure width to accommodate units. 
+        Expects units to be under max_unit_chars
+        
+        Args:
+            fig (matplotlib.figure.Figure): The figure object.
+            wrapped_units (str): The wrapped unit string.
+        
+        Returns:
+            tuple: Updated figure and adjusted axis.
+        """
         # add space for units
         ax = fig.add_axes([0.3, 0.05, 0.15, 0.80])
-        # adjust fig size to fit units
-        max_label_width = self.get_max_text_width([units_str], self.units_fontsize) # Estimates the max label width assuming fontsize 10
-        fig_width = max(self.min_width, max_label_width + 0.2) #define minimum width need or max_label width + some extra margin
+        # Estimates the max label width assuming fontsize 10
+        max_label_width = self.get_max_text_width([units_str], self.units_fontsize) 
+        #define minimum width need or max_label width + some extra margin
+        fig_width = max(self.min_width, max_label_width + 0.2) 
         fig.set_size_inches(fig_width, self.height, forward=True)
         return fig, ax
         
     def create_enumeration_legend(self, fig, ax):
+        """
+        Creates a legend for categorical data. 
+        Dynamically adjusts figure size based on number of labels and label text length
+        Adds colorbar to figure
+        
+        Args:
+            fig (matplotlib.figure.Figure): The figure object.
+            ax (matplotlib.axes.Axes): The axis object.
+        
+        Returns:
+            matplotlib.figure.Figure: The updated figure.
+        """
         enum_values = list(self.enumeration_colors.keys())
         enum_colors = list(self.enumeration_colors.values())
         enum_labels = list(self.enumeration_legend.values())
@@ -325,11 +378,19 @@ class LegendGraphic(tl.HasTraits):
         return fig
     
     def adjust_fig_width_for_long_tick_marks(self, fig, ax):
-        # adjust figure width based on tick labels
+        """
+        Adjusts figure width to accommodate tick marks that are long. 
+        
+        Args:
+            fig (matplotlib.figure.Figure): The figure object.
+            ax (matplotlib.axes.Axes): The axis object.
+        
+        Returns:
+            matplotlib.figure.Figure: The updated figure.
+        """
         norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
         cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
         tick_labels = [str(t) for t in cb.ax.get_yticks()]  # Convert ticks to strings
-        font_size = 10
         max_label_width = self.get_max_text_width(tick_labels, self.colorbar_fontsize)
         fig_width = max_label_width + 0.4
         fig.set_size_inches(fig_width, self.height,forward=True)
@@ -337,7 +398,16 @@ class LegendGraphic(tl.HasTraits):
         return fig
 
     def get_max_text_width(self, labels, font_size=10):
-        """Estimate max text width based on labels and font size."""
+        """
+        Estimates the maximum width of given text labels in inches.
+        
+        Args:
+            labels (list of str): List of text labels.
+            font_size (int): Font size used for labels.
+        
+        Returns:
+            float: The maximum width of the labels in inches.
+        """
         fig, ax = plt.subplots()  # Create a temporary figure
         renderer = fig.canvas.get_renderer()  # Get renderer to measure text
         
@@ -349,10 +419,23 @@ class LegendGraphic(tl.HasTraits):
         plt.close(fig)  # Close temporary figure
         return max(text_widths) / self.dpi  # Convert pixels to inches
     
-    def wrap_text(self, text, max_width_chars=20):
+    def wrap_text(self, text, max_width_chars=16):
+        """
+        Split string into sections of length max_width_chars
+        """
         return "\n".join(textwrap.wrap(text, width=max_width_chars))
 
     def additional_height_for_wrapped_text(self, added_lines_num, font_size):
+        """
+        Calculates additional height needed for wrapped text based on number lines needed
+        
+        Args:
+            added_lines_num (int): Number of additional wrapped lines.
+            font_size (int): Font size of the text.
+        
+        Returns:
+            float: Additional height required in inches.
+        """
         font_height_px = font_size * (self.dpi / 72)  # Convert to pixels
         font_height_in = font_height_px / self.dpi  # Convert pixels to inches
         additional_height = font_height_in*added_lines_num
