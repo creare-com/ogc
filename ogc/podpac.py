@@ -332,7 +332,9 @@ class LegendGraphic(tl.HasTraits):
         # add color bar and see if fig width needs to be bigger for tick marks
         norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
         cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
-        tick_labels = [str(t) for t in cb.ax.get_yticks()]  # Convert ticks to strings
+        
+        # Convert ticks to float32 to avoid errors converting float64 to string
+        tick_labels = [str(t) for t in cb.ax.get_yticks().astype('f4')] 
         max_label_width_ticks = self.get_max_text_width(tick_labels, self.colorbar_fontsize)
 
         #define minimum width need or max_label width + some extra margin
@@ -419,6 +421,7 @@ class LegendGraphic(tl.HasTraits):
         text_widths = []
         for label in labels:
             text = ax.text(0, 0, label, fontsize=font_size)  # Attach text to the figure
+            print(text)
             text_widths.append(text.get_window_extent(renderer).width)
         
         plt.close(fig)  # Close temporary figure
