@@ -397,7 +397,7 @@ class LegendGraphic(tl.HasTraits):
         """
         norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
         cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
-        tick_labels = [str(t) for t in cb.ax.get_yticks()]  # Convert ticks to strings
+        tick_labels = [str(t) for t in cb.ax.get_yticks().astype('f4')]  # Convert ticks to strings
         max_label_width = self.get_max_text_width(tick_labels, self.colorbar_fontsize)
         fig_width = max_label_width + 0.4
         fig.set_size_inches(fig_width, self.height,forward=True)
@@ -421,7 +421,6 @@ class LegendGraphic(tl.HasTraits):
         text_widths = []
         for label in labels:
             text = ax.text(0, 0, label, fontsize=font_size)  # Attach text to the figure
-            print(text)
             text_widths.append(text.get_window_extent(renderer).width)
         
         plt.close(fig)  # Close temporary figure
