@@ -146,14 +146,7 @@ class FlaskServer(Flask):
                     fp = ogc_response["fp"]
                     fn = ogc_response["fn"]
                     as_attach = True if fn.endswith("tif") else False
-                    try:
-                        return send_file(
-                            fp, as_attachment=as_attach, attachment_filename=fn
-                        )
-                    except (
-                        TypeError
-                    ):  # attachment_filename was renamed to download_name in newer versions of flask
-                        return send_file(fp, as_attachment=as_attach, download_name=fn)
+                    return send_file(fp, as_attachment=as_attach, download_name=fn)
 
             logger.warning(
                 "Could not handle this combination of arguments: %r", dict(request.args)
