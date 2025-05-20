@@ -215,9 +215,7 @@ version="1.0.0">
             xml += """
         </wcs:supportedCRSs>
 
-""".format(
-                coverage=coverage, temporal_domain=temporal_domain
-            )  #
+"""
             xml += """\
         <wcs:supportedFormats nativeFormat="GeoTIFF">
           <wcs:formats>GeoTIFF</wcs:formats>
