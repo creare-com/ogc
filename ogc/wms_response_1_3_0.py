@@ -129,19 +129,13 @@ class Capabilities(ogc_common.XMLNode):
         for coverage in self.coverages:
             xml += """       <Layer queryable="0" opaque="0" cascaded="1">\n"""
             if coverage.identifier:
-                xml += "            <Name>{coverage.identifier}</Name>\n".format(
-                    coverage=coverage
-                )
+                xml += f"            <Name>{coverage.identifier}</Name>\n"
             if coverage.title:
-                xml += "            <Title>{coverage.title}</Title>\n".format(
-                    coverage=coverage, self=self
-                )
+                xml += f"            <Title>{coverage.title}</Title>\n"
             else:
                 logger.info("Invalid layer. Missing title.")
             if coverage.abstract:
-                xml += "            <Abstract>{coverage.abstract}</Abstract>\n".format(
-                    coverage=coverage, self=self
-                )
+                xml += f"            <Abstract>{coverage.abstract}</Abstract>\n"
 
             xml += self._get_CRS_and_BoundingBox()
 
@@ -156,7 +150,7 @@ class Capabilities(ogc_common.XMLNode):
 
                 # Find last time with seconds == 0
                 try:
-                    latest_LIS_time = next(
+                    latest_lis_time = next(
                         (
                             t
                             for t in reversed(coverage.layer.valid_times)
@@ -165,13 +159,13 @@ class Capabilities(ogc_common.XMLNode):
                         None,
                     )
                 except AttributeError:
-                    latest_LIS_time = next(
+                    latest_lis_time = next(
                         (t for t in reversed(coverage.layer.valid_times)), None
                     )
 
-                if latest_LIS_time is not None:
+                if latest_lis_time is not None:
                     # default to latest LIS time, if available
-                    default_time = latest_LIS_time
+                    default_time = latest_lis_time
                 else:
                     # otherwise default to first available time
                     default_time = min_time
@@ -258,7 +252,7 @@ version="{capabilities.version}">
 
     @staticmethod
     def _format_number(input, float_decimals=9):
-        if type(input) == float:
+        if isinstance(input, float):
             return "{number:.{decimals}f}".format(number=input, decimals=float_decimals)
         else:
             return "{}".format(input)
