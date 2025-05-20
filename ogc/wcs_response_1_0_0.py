@@ -73,7 +73,7 @@ class Coverage(ogc_common.XMLNode):
                 self.layer.grid_coordinates.LLC.lat,
                 self.layer.grid_coordinates.LLC.lon,
             )
-        except:
+        except Exception:
             return (self.crs_extents["minx"], self.crs_extents["miny"])
 
     wgs84_bounding_box_upper_corner_lat_lon = tl.Tuple(tl.Float(), tl.Float())
@@ -84,7 +84,7 @@ class Coverage(ogc_common.XMLNode):
                 self.layer.grid_coordinates.URC.lat,
                 self.layer.grid_coordinates.URC.lon,
             )
-        except:
+        except Exception:
             return (self.crs_extents["maxx"], self.crs_extents["maxy"])
 
 

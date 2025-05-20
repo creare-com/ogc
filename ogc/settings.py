@@ -48,7 +48,7 @@ try:
     else:
         WMS_FRONT_END_ADDRESS = FRONT_END_ADDRESS + "/services/GEOWCS"
         WCS_FRONT_END_ADDRESS = FRONT_END_ADDRESS + "/services/GEOWCS"
-except:
+except Exception:
     WMS_FRONT_END_ADDRESS = None
     WCS_FRONT_END_ADDRESS = None
 
