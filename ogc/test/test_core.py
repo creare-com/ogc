@@ -11,9 +11,7 @@ lat = np.linspace(90, -90, 11)
 lon = np.linspace(-180, 180, 21)
 coords = podpac.Coordinates([lat, lon], dims=["lat", "lon"])
 node1 = podpac.data.Array(source=data, coordinates=coords)
-
-data2 = np.random.rand(11, 21)
-node2 = podpac.data.Array(source=data2, coordinates=coords)
+node2 = podpac.data.Array(source=data, coordinates=coords)
 
 # Use podpac nodes to create some test OGC layers
 layer1 = pogc.Layer(
@@ -67,7 +65,7 @@ def test_ogc_core_handle_wcs_kv_get_capabilities():
         "request": "GetCapabilities",
         "service": "WCS",
         "version": "1.0.0",
-        "base_url": "http://example.com/wcs",
+        "base_url": None,
     }
     response = ogc.handle_wcs_kv(args)
     assert isinstance(response, str)
@@ -83,7 +81,7 @@ def test_ogc_core_handle_wcs_kv_get_capabilities_invalid_service():
         "request": "GetCapabilities",
         "service": "InvalidService",
         "version": "1.0.0",
-        "base_url": "http://example.com/wcs",
+        "base_url": None,
     }
     try:
         ogc.handle_wcs_kv(args)
@@ -160,7 +158,7 @@ def test_ogc_core_handle_wms_kv_get_capabilities():
         "request": "GetCapabilities",
         "service": "WMS",
         "version": "1.3.0",
-        "base_url": "http://example.com/wms",
+        "base_url": None,
     }
     response = ogc.handle_wms_kv(args)
     assert isinstance(response, str)
@@ -176,7 +174,7 @@ def test_ogc_core_handle_wms_kv_get_capabilities_invalid_service():
         "request": "GetCapabilities",
         "service": "InvalidService",
         "version": "1.3.0",
-        "base_url": "http://example.com/wms",
+        "base_url": None,
     }
     try:
         ogc.handle_wms_kv(args)
