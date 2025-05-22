@@ -1,0 +1,51 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/python
+{
+	"name": "Unit Test Image",
+	"remoteUser": "${localEnv:USER}",
+	"build": {
+		// Sets the build context to one level up instead of the .devcontainer folder.
+		"context": "..",
+		"dockerfile": "dev_container.dockerfile",
+		"args": {
+			"HOST_USER": "${localEnv:USER}",
+			"HOST_UID": "${localEnv:HOST_UID:1000}",
+			"HOST_GID": "${localEnv:HOST_GID:1000}"
+		}
+	},
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"donjayamanne.git-extension-pack",
+				"eamodio.gitlens",
+				"mhutchie.git-graph",
+				"ms-azuretools.vscode-docker",
+				"ms-python.python",
+				"ms-python.debugpy",
+				"ms-python.black-formatter",
+				"ms-python.flake8",
+				"ms-python.vscode-pylance",
+				"njpwerner.autodocstring",
+				"redhat.vscode-yaml",
+				"SonarSource.sonarlint-vscode"
+			],
+			"settings": {
+				"flake8.args": [
+					"--max-line-length=120"
+				]
+			}
+		}
+	}
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Uncomment the next line to run commands after the container is created.
+	// "postCreateCommand": "cat /etc/os-release",
+	// Configure tool-specific properties.
+	// "customizations": {},
+	// Uncomment to connect as an existing user other than the container default. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "devcontainer"
+}
