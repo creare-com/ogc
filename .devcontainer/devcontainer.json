@@ -2,10 +2,16 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/python
 {
 	"name": "Unit Test Image",
+	"remoteUser": "${localEnv:USER}",
 	"build": {
 		// Sets the build context to one level up instead of the .devcontainer folder.
 		"context": "..",
-		"dockerfile": "dev_container.dockerfile"
+		"dockerfile": "dev_container.dockerfile",
+		"args": {
+			"HOST_USER": "${localEnv:USER}",
+			"HOST_UID": "${localEnv:HOST_UID:1000}",
+			"HOST_GID": "${localEnv:HOST_GID:1000}"
+		}
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
