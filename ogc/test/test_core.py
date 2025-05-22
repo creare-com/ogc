@@ -2,11 +2,12 @@ from ogc import core
 from ogc import podpac as pogc
 
 import podpac
+import pytest
 import numpy as np
 from ogc.wcs_response_1_0_0 import Coverage
 
 # Create some podpac nodes
-data = np.random.rand(11, 21)
+data = np.ones((10, 10))
 lat = np.linspace(90, -90, 11)
 lon = np.linspace(-180, 180, 21)
 coords = podpac.Coordinates([lat, lon], dims=["lat", "lon"])
@@ -17,16 +18,15 @@ node2 = podpac.data.Array(source=data, coordinates=coords)
 layer1 = pogc.Layer(
     node=node1,
     identifier="layer1",
-    title="OGC/POPAC layer containing random data",
-    abstract="This layer contains some random data",
+    title="Layer 1",
+    abstract="Layer1 Data",
 )
 
 layer2 = pogc.Layer(
     node=node2,
     identifier="layer2",
-    title="FOUO: Another OGC/POPAC layer containing random data",
-    abstract="Marked as FOUO. This layer contains some random data. Same coordinates as layer1, but different values.",
-    is_fouo=True,
+    title="Layer 2",
+    abstract="Layer2 Data",
 )
 
 
@@ -48,12 +48,9 @@ def test_ogc_core_get_coverage_from_invalid_id():
     Test the get_coverage_from_id method of the OGC class with an invalid ID.
     """
     ogc = core.OGC(layers=[layer1, layer2])
-    try:
+
+    with pytest.raises(core.WCSException):
         ogc.get_coverage_from_id("invalid_id")
-    except core.WCSException:
-        pass
-    else:
-        assert False, "Expected WCSException not raised."
 
 
 def test_ogc_core_handle_wcs_kv_get_capabilities():
@@ -83,12 +80,9 @@ def test_ogc_core_handle_wcs_kv_get_capabilities_invalid_service():
         "version": "1.0.0",
         "base_url": None,
     }
-    try:
+
+    with pytest.raises(core.WCSException):
         ogc.handle_wcs_kv(args)
-    except core.WCSException:
-        pass
-    else:
-        assert False, "Expected WCSException not raised."
 
 
 def test_ogc_core_handle_wcs_kv_describe_coverage():
@@ -118,12 +112,9 @@ def test_ogc_core_handle_wcs_kv_describe_coverage_invalid_version():
         "version": "InvalidVersion",
         "coverage": layer1.identifier,
     }
-    try:
+
+    with pytest.raises(core.WCSException):
         ogc.handle_wcs_kv(args)
-    except core.WCSException:
-        pass
-    else:
-        assert False, "Expected WCSException not raised."
 
 
 def test_ogc_core_handle_wcs_kv_get_coverage():
@@ -176,12 +167,9 @@ def test_ogc_core_handle_wms_kv_get_capabilities_invalid_service():
         "version": "1.3.0",
         "base_url": None,
     }
-    try:
+
+    with pytest.raises(core.WCSException):
         ogc.handle_wms_kv(args)
-    except core.WCSException:
-        pass
-    else:
-        assert False, "Expected WCSException not raised."
 
 
 def test_ogc_core_handle_wms_kv_get_feature_info_unsupported():
@@ -195,12 +183,9 @@ def test_ogc_core_handle_wms_kv_get_feature_info_unsupported():
         "version": "1.3.0",
         "coverage": layer1.identifier,
     }
-    try:
+
+    with pytest.raises(core.WCSException):
         ogc.handle_wms_kv(args)
-    except core.WCSException:
-        pass
-    else:
-        assert False, "Expected WCSException not raised."
 
 
 def test_ogc_core_handle_wms_kv_get_legend_graphic():
@@ -235,12 +220,9 @@ def test_ogc_core_handle_wms_kv_get_legend_graphic_invalid_version():
         "style": "default",
         "format": "image/png",
     }
-    try:
+
+    with pytest.raises(core.WCSException):
         ogc.handle_wms_kv(args)
-    except core.WCSException:
-        pass
-    else:
-        assert False, "Expected WCSException not raised."
 
 
 def test_ogc_core_handle_wms_kv_get_map():
