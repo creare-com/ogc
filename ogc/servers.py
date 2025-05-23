@@ -63,7 +63,7 @@ class FlaskServer(Flask):
 
     home_func = None
 
-    def __init__(self, *args, ogcs=[], home_func=None):
+    def __init__(self, *args, ogcs=None, home_func=None):
         """
         Parameters
         -----------
@@ -80,6 +80,11 @@ class FlaskServer(Flask):
         self.home_func = home_func
         if self.home_func is None:
             self.home_func = home
+
+        # Can't put an empty list as a default argument, since that would
+        # share the same list among all instances.
+        if ogcs is None:
+            ogcs = []
 
         self.ogcs = ogcs
         for idx, ogc in enumerate(ogcs):

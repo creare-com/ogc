@@ -29,7 +29,6 @@ class XMLNode(tl.HasTraits):
     def _load_xml_doc(self, xml_doc):
         """ Override this method with code that unpacks contents of XML into the traits object."""
         raise NotImplementedError("XML Parsing not implemented.")
-        return self
 
     def load_from_kv(self, args):
         self._load_from_kv(args)
@@ -72,7 +71,6 @@ class BoundingBox(XMLNode):
 
     def to_xml(self):
         raise NotImplementedError()
-        return "<OutputFormat>%s</OutputFormat>" % self.value
 
 
 class TemporalSubset(XMLNode):
@@ -89,18 +87,9 @@ class TemporalSubset(XMLNode):
 
     def validate(self):
         raise NotImplementedError()
-        for val in (
-            self.lower_corner[0],
-            self.lower_corner[1],
-            self.upper_corner[0],
-            self.upper_corner[1],
-        ):
-            assert np.isfinite(val), "error: time values must be finite"
 
     def to_xml(self):
         raise NotImplementedError()
-        return "<OutputFormat>%s</OutputFormat>" % self.value
-
 
 class WCSException(Exception):
     def __init__(

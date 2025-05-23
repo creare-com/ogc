@@ -18,6 +18,9 @@ from ogc.ogc_common import WCSException
 
 logger = logging.getLogger(__name__)
 
+LOAD_FAILURE = "Failed to load and validate: "
+INVALID_ARGUMENTS = "Invalid arguments"
+
 class OGC(tl.HasTraits):
 
     wms_capabilities = tl.Instance(klass=wms_response_1_3_0.Capabilities)
@@ -59,7 +62,6 @@ class OGC(tl.HasTraits):
             service_abstract=self.service_abstract,
             service_group_title=self.service_group_title,
         )
-        return
 
     def get_coverage_from_id(self, identifier):
         for coverage in self.wcs_capabilities.coverages:
@@ -77,9 +79,9 @@ class OGC(tl.HasTraits):
             try:
                 get_capabilities.load_from_kv(args)
                 get_capabilities.validate()
-            except: 
-                logger.error("Failed to load and validate: ", exc_info=True)
-                raise WCSException(exception_text="Invalid arguments")
+            except Exception: 
+                logger.error(LOAD_FAILURE, exc_info=True)
+                raise WCSException(exception_text=INVALID_ARGUMENTS)
 
             capabilities = self.wcs_capabilities
 
@@ -104,9 +106,9 @@ class OGC(tl.HasTraits):
             try:
                 describe_coverage.load_from_kv(args)
                 describe_coverage.validate()
-            except: 
-                logger.error("Failed to load and validate: ", exc_info=True)
-                raise WCSException(exception_text="Invalid arguments")
+            except Exception: 
+                logger.error(LOAD_FAILURE, exc_info=True)
+                raise WCSException(exception_text=INVALID_ARGUMENTS)
 
             coverages = [
                 self.get_coverage_from_id(identifier.value)
@@ -121,9 +123,9 @@ class OGC(tl.HasTraits):
             try:
                 get_coverage.load_from_kv(args)
                 get_coverage.validate()
-            except: 
-                logger.error("Failed to load and validate: ", exc_info=True)
-                raise WCSException(exception_text="Invalid arguments")
+            except Exception: 
+                logger.error(LOAD_FAILURE, exc_info=True)
+                raise WCSException(exception_text=INVALID_ARGUMENTS)
 
             coverage = self.get_coverage_from_id(get_coverage.identifier.value)
 
@@ -171,9 +173,9 @@ class OGC(tl.HasTraits):
             try:
                 get_capabilities.load_from_kv(args)
                 get_capabilities.validate()
-            except: 
-                logger.error("Failed to load and validate: ", exc_info=True)
-                raise WCSException(exception_text="Invalid arguments")
+            except Exception: 
+                logger.error(LOAD_FAILURE, exc_info=True)
+                raise WCSException(exception_text=INVALID_ARGUMENTS)
 
             wms_capabilities = self.wms_capabilities
 
@@ -202,9 +204,9 @@ class OGC(tl.HasTraits):
             try:
                 get_legend_graphic.load_from_kv(args)
                 get_legend_graphic.validate()
-            except: 
-                logger.error("Failed to load and validate: ", exc_info=True)
-                raise WCSException(exception_text="Invalid arguments")
+            except Exception: 
+                logger.error(LOAD_FAILURE, exc_info=True)
+                raise WCSException(exception_text=INVALID_ARGUMENTS)
 
             coverage = self.get_coverage_from_id(get_legend_graphic.layer.value)
 
@@ -221,9 +223,9 @@ class OGC(tl.HasTraits):
             try:
                 get_map.load_from_kv(args)
                 get_map.validate()
-            except: 
-                logger.error("Failed to load and validate: ", exc_info=True)
-                raise WCSException(exception_text="Invalid arguments")
+            except Exception: 
+                logger.error(LOAD_FAILURE, exc_info=True)
+                raise WCSException(exception_text=INVALID_ARGUMENTS)
 
             coverage = self.get_coverage_from_id(get_map.layer.value)
 
@@ -249,9 +251,9 @@ class OGC(tl.HasTraits):
 
             try:
                 fp = coverage.layer.get_map(args)
-            except: 
+            except Exception: 
                 logger.error("Failed to get_map from layer: ", exc_info=True)
-                raise WCSException(exception_text="Invalid arguments")
+                raise WCSException(exception_text=INVALID_ARGUMENTS)
 
             fn = coverage.identifier.split(".")[-1] + ".png"
 

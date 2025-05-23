@@ -9,7 +9,7 @@ from .wcs_request_1_0_0 import Identifier
 from . import settings
 
 logger = logging.getLogger(__file__)
-
+WMS_VALIDATION_ERROR = "WMS Request validation error: service should be WMS"
 
 class GetCapabilities(ogc_common.XMLNode):
     """
@@ -27,7 +27,7 @@ class GetCapabilities(ogc_common.XMLNode):
     def validate(self):
         assert (
             self.service == "WMS"
-        ), "WMS Request validation error: service should be WMS"
+        ), WMS_VALIDATION_ERROR
 
         for obj in self.accept_formats:
             obj.validate()
@@ -64,7 +64,7 @@ class GetMap(ogc_common.XMLNode):
     def validate(self):
         assert (
             self.service == "WMS"
-        ), "WMS Request validation error: service should be WMS"
+        ), WMS_VALIDATION_ERROR
 
         assert self.layer, "WMS Request validation error: no coverage specified"
         assert self.bbox, "WMS Request validation error: no bounding box specified"
@@ -152,7 +152,7 @@ class GetLegendGraphic(ogc_common.XMLNode):
     def validate(self):
         assert (
             self.service == "WMS"
-        ), "WMS Request validation error: service should be WMS"
+        ), WMS_VALIDATION_ERROR
         assert self.layer, "WMS Request validation error: no coverage specified"
 
     def _load_from_kv(self, args):
