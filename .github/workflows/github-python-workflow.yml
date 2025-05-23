@@ -21,7 +21,9 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: |
-          pip install --upgrade pip setuptools && pip install .[dev]
+          python -m pip install --upgrade pip
+          pip install setuptools==65.5.0
+          pip install .[dev]
       - name: Run flake8 lint checks
         run: |
           # stop the build if there are Python syntax errors or undefined names
