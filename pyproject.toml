@@ -57,6 +57,7 @@ dev = [
     # FORMATTING
     "pre_commit",
     "black",
+    "flake8",
 ]
 
 [tool.setuptools.packages.find]
