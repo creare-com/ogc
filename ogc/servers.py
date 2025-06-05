@@ -21,7 +21,7 @@ def respond_xml(doc, status=200):
     # First, validate that XML can be parsed.
     from lxml import etree
 
-    root = etree.fromstring(doc.encode("ascii"))
+    etree.fromstring(doc.encode("ascii"))
     # Then, return w/ proper content type
     return Response(doc, mimetype="text/xml", status=status)
 
@@ -101,12 +101,8 @@ class FlaskServer(Flask):
             setattr(self, method_name, method)
             method = getattr(self, method_name)
             method.__name__ = method_name
-            self.add_url_rule(
-                endpoint, view_func=method, methods=["GET", "POST"]
-            )  # add render method as flask route
-            setattr(
-                self, method_name, method
-            )  # bind route function call to instance method
+            self.add_url_rule(endpoint, view_func=method, methods=["GET", "POST"])  # add render method as flask route
+            setattr(self, method_name, method)  # bind route function call to instance method
 
     def ogc_render(self, ogc_idx):
         logger.info("OGC server.ogc_render %i", ogc_idx)
@@ -153,15 +149,11 @@ class FlaskServer(Flask):
                     as_attach = True if fn.endswith("tif") else False
                     return send_file(fp, as_attachment=as_attach, download_name=fn)
 
-            logger.warning(
-                "Could not handle this combination of arguments: %r", dict(request.args)
-            )
+            logger.warning("Could not handle this combination of arguments: %r", dict(request.args))
             raise WCSException("No response for this combination of arguments.")
 
         except WCSException as e:
-            logger.error(
-                "OGC: server.ogc_render WCSException: %s", str(e), exc_info=True
-            )
+            logger.error("OGC: server.ogc_render WCSException: %s", str(e), exc_info=True)
             # WCSException is raised when the client sends an invalid set of parameters.
             # Therefore it should result in a client error, in the 400 range.
             # Security scans have flagged a security concern when returning a 500 error,

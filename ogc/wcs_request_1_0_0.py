@@ -9,6 +9,8 @@ from . import settings
 
 logger = logging.getLogger(__file__)
 
+WCS_VALIDATION_ERROR = "WCS Request validation error: service should be WCS"
+
 
 class XMLNode(tl.HasTraits):
     """Base class for all Traits objects that correspond to XML schemas."""
@@ -23,7 +25,7 @@ class XMLNode(tl.HasTraits):
         raise NotImplementedError("XML Serialization not implemented.")
 
     def _load_xml_doc(self, xml_doc):
-        """ Override this method with code that unpacks contents of XML into the traits object."""
+        """Override this method with code that unpacks contents of XML into the traits object."""
         raise NotImplementedError("XML Parsing not implemented.")
 
     def load_from_xml(self, xml_txt):
@@ -56,12 +58,8 @@ class DescribeCoverage(ogc_common.XMLNode):
     identifiers = tl.List(trait=tl.Instance(klass=Identifier))
 
     def validate(self):
-        assert (
-            self.service == "WCS"
-        ), "WCS Request validation error: service should be WCS"
-        assert self.version.startswith(
-            "1.0.0"
-        ), "WCS Request validation error: version should be 1.0.0"
+        assert self.service == "WCS", WCS_VALIDATION_ERROR
+        assert self.version.startswith("1.0.0"), "WCS Request validation error: version should be 1.0.0"
 
         for obj in self.identifiers:
             obj.validate()
@@ -71,11 +69,7 @@ class DescribeCoverage(ogc_common.XMLNode):
         self.service = args["service"].upper()
         self.version = args["version"]
 
-        identifiers = [
-            Identifier(value=identifier.strip())
-            for identifier in args["coverage"].split(",")
-        ]
-        # assert len(identifiers) == 1, 'Multiple identifiers not yet supported: ' + repr(identifiers)
+        identifiers = [Identifier(value=identifier.strip()) for identifier in args["coverage"].split(",")]
         self.identifiers = identifiers
 
 
@@ -90,9 +84,7 @@ class GetCapabilities(ogc_common.XMLNode):
     accept_formats = tl.List(trait=tl.Instance(klass=ogc_common.OutputFormat))
 
     def validate(self):
-        assert (
-            self.service == "WCS"
-        ), "WCS Request validation error: service should be WCS"
+        assert self.service == "WCS", WCS_VALIDATION_ERROR
 
         for obj in self.accept_formats:
             obj.validate()
@@ -120,9 +112,7 @@ class GetCapabilities(ogc_common.XMLNode):
             if tag == "AcceptFormats":
                 for eelement in element:
                     assert lxml.etree.QName(eelement.tag).localname == "OutputFormat"
-                    self.accept_formats.append(
-                        ogc_common.OutputFormat(value=eelement.text)
-                    )
+                    self.accept_formats.append(ogc_common.OutputFormat(value=eelement.text))
             else:
                 logger.warn("Tag %s not known." % tag)
 
@@ -155,14 +145,10 @@ class GetCoverage(ogc_common.XMLNode):
     height = tl.Int()
 
     def validate(self):
-        assert (
-            self.service == "WCS"
-        ), "WCS Request validation error: service should be WCS"
+        assert self.service == "WCS", WCS_VALIDATION_ERROR
 
         assert self.identifier, "WCS Request validation error: no coverage specified"
-        assert (
-            self.domain_subset_bbox
-        ), "WCS Request validation error: no bounding box specified"
+        assert self.domain_subset_bbox, "WCS Request validation error: no bounding box specified"
         self.output_format.validate(), "WCS Request validation error: output format"
         assert self.height, "WCS Request validation error: no height specified"
         assert self.width, "WCS Request validation error: no width specified"
@@ -174,9 +160,7 @@ class GetCoverage(ogc_common.XMLNode):
             self.domain_subset_bbox.lower_corner[1],
             self.domain_subset_bbox.upper_corner[1],
         ]
-        if any([abs(l) > 361.000 for l in lons]) or any(
-            [abs(l) > 91.000 for l in lats]
-        ):
+        if any([abs(l) > 361.000 for l in lons]) or any([abs(l) > 91.000 for l in lats]):
             raise ogc_common.WCSException(
                 exception_code="InvalidParameterValue",
                 locator="BBOX",
@@ -200,16 +184,14 @@ class GetCoverage(ogc_common.XMLNode):
             self.crs = args["request_crs"].lower()
 
         if "crs" in list(args.keys()):
-            assert (
-                args["crs"].lower() in settings.WCS_CRS
-            ), "SRS not supported [CRS]: %s (%s are supported.)" % (
+            assert args["crs"].lower() in settings.WCS_CRS, "SRS not supported [CRS]: %s (%s are supported.)" % (
                 args["crs"],
                 str(settings.WCS_CRS),
             )
             self.crs = args["crs"].lower()
 
         bbox = args["bbox"].replace(" ", "").split(",")
-        # BBOX = minx, miny, maxx, maxy, minz, maxz
+        # BBOX : [minx, miny, maxx, maxy, minz, maxz]
         self.domain_subset_bbox = ogc_common.BoundingBox(
             lower_corner=(float(bbox[0]), float(bbox[1])),
             upper_corner=(float(bbox[2]), float(bbox[3])),
@@ -225,9 +207,9 @@ class GetCoverage(ogc_common.XMLNode):
 
         self.output_format = ogc_common.OutputFormat(value=args["format"])
         if "time" in args:
-            # TIME = time1, time2,...
+            # TIME : time1, time2,...
             # or
-            # TIME = min / max / res, ...
+            # TIME : min / max / res, ...
             if "," in args["time"]:
                 raise ogc_common.WCSException(
                     exception_code="InvalidParameterValue",
