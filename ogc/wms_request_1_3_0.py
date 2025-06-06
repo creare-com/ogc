@@ -11,6 +11,7 @@ from . import settings
 logger = logging.getLogger(__file__)
 WMS_VALIDATION_ERROR = "WMS Request validation error: service should be WMS"
 
+
 class GetCapabilities(ogc_common.XMLNode):
     """
     Request to a WMS server to perform the GetCapabilities operation.
@@ -25,9 +26,7 @@ class GetCapabilities(ogc_common.XMLNode):
     accept_formats = tl.List(trait=tl.Instance(klass=ogc_common.OutputFormat))
 
     def validate(self):
-        assert (
-            self.service == "WMS"
-        ), WMS_VALIDATION_ERROR
+        assert self.service == "WMS", WMS_VALIDATION_ERROR
 
         for obj in self.accept_formats:
             obj.validate()
@@ -62,15 +61,11 @@ class GetMap(ogc_common.XMLNode):
     )
 
     def validate(self):
-        assert (
-            self.service == "WMS"
-        ), WMS_VALIDATION_ERROR
+        assert self.service == "WMS", WMS_VALIDATION_ERROR
 
         assert self.layer, "WMS Request validation error: no coverage specified"
         assert self.bbox, "WMS Request validation error: no bounding box specified"
-        assert (
-            self.output_format
-        ), "WMS Request validation error: no output format specified"
+        assert self.output_format, "WMS Request validation error: no output format specified"
         assert self.height, "WMS Request validation error: no height specified"
         assert self.width, "WMS Request validation error: no width specified"
         lons = [self.bbox.lower_corner[0], self.bbox.upper_corner[0]]
@@ -92,16 +87,14 @@ class GetMap(ogc_common.XMLNode):
         self.layer = Identifier(value=args["layers"])
 
         if "crs" in list(args.keys()):
-            assert (
-                args["crs"].lower() in settings.WMS_CRS
-            ), "SRS not supported [CRS]: %s (%s are supported.)" % (
+            assert args["crs"].lower() in settings.WMS_CRS, "SRS not supported [CRS]: %s (%s are supported.)" % (
                 args["crs"],
                 str(settings.WMS_CRS),
             )
             self.crs = args["crs"].lower()
 
         bbox = args["bbox"].split(",")
-        # BBOX = minx, miny, maxx, maxy, minz, maxz
+        # BBOX : [minx, miny, maxx, maxy, minz, maxz]
         self.bbox = ogc_common.BoundingBox(
             lower_corner=(float(bbox[0]), float(bbox[1])),
             upper_corner=(float(bbox[2]), float(bbox[3])),
@@ -116,9 +109,9 @@ class GetMap(ogc_common.XMLNode):
             )
 
         if "time" in args:
-            # TIME = time1, time2,...
+            # TIME : time1, time2,...
             # or
-            # TIME = min / max / res, ...
+            # TIME : min / max / res, ...
             assert "," not in args["time"], "error loading time from request"
             self.time = args["time"]
 
@@ -142,17 +135,13 @@ class GetLegendGraphic(ogc_common.XMLNode):
     service = tl.Unicode(default_value=None, allow_none=True)
     version = tl.Unicode(default_value=None, allow_none=True)
 
-    output_format = tl.Enum(
-        values=["image/png", "image/png; mode=8bit", "image/png;mode=8-bit"]
-    )
+    output_format = tl.Enum(values=["image/png", "image/png; mode=8bit", "image/png;mode=8-bit"])
 
     layer = tl.Instance(klass=Identifier)  # Limited to one
     crs = tl.Enum(values=list(settings.WMS_CRS.keys()))
 
     def validate(self):
-        assert (
-            self.service == "WMS"
-        ), WMS_VALIDATION_ERROR
+        assert self.service == "WMS", WMS_VALIDATION_ERROR
         assert self.layer, "WMS Request validation error: no coverage specified"
 
     def _load_from_kv(self, args):

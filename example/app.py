@@ -14,13 +14,13 @@ import podpac
 import numpy as np
 
 # create some podpac nodes
-data = np.random.rand(11, 21)
+data = np.random.default_rng(1).random((11, 21))
 lat = np.linspace(90, -90, 11)
 lon = np.linspace(-180, 180, 21)
 coords = podpac.Coordinates([lat, lon], dims=["lat", "lon"])
 node1 = podpac.data.Array(source=data, coordinates=coords)
 
-data2 = np.random.rand(11, 21)
+data2 = np.random.default_rng(1).random((11, 21))
 node2 = podpac.data.Array(source=data2, coordinates=coords)
 
 # use podpac nodes to create some OGC layers
@@ -75,10 +75,12 @@ def api_home(endpoint):
 
 app = servers.FlaskServer(__name__, ogcs=[NonFouoOGC, FouoOGC], home_func=api_home)
 
+
 # add in some other endpoints.
 @app.route("/")
 def home():
-    return f'This is an example OGC flask app. See <a href="/ogc_full"> FULL </a> and <a href="/ogc"> PARTIAL </a> endpoints.'
+    return """This is an example OGC flask app.
+    See <a href="/ogc_full"> FULL </a> and <a href="/ogc"> PARTIAL </a> endpoints."""
 
 
 @app.route("/layers/<layer>")

@@ -27,7 +27,7 @@ class XMLNode(tl.HasTraits):
         raise NotImplementedError("XML Serialization not implemented.")
 
     def _load_xml_doc(self, xml_doc):
-        """ Override this method with code that unpacks contents of XML into the traits object."""
+        """Override this method with code that unpacks contents of XML into the traits object."""
         raise NotImplementedError("XML Parsing not implemented.")
 
     def load_from_kv(self, args):
@@ -90,6 +90,7 @@ class TemporalSubset(XMLNode):
 
     def to_xml(self):
         raise NotImplementedError()
+
 
 class WCSException(Exception):
     def __init__(
