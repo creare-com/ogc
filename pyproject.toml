@@ -50,10 +50,10 @@ dev = [
     # TESTING
     "pytest",
     "pytest-mock",
-    "pytest-cov",
     "pytest-html",
     "pytest-remotedata",
     "recommonmark",
+    "coverage",
     # FORMATTING
     "pre_commit",
     "black",
@@ -68,3 +68,8 @@ testpaths = ["ogc"]
 
 [tool.black]
 line-length = 120
+
+[tool.coverage.run]
+relative_files = true
+source = ["ogc/"]
+branch = true
