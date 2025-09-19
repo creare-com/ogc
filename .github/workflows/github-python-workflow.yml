@@ -33,8 +33,8 @@ jobs:
       - name: Run black format checks
         run: black --check --diff ogc example || true # For now pass even if files need formatting
 
-  unit_testing_and_sonarqube_scan:
-    name: Unit Testing and SonarQube Scan
+  unit_testing:
+    name: Unit Testing
     runs-on: ubuntu-latest
 
     steps:
@@ -61,6 +61,24 @@ jobs:
           name: coverage
           path: coverage.xml
           retention-days: 1
+
+  sonarqube_scan:
+    name: SonarQube Scan
+    needs: [unit_testing]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: .
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5
         env:
