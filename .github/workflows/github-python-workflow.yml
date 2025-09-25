@@ -17,21 +17,39 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - name: Set up Python 3.11
+
+      - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: "3.11"
+          python-version: "3.8"
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip setuptools && pip install .[dev]
+
       - name: Run flake8 lint checks
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --output-file=flake8-report.txt
           # exit-zero treats all errors as warnings
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics --output-file=flake8-report.txt
+
       - name: Run black format checks
-        run: black --check --diff ogc example || true # For now pass even if files need formatting
+        run: black --check --diff ogc example > black-report.txt  || true # For now pass even if files need formatting
+
+      - name: Artifact flake8 report
+        uses: actions/upload-artifact@v4
+        with:
+          name: flake8-report
+          path: flake8-report.txt
+          retention-days: 1
+
+      - name: Artifact black report
+        uses: actions/upload-artifact@v4
+        with:
+          name: black-report
+          path: black-report.txt
+          retention-days: 1
 
   unit_testing:
     name: Unit Testing
@@ -42,19 +60,23 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - name: Set up Python 3.11
+
+      - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: "3.11"
+          python-version: "3.8"
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip setuptools && pip install .[dev]
+
       - name: Run pytest with coverage
         run: |
           coverage run --data-file=coverage.bin --branch \
           -m pytest --continue-on-collection-errors || \
           { echo "WARNING: Some tests have failed. (Temporarily ignored)"; true; }
           coverage xml --data-file=coverage.bin -o coverage.xml
+
       - name: Artifact coverage document
         uses: actions/upload-artifact@v4
         with:
