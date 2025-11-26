@@ -14,6 +14,7 @@ from . import wms_request_1_3_0
 from . import wcs_response_1_0_0
 from . import wms_response_1_3_0
 from . import ogc_common
+from .edr import EdrRoutes
 
 from ogc.ogc_common import WCSException
 
@@ -62,6 +63,7 @@ class OGC(tl.HasTraits):
             service_abstract=self.service_abstract,
             service_group_title=self.service_group_title,
         )
+        self.edr_routes = EdrRoutes(base_url=f"{self.server_address}{self.endpoint}/edr", layers=layers)
 
     def get_coverage_from_id(self, identifier):
         for coverage in self.wcs_capabilities.coverages:

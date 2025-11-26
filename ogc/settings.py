@@ -28,6 +28,10 @@ WCS_CRS = {
     "epsg:4326": {"minx": -90, "miny": -180, "maxx": 90, "maxy": 180},
     "crs:84": {"minx": -180, "miny": -90, "maxx": 180, "maxy": 90},
 }
+EDR_CRS = {
+    "epsg:4326": {"minx": -90.0, "miny": -180.0, "maxx": 90.0, "maxy": 180.0},
+    "crs:84": {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
+}
 
 # WMS Capabilities timestamp format
 USE_TIMES_LIST = False
@@ -55,3 +59,9 @@ except Exception:
 CLASSIFICATION = "NONE"  # not used any more seemingly
 PUBLIC_CONSTRAINT_STRING = "PUBLIC"
 CONSTRAINTS = PUBLIC_CONSTRAINT_STRING
+
+# get EDR configuration file path
+try:
+    EDR_CONFIGURATION_PATH = os.environ["EDR_CONFIGURATION_PATH"]
+except Exception:
+    EDR_CONFIGURATION_PATH = None

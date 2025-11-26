@@ -23,12 +23,18 @@ node1 = podpac.data.Array(source=data, coordinates=coords)
 data2 = np.random.default_rng(1).random((11, 21))
 node2 = podpac.data.Array(source=data2, coordinates=coords)
 
+time = np.array(["2025-10-24T12:00:00"], dtype="datetime64")
+coords = podpac.Coordinates([lat, lon, time], dims=["lat", "lon", "time"])
+data3 = np.random.default_rng(1).random((11, 21, 1))
+node3 = podpac.data.Array(source=data3, coordinates=coords)
+
 # use podpac nodes to create some OGC layers
 layer1 = pogc.Layer(
     node=node1,
     identifier="layer1",
     title="OGC/POPAC layer containing random data",
     abstract="This layer contains some random data",
+    group="Layers",
 )
 
 layer2 = pogc.Layer(
@@ -37,9 +43,20 @@ layer2 = pogc.Layer(
     title="FOUO: Another OGC/POPAC layer containing random data",
     abstract="Marked as FOUO. This layer contains some random data. Same coordinates as layer1, but different values.",
     is_fouo=True,
+    group="Layers",
 )
 
-all_layers = [layer1, layer2]
+layer3 = pogc.Layer(
+    node=node3,
+    identifier="layer3",
+    title="OGC/POPAC layer containing random data with time instances available.",
+    abstract="This layer contains some random data with time instances available.",
+    group="Layers",
+    time_instances={str(time[0])},
+    valid_times=[dt.astype(datetime) for dt in time],
+)
+
+all_layers = [layer1, layer2, layer3]
 non_fouo_layers = [layer for layer in all_layers if not layer.is_fouo]
 
 # create a couple of different ogc endpoints
@@ -67,6 +84,13 @@ def api_home(endpoint):
             <li><a href="?SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0">WMS GetCapabilities (XML)</a> <i>(v1.3.0)</i></li>
             <li><a href="?SERVICE=WMS&REQUEST=GetMap&VERSION=1.3.0&LAYERS={test_layer}&STYLES=&FORMAT=image%2Fpng&TRANSPARENT=true&HEIGHT=256&WIDTH=256&CRS=EPSG%3A3857&BBOX=-10018754.171394622,2504688.5428486555,-7514065.628545966,5009377.08569731">WMS GetMap Example (PNG)</a> <i>(v1.3.0)</i></li>
             <li><a href="?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&LAYER={test_layer}&STYLE=default&FORMAT=image/png">WMS GetLegend Example (PNG)</a> <i>(v1.3.0)</i></li>
+        </ul>
+        </li>
+        <li> EDR: Open Geospatial Consortium (OGC) Environmental Data Retrieval (EDR) <i>(v1.0.1)</i>
+        <ul>
+            <li><a href="{endpoint}/edr?f=html">EDR Landing Page (HTML)</a> <i>(v1.0.1)</i></li>
+            <li><a href="{endpoint}/edr/conformance?f=json">EDR Conformance (JSON)</a> <i>(v1.0.1)</i></li>
+            <li><a href="{endpoint}/edr/collections?f=json">EDR Collections (JSON)</a> <i>(v1.0.1)</i></li>
         </ul>
         </li>
     </ul>

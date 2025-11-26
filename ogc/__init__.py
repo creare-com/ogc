@@ -1,5 +1,5 @@
 """
-OGC WMS/WCS (v1.3.0/v1.0.0) server 
+OGC WMS/WCS (v1.3.0/v1.0.0) server
 """
 
 import traitlets as tl
@@ -70,15 +70,15 @@ class Layer(tl.HasTraits):
     identifier = tl.Unicode()
     title = tl.Unicode(default_value="An OGC Layer")
     abstract = tl.Unicode(default_value="This is an example OGC Layer")
+    group = tl.Unicode(default_value="Default")
     is_fouo = tl.Bool(default_value=False)
-    grid_coordinates = tl.Instance(
-        klass=GridCoordinates, default_value=GridCoordinates()
-    )
+    grid_coordinates = tl.Instance(klass=GridCoordinates, default_value=GridCoordinates())
     valid_times = tl.List(
         trait=tl.Instance(datetime.datetime),
         default_value=tl.Undefined,
         allow_none=True,
     )
+    time_instances = tl.Set(tl.Unicode)  # Available time instances
     all_times_valid = tl.Bool(default_value=False)
 
     legend_graphic_width_inches = tl.Float(default_value=0.7)  # inches
@@ -101,9 +101,7 @@ class Layer(tl.HasTraits):
         elif "title" in kwargs:
             string_repr = kwargs["title"]
         if "is_enumerated" in kwargs:
-            self._style = Style(
-                string_repr=string_repr, is_enumerated=kwargs["is_enumerated"]
-            )
+            self._style = Style(string_repr=string_repr, is_enumerated=kwargs["is_enumerated"])
         else:
             self._style = Style(string_repr=string_repr)
         if self.valid_times is not tl.Undefined:

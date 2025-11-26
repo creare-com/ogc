@@ -1,0 +1,51 @@
+{
+  "server": {
+    "mimetype": "application/json; charset=UTF-8",
+    "encoding": "utf-8",
+    "language": "en-US",
+    "cors": true,
+    "pretty_print": true,
+    "limits": {
+      "default_items": 50,
+      "max_items": 1000,
+      "max_distance_x": 999999999999,
+      "max_distance_y": 999999999999,
+      "max_distance_units": "km",
+      "on_exceed": "error"
+    },
+    "admin": false,
+    "map": {
+      "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "attribution": "'&copy; <a href='https://openstreetmap.org/copyright'>OpenStreetMap contributors</a>'"
+    },
+    "ogc_schemas_location": "/opt/schemas.opengis.net"
+  },
+  "logging": {
+    "level": "ERROR"
+  },
+  "metadata": {
+    "identification": {
+      "title": "OGC Server",
+      "description": "An example OGC Server",
+      "keywords": [
+        "geospatial",
+        "podpac"
+      ],
+      "keywords_type": "theme",
+      "terms_of_service": "http://www.apache.org/licenses/LICENSE-2.0",
+      "url": "https://github.com/creare-com/ogc"
+    },
+    "license": {
+      "name": "Apache 2.0 license",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0"
+    },
+    "provider": {
+      "name": "Creare LLC",
+      "url": "https://github.com/creare-com"
+    },
+    "contact": {
+      "name": "Creare LLC",
+      "url": "https://github.com/creare-com"
+    }
+  }
+}

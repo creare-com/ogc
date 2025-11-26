@@ -18,9 +18,9 @@ def client():
         A test client for the Flask server.
     """
     # Create some test OGC layers
-    data = np.ones((10, 10))
     lat = np.linspace(90, -90, 11)
     lon = np.linspace(-180, 180, 21)
+    data = np.random.default_rng(1).random((11, 21))
     coords = podpac.Coordinates([lat, lon], dims=["lat", "lon"])
     node1 = podpac.data.Array(source=data, coordinates=coords)
 
@@ -29,6 +29,7 @@ def client():
         identifier="layer1",
         title="Layer 1",
         abstract="Layer 1 Data",
+        group="Layers",
     )
     # Create an OGC instance with the test layers
     ogc = core.OGC(layers=[layer1])
