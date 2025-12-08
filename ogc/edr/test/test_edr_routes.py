@@ -126,6 +126,7 @@ def test_edr_routes_describe_collections(layers: List[pogc.Layer]):
     assert len(response["collections"]) == len(collections)
 
     response_collection_ids = [collection["id"] for collection in response["collections"]]
+
     assert response_collection_ids == list(collections)
 
 
@@ -165,7 +166,7 @@ def test_edr_routes_describe_instances(layers: List[pogc.Layer]):
     time_instances = set()
     for layer in layers:
         if layer.group == collection_id:
-            time_instances.update(layer.time_instances)
+            time_instances.update(layer.time_instances())
 
     _, status, content = edr_routes.describe_instances(request, collection_id=collection_id, instance_id=None)
     response = json.loads(content)
@@ -188,7 +189,7 @@ def test_edr_routes_describe_instance(layers: List[pogc.Layer]):
     request = mock_request({"f": "json"})
     edr_routes = EdrRoutes(layers=layers)
     collection_id = layers[0].group
-    instance_id = list(layers[0].time_instances)[0]
+    instance_id = next(iter(layers[0].time_instances()))
 
     _, status, content = edr_routes.describe_instances(request, collection_id=collection_id, instance_id=instance_id)
     response = json.loads(content)
@@ -210,13 +211,10 @@ def test_edr_routes_collection_query(layers: List[pogc.Layer], single_layer_cube
         Single layer arguments provided by a test fixture.
     """
     collection_id = layers[0].group
-    instance_id = list(layers[0].time_instances)[0]
+    instance_id = next(iter(layers[0].time_instances()))
     parameter_name = single_layer_cube_args["parameter-name"][0]
-
     single_layer_cube_args["f"] = "json"
-
     request = mock_request(single_layer_cube_args)
-
     edr_routes = EdrRoutes(layers=layers)
 
     _, status, content = edr_routes.collection_query(
@@ -246,12 +244,9 @@ def test_edr_routes_collection_query_geotiff_format(layers: List[pogc.Layer], si
         Single layer arguments provided by a test fixture.
     """
     collection_id = layers[0].group
-    instance_id = list(layers[0].time_instances)[0]
-
+    instance_id = next(iter(layers[0].time_instances()))
     single_layer_cube_args["f"] = "geotiff"
-
     request = mock_request(single_layer_cube_args)
-
     edr_routes = EdrRoutes(layers=layers)
 
     headers, status, content = edr_routes.collection_query(
@@ -277,8 +272,7 @@ def test_edr_routes_collection_query_invalid_type(layers: List[pogc.Layer], sing
         Single layer arguments provided by a test fixture.
     """
     collection_id = layers[0].group
-    instance_id = list(layers[0].time_instances)[0]
-
+    instance_id = next(iter(layers[0].time_instances()))
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
@@ -304,14 +298,13 @@ def test_edr_routes_collection_query_invalid_bbox(layers: List[pogc.Layer], sing
         Single layer arguments provided by a test fixture.
     """
     single_layer_cube_args["bbox"] = "invalid"
-
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
     _, status, _ = edr_routes.collection_query(
         request,
         collection_id=layers[0].group,
-        instance_id=str(list(layers[0].time_instances)[0]),
+        instance_id=next(iter(layers[0].time_instances())),
         query_type="cube",
     )
 
@@ -332,14 +325,13 @@ def test_edr_routes_collection_query_missing_parameter(
         Single layer arguments provided by a test fixture.
     """
     del single_layer_cube_args["parameter-name"]
-
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
     _, status, _ = edr_routes.collection_query(
         request,
         collection_id=layers[0].group,
-        instance_id=str(list(layers[0].time_instances)[0]),
+        instance_id=next(iter(layers[0].time_instances())),
         query_type="cube",
     )
 

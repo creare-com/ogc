@@ -18,7 +18,6 @@ class EdrProvider(BaseEDRProvider):
     """Custom provider to be used with layer data sources."""
 
     layers = []
-    forecast_time_delta_units = tl.Unicode(default_value="h")
 
     def __init__(self, provider_def: Dict[str, Any]):
         """Construct the provider using the provider definition.
@@ -142,7 +141,7 @@ class EdrProvider(BaseEDRProvider):
                 raise ProviderInvalidQueryError("Invalid instance time provided.")
 
         dataset = {}
-        native_coordinates = None
+        requested_native_coordinates = None
 
         # Allow parameters without case-sensitivity
         parameters_lower = [param.lower() for param in requested_parameters]
@@ -152,48 +151,23 @@ class EdrProvider(BaseEDRProvider):
             layer = self.parameters.get(requested_parameter, None)
             if layer is not None:
                 # Handle defining native coordinates for the query, these should match between each layer
-                if native_coordinates is None:
+                if requested_native_coordinates is None:
                     coordinates_list = layer.node.find_coordinates()
 
                     if len(coordinates_list) == 0:
                         raise ProviderInvalidQueryError("Native coordinates not found.")
 
-                    native_coordinates = requested_coordinates
+                    requested_native_coordinates = self.get_native_coordinates(
+                        requested_coordinates, coordinates_list[0], instance_time
+                    )
 
-                    if (
-                        len(requested_coordinates["lat"].coordinates) > 1
-                        or len(requested_coordinates["lon"].coordinates) > 1
-                    ):
-                        native_coordinates = coordinates_list[0].intersect(requested_coordinates)
-                        native_coordinates = native_coordinates.transform(requested_coordinates.crs)
-
-                    if native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE:
+                    if requested_native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE:
                         raise ProviderInvalidQueryError(
                             "Grid coordinates x_size * y_size must be less than %d"
                             % settings.MAX_GRID_COORDS_REQUEST_SIZE
                         )
 
-                    if (
-                        "forecastOffsetHr" in coordinates_list[0].udims
-                        and "time" in native_coordinates.udims
-                        and instance_time is not None
-                    ):
-                        time_deltas = []
-                        for time in native_coordinates["time"].coordinates:
-                            offset = np.timedelta64(time - instance_time, self.forecast_time_delta_units)
-                            time_deltas.append(offset)
-
-                        # This modifies the time coordinates to account for the new forecast offset hour
-                        new_coordinates = podpac.Coordinates(
-                            [[instance_time], time_deltas],
-                            ["time", "forecastOffsetHr"],
-                            crs=native_coordinates.crs,
-                        )
-                        native_coordinates = podpac.coordinates.merge_dims(
-                            [native_coordinates.drop("time"), new_coordinates]
-                        )
-
-                units_data_array = layer.node.eval(native_coordinates)
+                units_data_array = layer.node.eval(requested_native_coordinates)
                 dataset[requested_parameter] = units_data_array
 
         if len(dataset) == 0:
@@ -201,12 +175,12 @@ class EdrProvider(BaseEDRProvider):
 
         # Return a coverage json if specified, else return Base64 encoded native response
         if output_format == "json" or output_format == "coveragejson":
-            crs = self.interpret_crs(native_coordinates.crs if native_coordinates else None)
+            crs = self.interpret_crs(requested_native_coordinates.crs if requested_native_coordinates else None)
             return self.to_coverage_json(self.layers, dataset, crs)
         else:
             if len(dataset) == 1:
-                geotiff_bytes = units_data_array.to_format("geotiff").read()
                 units_data_array = next(iter(dataset.values()))
+                geotiff_bytes = units_data_array.to_format("geotiff").read()
                 return {
                     "fp": base64.b64encode(geotiff_bytes).decode("utf-8"),
                     "fn": f"{ next(iter(dataset.keys()))}.tif",
@@ -229,7 +203,6 @@ class EdrProvider(BaseEDRProvider):
         ----------
         wkt : shapely.geometry
             WKT geometry
-
         crs : str
             The requested CRS for the return coordinates and data.
 
@@ -268,7 +241,6 @@ class EdrProvider(BaseEDRProvider):
         ----------
         bbox : List[float]
             Bbox geometry (for cube queries)
-
         crs : str
             The requested CRS for the return coordinates and data.
 
@@ -303,7 +275,6 @@ class EdrProvider(BaseEDRProvider):
         ----------
         wkt : shapely.geometry
             WKT geometry
-
         crs : str
             The requested CRS for the return coordinates and data.
 
@@ -360,8 +331,8 @@ class EdrProvider(BaseEDRProvider):
         """
         instances = set()
         for layer in self.layers:
-            if layer.group == self.collection_id and layer.time_instances is not None:
-                instances.update(layer.time_instances)
+            if layer.group == self.collection_id:
+                instances.update(layer.time_instances())
         return list(instances)
 
     def get_fields(self) -> Dict[str, Any]:
@@ -401,7 +372,7 @@ class EdrProvider(BaseEDRProvider):
         for layer in layers:
             coordinates_list = layer.node.find_coordinates()
             if len(coordinates_list) > 0 and "alt" in coordinates_list[0].udims:
-                available_altitudes.update(coordinates_list[0]["alt"])
+                available_altitudes.update(coordinates_list[0]["alt"].coordinates)
 
         return list(available_altitudes)
 
@@ -457,10 +428,8 @@ class EdrProvider(BaseEDRProvider):
         ----------
         x : Any
             X data in any form.
-
         y: Any
             Y data in any form.
-
         crs : str
             The input CRS id string to apply to convert the X,Y data.
 
@@ -589,10 +558,8 @@ class EdrProvider(BaseEDRProvider):
         ----------
         layers : List[pogc.Layer]
             Layers which were used in the dataset creation for metadata information.
-
         dataset : Dict[str, podpac.UnitsDataArray]
             Data in an units data array format with matching parameter key.
-
         crs : str
             The CRS associated with the requested coordinates and data response.
 
@@ -684,3 +651,52 @@ class EdrProvider(BaseEDRProvider):
             )
 
         return coverage_json
+
+    @staticmethod
+    def get_native_coordinates(
+        source_coordinates: podpac.Coordinates,
+        target_coordinates: podpac.Coordinates,
+        source_time_instance: np.datetime64 | None,
+    ) -> podpac.Coordinates:
+        """Find the intersecting coordinates between source and target coordinates.
+        Convert time instances to offsets for node evalutation.
+
+        Parameters
+        ----------
+        source_coordinates : podpac.Coordinates
+            The source coordinates to be converted.
+        target_coordinates : podpac.Coordinates
+            The target coordinates to find intersections on.
+        source_time_instance : np.datetime64 | None
+            The time instance of the source coordinates to convert to offsets.
+
+        Returns
+        -------
+        podpac.Coordinates
+            The converted coordinates source coordinates intersecting with the target coordinates.
+        """
+        # Handle conversion from times and instance to time and offsets
+        if (
+            "forecastOffsetHr" in target_coordinates.udims
+            and "time" in target_coordinates.udims
+            and "time" in source_coordinates.udims
+            and source_time_instance is not None
+        ):
+            time_deltas = []
+            for time in source_coordinates["time"].coordinates:
+                offset = np.timedelta64(time - source_time_instance, "h")
+                time_deltas.append(offset)
+
+            # This modifies the time coordinates to account for the new forecast offset hour
+            new_coordinates = podpac.Coordinates(
+                [[source_time_instance], time_deltas],
+                ["time", "forecastOffsetHr"],
+                crs=source_coordinates.crs,
+            )
+            source_coordinates = podpac.coordinates.merge_dims([source_coordinates.drop("time"), new_coordinates])
+
+        # Find intersections with target keeping source crs
+        source_intersection_coordinates = target_coordinates.intersect(source_coordinates)
+        source_intersection_coordinates = source_intersection_coordinates.transform(source_coordinates.crs)
+
+        return source_intersection_coordinates

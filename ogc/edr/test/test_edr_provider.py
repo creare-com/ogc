@@ -44,9 +44,12 @@ def test_edr_provider_get_instance_valid_id(layers: List[pogc.Layer]):
     layers : List[pogc.Layer]
         Layers provided by a test fixture.
     """
+    time_instance = next(iter(layers[0].time_instances()))
+
     EdrProvider.set_resources(layers)
     provider = EdrProvider(provider_def=provider_definition)
-    assert provider.get_instance(str(list(layers[0].time_instances)[0])) == str(list(layers[0].time_instances)[0])
+
+    assert provider.get_instance(time_instance) == time_instance
 
 
 def test_edr_provider_get_instance_invalid_id(layers: List[pogc.Layer]):
@@ -89,7 +92,7 @@ def test_edr_provider_instances(layers: List[pogc.Layer]):
     layers : List[pogc.Layer]
         Layers provided by a test fixture.
     """
-    instance_sets = [layer.time_instances for layer in layers]
+    instance_sets = [layer.time_instances() for layer in layers]
     time_instances = set().union(*instance_sets)
 
     EdrProvider.set_resources(layers)
@@ -285,7 +288,6 @@ def test_edr_provider_area_request_valid_wkt(layers: List[pogc.Layer], single_la
     del args["bbox"]
     args["wkt"] = Polygon(((-180.0, -90.0), (-180.0, 90.0), (180.0, -90.0), (180.0, 90.0)))
     parameter_name = single_layer_cube_args_internal["select_properties"][0]
-    x_array, y_array = args["wkt"].exterior.xy
 
     EdrProvider.set_resources(layers)
     provider = EdrProvider(provider_def=provider_definition)
@@ -410,135 +412,132 @@ def test_edr_provider_cube_request_valid_geotiff_format_multiple_parameters(
 
 def test_edr_provider_datetime_single_value():
     """Test the datetime interpreter method of the EDR Provider class with a single datetime value."""
-
     time_string = "2025-10-24"
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
     expected_times = [np.datetime64(available_times[0])]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
 
 
 def test_edr_provider_datetime_range_closed():
     """Test the datetime interpreter method of the EDR Provider class with a closed datetime range."""
-
     time_string = "2025-10-24/2025-10-26"
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
     expected_times = [np.datetime64(time) for time in available_times[0:3]]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
 
 
 def test_edr_provider_datetime_open_start():
     """Test the datetime interpreter method of the EDR Provider class with a open datetime start."""
-
     time_string = "../2025-10-27"
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
     expected_times = [np.datetime64(time) for time in available_times[0:4]]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
 
 
 def test_edr_provider_datetime_open_end():
     """Test the datetime interpreter method of the EDR Provider class with a open datetime end."""
-
     time_string = "2025-10-25/.."
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
     expected_times = [np.datetime64(time) for time in available_times[1:]]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
 
 
 def test_edr_provider_datetime_invalid_string():
     """Test the datetime interpreter method of the EDR Provider class with an invalid string."""
-
     time_string = "2025-10-25/../../.."
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+
     assert time_coords is None
 
 
 def test_edr_provider_altitude_single_value():
     """Test the altitude interpreter method of the EDR Provider class with a single datetime value."""
-
     altitude_string = "10"
     available_altitudes = [0.0, 5.0, 10.0, 15.0, 20.0]
     expected_altitudes = [10.0]
 
     altitude_coords = EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
+
     assert altitude_coords is not None
     np.testing.assert_array_equal(altitude_coords["alt"].coordinates, expected_altitudes)
 
 
 def test_edr_provider_altitude_range_closed():
     """Test the altitude interpreter method of the EDR Provider class with a closed datetime range."""
-
     altitude_string = "10/20"
     available_altitudes = [0.0, 5.0, 10.0, 15.0, 20.0]
     expected_altitudes = [10.0, 15.0, 20.0]
 
     altitude_coords = EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
+
     assert altitude_coords is not None
     np.testing.assert_array_equal(altitude_coords["alt"].coordinates, expected_altitudes)
 
 
 def test_edr_provider_altitude_repeating_interval():
     """Test the altitude interpreter method of the EDR Provider class with a repeating interval."""
-
     altitude_string = "R2/5/5"
     available_altitudes = [0.0, 5.0, 10.0, 15.0, 20.0]
     expected_altitudes = [5.0, 10.0]
 
     altitude_coords = EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
+
     assert altitude_coords is not None
     np.testing.assert_array_equal(altitude_coords["alt"].coordinates, expected_altitudes)
 
 
 def test_edr_provider_altitude_list():
     """Test the altitude interpreter method of the EDR Provider class with a list."""
-
     altitude_string = "5,10,15"
     available_altitudes = [0.0, 5.0, 10.0, 15.0, 20.0]
     expected_altitudes = [5.0, 10.0, 15.0]
 
     altitude_coords = EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
+
     assert altitude_coords is not None
     np.testing.assert_array_equal(altitude_coords["alt"].coordinates, expected_altitudes)
 
 
 def test_edr_provider_altitude_invalid_string():
     """Test the altitude interpreter method of the EDR Provider class with an invalid string."""
-
     altitude_string = "../20"
     available_altitudes = [0.0, 5.0, 10.0, 15.0, 20.0]
 
     altitude_coords = EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
+
     assert altitude_coords is None
 
 
 def test_edr_provider_crs_interpreter_default_value():
     """Test the CRS interpretation returns a default value when the argument is None."""
-
     assert EdrProvider.interpret_crs(None) == "urn:ogc:def:crs:OGC:1.3:CRS84"
 
 
 def test_edr_provider_crs_interpreter_valid_value():
     """Test the CRS interpretation returns a valid value when the argument is acceptable."""
-
     assert EdrProvider.interpret_crs("epsg:4326") == "epsg:4326"
 
 
 def test_edr_provider_crs_interpreter_invalid_value():
     """Test the CRS interpretation returns default when the argument is unacceptable."""
-
     assert EdrProvider.interpret_crs("epsp:4444") == "urn:ogc:def:crs:OGC:1.3:CRS84"
 
 

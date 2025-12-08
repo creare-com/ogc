@@ -6,7 +6,7 @@ import ogc
 import podpac
 from podpac.core.coordinates import Coordinates
 import traitlets as tl
-
+from typing import List
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 import io
@@ -54,6 +54,27 @@ class Layer(ogc.Layer):
         super().__init__(**kwargs)
         if self.node is not None and self.node.style.enumeration_legend:
             self._style.is_enumerated = True
+
+    def time_instances(self) -> List[str]:
+        """Retrieve the time instances available for the layer.
+
+        Returns
+        -------
+        List[str]
+            List of available time instances as a strings.
+        """
+        time_instances = set()
+        coordinates_list = self.node.find_coordinates()
+
+        # Time instances are created if a node has both time and offsets.
+        if (
+            len(coordinates_list) > 0
+            and "time" in coordinates_list[0].udims
+            and "forecastOffsetHr" in coordinates_list[0].udims
+        ):
+            time_instances.update([str(time) for time in coordinates_list[0]["time"].coordinates])
+
+        return list(time_instances)
 
     def get_node(self, args):
         return self.node

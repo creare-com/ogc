@@ -7,7 +7,7 @@ import traitlets as tl
 import pygeoapi.plugin
 import pygeoapi.api
 import pygeoapi.api.environmental_data_retrieval as pygeoedr
-from typing import Tuple
+from typing import Tuple, Any
 from http import HTTPStatus
 from copy import deepcopy
 from pygeoapi.openapi import get_oas
@@ -165,7 +165,7 @@ class EdrRoutes(tl.HasTraits):
         collection_id: str,
         instance_id: str | None,
         query_type: str,
-    ) -> Tuple[dict, int, str | bytes]:
+    ) -> Tuple[dict, int, Any]:
         """Handle collection and instance query requests for the server.
 
         Parameters
@@ -181,7 +181,7 @@ class EdrRoutes(tl.HasTraits):
 
         Returns
         -------
-        Tuple[dict, int, str | bytes]
+        Tuple[dict, int, Any]
             Headers, HTTP Status, and Content returned as a tuple to make the server response.
         """
         headers, http_status, content = pygeoedr.get_collection_edr_query(

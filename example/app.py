@@ -13,6 +13,9 @@ from ogc import podpac as pogc
 import podpac
 import numpy as np
 
+# Setup new dimension
+podpac.core.coordinates.utils.add_valid_dimension("forecastOffsetHr")
+
 # create some podpac nodes
 data = np.random.default_rng(1).random((11, 21))
 lat = np.linspace(90, -90, 11)
@@ -24,8 +27,9 @@ data2 = np.random.default_rng(1).random((11, 21))
 node2 = podpac.data.Array(source=data2, coordinates=coords)
 
 time = np.array(["2025-10-24T12:00:00"], dtype="datetime64")
-coords = podpac.Coordinates([lat, lon, time], dims=["lat", "lon", "time"])
-data3 = np.random.default_rng(1).random((11, 21, 1))
+offsets = [np.timedelta64(0, "h")]
+coords = podpac.Coordinates([lat, lon, time, offsets], dims=["lat", "lon", "time", "forecastOffsetHr"])
+data3 = np.random.default_rng(1).random((11, 21, 1, 1))
 node3 = podpac.data.Array(source=data3, coordinates=coords)
 
 # use podpac nodes to create some OGC layers
@@ -52,7 +56,6 @@ layer3 = pogc.Layer(
     title="OGC/POPAC layer containing random data with time instances available.",
     abstract="This layer contains some random data with time instances available.",
     group="Layers",
-    time_instances={str(time[0])},
     valid_times=[dt.astype(datetime) for dt in time],
 )
 

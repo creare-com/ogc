@@ -78,7 +78,6 @@ class Layer(tl.HasTraits):
         default_value=tl.Undefined,
         allow_none=True,
     )
-    time_instances = tl.Set(tl.Unicode)  # Available time instances
     all_times_valid = tl.Bool(default_value=False)
 
     legend_graphic_width_inches = tl.Float(default_value=0.7)  # inches
