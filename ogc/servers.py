@@ -16,6 +16,7 @@ from werkzeug.datastructures import ImmutableMultiDict
 
 from ogc.ogc_common import WCSException
 from pygeoapi.api import APIRequest
+from pygeoapi.util import get_api_rules
 
 logger = logging.getLogger(__name__)
 
@@ -108,74 +109,86 @@ class FlaskServer(Flask):
             setattr(self, method_name, method)  # bind route function call to instance method
 
             # Set up the EDR endpoints for the server
+            strict_slashes = get_api_rules(ogc.edr_routes.api.config)
             self.add_url_rule(
-                f"{endpoint}/edr",
+                f"/{endpoint}/edr",
                 endpoint=f"{endpoint}_landing_page",
                 view_func=self.edr_render(ogc.edr_routes.landing_page),
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/static/<path:file_path>",
+                f"/{endpoint}/edr/static/<path:file_path>",
                 endpoint=f"{endpoint}_static_files",
                 view_func=self.edr_render(ogc.edr_routes.static_files),
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/api",
+                f"/{endpoint}/edr/api",
                 endpoint=f"{endpoint}_api",
                 view_func=self.edr_render(ogc.edr_routes.openapi),
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/openapi",
+                f"/{endpoint}/edr/openapi",
                 endpoint=f"{endpoint}_openapi",
                 view_func=self.edr_render(ogc.edr_routes.openapi),
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/conformance",
+                f"/{endpoint}/edr/conformance",
                 endpoint=f"{endpoint}_conformance",
                 view_func=self.edr_render(ogc.edr_routes.conformance),
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/collections",
+                f"/{endpoint}/edr/collections",
                 endpoint=f"{endpoint}_collections",
                 view_func=self.edr_render(ogc.edr_routes.describe_collections),
                 defaults={"collection_id": None},
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/collections/<path:collection_id>",
+                f"/{endpoint}/edr/collections/<path:collection_id>",
                 endpoint=f"{endpoint}_collection",
                 view_func=self.edr_render(ogc.edr_routes.describe_collections),
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/collections/<path:collection_id>/instances",
+                f"/{endpoint}/edr/collections/<path:collection_id>/instances",
                 endpoint=f"{endpoint}_instances",
                 view_func=self.edr_render(ogc.edr_routes.describe_instances),
                 defaults={"instance_id": None},
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>",
+                f"/{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>",
                 endpoint=f"{endpoint}_instance",
                 view_func=self.edr_render(ogc.edr_routes.describe_instances),
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/collections/<path:collection_id>/<path:query_type>",
+                f"/{endpoint}/edr/collections/<path:collection_id>/<path:query_type>",
                 endpoint=f"{endpoint}_collection_query",
                 view_func=self.edr_render(ogc.edr_routes.collection_query),
                 defaults={"instance_id": None},
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
             self.add_url_rule(
-                f"{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>/<path:query_type>",
+                f"/{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>/<path:query_type>",
                 endpoint=f"{endpoint}_instance_query",
                 view_func=self.edr_render(ogc.edr_routes.collection_query),
                 methods=["GET"],
+                strict_slashes=strict_slashes,
             )
 
     def ogc_render(self, ogc_idx):
