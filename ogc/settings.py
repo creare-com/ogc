@@ -9,6 +9,8 @@ However, some of these settings will serve as defaults for ogc.OGC
 import os
 
 # Settings applied around the OGC server package.
+crs_84 = "crs:84"
+epsg_4326 = "epsg:4326"
 
 # Default/Supported WMS CRS/SRS
 WMS_CRS = {
@@ -21,16 +23,16 @@ WMS_CRS = {
     # 'epsg:3785': ... <-- this is deprecated but the same as 3857
     # Apparently it lat=x lon=y from Example 2 on page 18 of the WMS version 1.3.0 spec
     # http://portal.opengeospatial.org/files/?artifact_id=14416
-    "epsg:4326": {"minx": -90, "miny": -180, "maxx": 90, "maxy": 180},
-    "crs:84": {"minx": -180, "miny": -90, "maxx": 180, "maxy": 90},
+    epsg_4326: {"minx": -90, "miny": -180, "maxx": 90, "maxy": 180},
+    crs_84: {"minx": -180, "miny": -90, "maxx": 180, "maxy": 90},
 }
 WCS_CRS = {
-    "epsg:4326": {"minx": -90, "miny": -180, "maxx": 90, "maxy": 180},
-    "crs:84": {"minx": -180, "miny": -90, "maxx": 180, "maxy": 90},
+    epsg_4326: {"minx": -90, "miny": -180, "maxx": 90, "maxy": 180},
+    crs_84: {"minx": -180, "miny": -90, "maxx": 180, "maxy": 90},
 }
 EDR_CRS = {
-    "epsg:4326": {"minx": -90.0, "miny": -180.0, "maxx": 90.0, "maxy": 180.0},
-    "crs:84": {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
+    epsg_4326: {"minx": -90.0, "miny": -180.0, "maxx": 90.0, "maxy": 180.0},
+    crs_84: {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
 }
 
 # WMS Capabilities timestamp format

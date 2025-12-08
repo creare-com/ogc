@@ -95,14 +95,14 @@ class EdrProvider(BaseEDRProvider):
         Raises
         ------
         ProviderInvalidQueryError
-            Raised if the parameters are invalid.
-        ProviderInvalidQueryError
             Raised if a datetime string is provided but cannot be interpreted.
         ProviderInvalidQueryError
             Raised if an altitude string is provided but cannot be interpreted.
         ProviderInvalidQueryError
-            Raised if no matching parameters are found in the server.
-         ProviderInvalidQueryError
+            Raised if the parameters are invalid.
+        ProviderInvalidQueryError
+            Raised if an instance is provided and it is invalid.
+        ProviderInvalidQueryError
             Raised if native coordinates could not be found.
         ProviderInvalidQueryError
             Raised if the request queries for native coordinates exceeding the max allowable size.
@@ -112,89 +112,59 @@ class EdrProvider(BaseEDRProvider):
         output_format = kwargs.get("format_")
         datetime_arg = kwargs.get("datetime_")
         z_arg = kwargs.get("z")
+
         output_format = str(output_format).lower()
-
-        if not isinstance(requested_parameters, List) or len(requested_parameters) == 0:
-            raise ProviderInvalidQueryError("Invalid parameters provided.")
-
         available_times = self.get_datetimes(list(self.parameters.values()))
         available_altitudes = self.get_altitudes(list(self.parameters.values()))
         time_coords = self.interpret_time_coordinates(available_times, datetime_arg, requested_coordinates.crs)
         altitude_coords = self.interpret_altitude_coordinates(available_altitudes, z_arg, requested_coordinates.crs)
+        # Allow parameters without case-sensitivity
+        parameters_lower = [param.lower() for param in requested_parameters or []]
+        parameters_filtered = {
+            key: value
+            for key, value in self.parameters.items()
+            if key.lower() in parameters_lower and value is not None
+        }
 
-        if datetime_arg is not None and time_coords is None:
-            raise ProviderInvalidQueryError("Invalid datetime provided.")
-        if z_arg is not None and altitude_coords is None:
-            raise ProviderInvalidQueryError("Invalid altitude provided.")
+        self.check_query_condition(datetime_arg is not None and time_coords is None, "Invalid datetime provided.")
+        self.check_query_condition(z_arg is not None and altitude_coords is None, "Invalid altitude provided.")
+        self.check_query_condition(len(parameters_filtered) == 0, "Invalid parameters provided.")
+        self.check_query_condition(
+            instance is not None and not self.validate_datetime(instance), "Invalid instance time provided."
+        )
 
         if time_coords is not None:
             requested_coordinates = podpac.coordinates.merge_dims([time_coords, requested_coordinates])
         if altitude_coords is not None:
             requested_coordinates = podpac.coordinates.merge_dims([altitude_coords, requested_coordinates])
 
-        instance_time = None
-        if instance is not None:
-            try:
-                # Check if it can be formatted as a datetime before adding to requested coordinates
-                instance_time = np.datetime64(instance)
-            except ValueError:
-                raise ProviderInvalidQueryError("Invalid instance time provided.")
+        # Handle defining native coordinates for the query, these should match between each layer
+        coordinates_list = next(iter(parameters_filtered.values())).node.find_coordinates()
+
+        self.check_query_condition(len(coordinates_list) == 0, "Native coordinates not found.")
+
+        requested_native_coordinates = self.get_native_coordinates(
+            requested_coordinates, coordinates_list[0], np.datetime64(instance)
+        )
+
+        self.check_query_condition(
+            requested_native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE,
+            "Grid coordinates x_size * y_size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
+        )
 
         dataset = {}
-        requested_native_coordinates = None
+        for requested_parameter, layer in parameters_filtered.items():
+            units_data_array = layer.node.eval(requested_native_coordinates)
+            dataset[requested_parameter] = units_data_array
 
-        # Allow parameters without case-sensitivity
-        parameters_lower = [param.lower() for param in requested_parameters]
-        parameters_filtered = [key for key in self.parameters.keys() if key.lower() in parameters_lower]
-
-        for requested_parameter in parameters_filtered:
-            layer = self.parameters.get(requested_parameter, None)
-            if layer is not None:
-                # Handle defining native coordinates for the query, these should match between each layer
-                if requested_native_coordinates is None:
-                    coordinates_list = layer.node.find_coordinates()
-
-                    if len(coordinates_list) == 0:
-                        raise ProviderInvalidQueryError("Native coordinates not found.")
-
-                    requested_native_coordinates = self.get_native_coordinates(
-                        requested_coordinates, coordinates_list[0], instance_time
-                    )
-
-                    if requested_native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE:
-                        raise ProviderInvalidQueryError(
-                            "Grid coordinates x_size * y_size must be less than %d"
-                            % settings.MAX_GRID_COORDS_REQUEST_SIZE
-                        )
-
-                units_data_array = layer.node.eval(requested_native_coordinates)
-                dataset[requested_parameter] = units_data_array
-
-        if len(dataset) == 0:
-            raise ProviderInvalidQueryError("No matching parameters found.")
+        self.check_query_condition(len(dataset) == 0, "No matching parameters found.")
 
         # Return a coverage json if specified, else return Base64 encoded native response
         if output_format == "json" or output_format == "coveragejson":
             crs = self.interpret_crs(requested_native_coordinates.crs if requested_native_coordinates else None)
             return self.to_coverage_json(self.layers, dataset, crs)
         else:
-            if len(dataset) == 1:
-                units_data_array = next(iter(dataset.values()))
-                geotiff_bytes = units_data_array.to_format("geotiff").read()
-                return {
-                    "fp": base64.b64encode(geotiff_bytes).decode("utf-8"),
-                    "fn": f"{ next(iter(dataset.keys()))}.tif",
-                }
-            else:
-                zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for parameter, data_array in dataset.items():
-                        geotiff_memory_file = data_array.to_format("geotiff")
-                        tiff_filename = f"{parameter}.tif"
-                        zip_file.writestr(tiff_filename, geotiff_memory_file.read())
-
-                zip_buffer.seek(0)
-                return {"fp": base64.b64encode(zip_buffer.read()).decode("utf-8"), "fn": f"{self.collection_id}.zip"}
+            return self.to_geotiff_response(dataset, self.collection_id)
 
     def position(self, **kwargs):
         """Handles requests for the position query type.
@@ -651,6 +621,79 @@ class EdrProvider(BaseEDRProvider):
             )
 
         return coverage_json
+
+    @staticmethod
+    def check_query_condition(conditional: bool, message: str):
+        """Check the provided conditional and raise a ProviderInvalidQueryError if true.
+
+        Parameters
+        ----------
+        conditional : bool
+            The conditional value to check for raising a query error.
+        message : str
+            The message to include if the query error is raised.
+
+        Raises
+        ------
+        ProviderInvalidQueryError
+            Raised if the conditional provided is true.
+        """
+        if conditional:
+            raise ProviderInvalidQueryError(message)
+
+    @staticmethod
+    def validate_datetime(datetime_string: str) -> bool:
+        """Validate whether a string can be converted to a numpy datetime.
+
+        Parameters
+        ----------
+        date_string : str
+            The datetime string to be validated.
+
+        Returns
+        -------
+        bool
+            Whether the datetime string can be converted to a numpy datetime.
+        """
+        try:
+            np.datetime64(datetime_string)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def to_geotiff_response(dataset: Dict[str, podpac.UnitsDataArray], collection_id: str) -> Dict[str, Any]:
+        """Generate a CoverageJSON of the data for the provided parameters.
+
+        Parameters
+        ----------
+        dataset : Dict[str, podpac.UnitsDataArray]
+            Data in an units data array format with matching parameter key.
+        collection_id : str
+            The collection id of the data used in naming the zip file if needed.
+
+        Returns
+        -------
+        Dict[str, Any]
+            A dictionary the file name and data with a Base64 encoding.
+        """
+        if len(dataset) == 1:
+            units_data_array = next(iter(dataset.values()))
+            geotiff_bytes = units_data_array.to_format("geotiff").read()
+            return {
+                "fp": base64.b64encode(geotiff_bytes).decode("utf-8"),
+                "fn": f"{next(iter(dataset.keys()))}.tif",
+            }
+        else:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for parameter, data_array in dataset.items():
+                    geotiff_memory_file = data_array.to_format("geotiff")
+                    tiff_filename = f"{parameter}.tif"
+                    zip_file.writestr(tiff_filename, geotiff_memory_file.read())
+
+            zip_buffer.seek(0)
+            return {"fp": base64.b64encode(zip_buffer.read()).decode("utf-8"), "fn": f"{collection_id}.zip"}
 
     @staticmethod
     def get_native_coordinates(

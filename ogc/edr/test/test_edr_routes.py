@@ -249,7 +249,7 @@ def test_edr_routes_collection_query_geotiff_format(layers: List[pogc.Layer], si
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
-    headers, status, content = edr_routes.collection_query(
+    headers, status, _ = edr_routes.collection_query(
         request,
         collection_id=collection_id,
         instance_id=instance_id,

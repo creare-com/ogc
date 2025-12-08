@@ -99,8 +99,8 @@ class EdrConfig:
                             "name": "ogc.edr.edr_provider.EdrProvider",
                             "data": group_name,
                             "crs": [
-                                "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
-                                "http://www.opengis.net/def/crs/EPSG/0/4326",
+                                "https://www.opengis.net/def/crs/OGC/1.3/CRS84",
+                                "https://www.opengis.net/def/crs/EPSG/0/4326",
                             ],
                             "format": {
                                 "name": "geotiff",
@@ -160,14 +160,14 @@ class EdrConfig:
         return {
             "spatial": {
                 "bbox": [llc_lon, llc_lat, urc_lon, urc_lat],  # minx, miny, maxx, maxy
-                "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+                "crs": "https://www.opengis.net/def/crs/OGC/1.3/CRS84",
             },
             **(
                 {
                     "temporal": {
                         "begin": datetime.fromisoformat(time_range[0]),  # start datetime in RFC3339
                         "end": datetime.fromisoformat(time_range[-1]),  # end datetime in RFC3339
-                        "trs": "http://www.opengis.net/def/uom/ISO-8601/0/Gregorian",
+                        "trs": "https://www.opengis.net/def/uom/ISO-8601/0/Gregorian",
                     }
                 }
                 if time_range is not None

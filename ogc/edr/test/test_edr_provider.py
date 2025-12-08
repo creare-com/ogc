@@ -15,7 +15,7 @@ provider_definition = {
     "default": True,
     "name": "ogc.edr.edr_provider.EdrProvider",
     "data": "Layers",
-    "crs": ["http://www.opengis.net/def/crs/OGC/1.3/CRS84", "http://www.opengis.net/def/crs/EPSG/0/4326"],
+    "crs": ["https://www.opengis.net/def/crs/OGC/1.3/CRS84", "https://www.opengis.net/def/crs/EPSG/0/4326"],
     "format": {"name": "GeoJSON", "mimetype": "application/json"},
 }
 
