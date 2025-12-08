@@ -17,8 +17,7 @@
     "map": {
       "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
       "attribution": "'&copy; <a href='https://openstreetmap.org/copyright'>OpenStreetMap contributors</a>'"
-    },
-    "ogc_schemas_location": "/opt/schemas.opengis.net"
+    }
   },
   "logging": {
     "level": "ERROR"
