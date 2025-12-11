@@ -17,8 +17,6 @@ from .. import settings
 class EdrProvider(BaseEDRProvider):
     """Custom provider to be used with layer data sources."""
 
-    layers = []
-
     def __init__(self, provider_def: Dict[str, Any]):
         """Construct the provider using the provider definition.
 
@@ -41,19 +39,9 @@ class EdrProvider(BaseEDRProvider):
 
         self.collection_id = str(collection_id)
 
+        self.layers = provider_def.get("layers", [])
         if len(self.layers) == 0:
             raise ProviderConnectionError("Valid data sources not found.")
-
-    @classmethod
-    def set_resources(cls, layers: List[pogc.Layer]):
-        """Set the layer resources which will be available to the provider.
-
-        Parameters
-        ----------
-        layers : List[pogc.Layer]
-            The layers which the provider will have access to.
-        """
-        cls.layers = layers
 
     @property
     def parameters(self) -> Dict[str, pogc.Layer]:

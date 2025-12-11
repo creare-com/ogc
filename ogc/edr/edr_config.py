@@ -98,6 +98,7 @@ class EdrConfig:
                             "default": True,
                             "name": "ogc.edr.edr_provider.EdrProvider",
                             "data": group_name,
+                            "layers": layers,
                             "crs": [
                                 "https://www.opengis.net/def/crs/OGC/1.3/CRS84",
                                 "https://www.opengis.net/def/crs/EPSG/0/4326",

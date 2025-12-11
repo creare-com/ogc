@@ -9,19 +9,33 @@ from ogc import podpac as pogc
 from ogc.edr.edr_provider import EdrProvider
 from pygeoapi.provider.base import ProviderInvalidQueryError
 
-# Define the provider definition which is typically handled by pygeoapi
-provider_definition = {
-    "type": "edr",
-    "default": True,
-    "name": "ogc.edr.edr_provider.EdrProvider",
-    "data": "Layers",
-    "crs": ["https://www.opengis.net/def/crs/OGC/1.3/CRS84", "https://www.opengis.net/def/crs/EPSG/0/4326"],
-    "format": {"name": "GeoJSON", "mimetype": "application/json"},
-}
+
+def get_provider_definition(layers: List[pogc.Layer]) -> Dict[str, Any]:
+    """Define the provider definition which is typically handled by pygeoapi.
+
+    Parameters
+    ----------
+    layers : List[pogc.Layer]
+        Layers for the provider to use in defining available data sources.
+
+    Returns
+    -------
+    Dict[str, Any]
+        The provider definition which defines data sources.
+    """
+    return {
+        "type": "edr",
+        "default": True,
+        "name": "ogc.edr.edr_provider.EdrProvider",
+        "data": "Layers",
+        "layers": layers,
+        "crs": ["https://www.opengis.net/def/crs/OGC/1.3/CRS84", "https://www.opengis.net/def/crs/EPSG/0/4326"],
+        "format": {"name": "GeoJSON", "mimetype": "application/json"},
+    }
 
 
-def test_edr_provider_set_resources(layers: List[pogc.Layer]):
-    """Test the set_resources method of the EDR Provider class.
+def test_edr_provider_resources(layers: List[pogc.Layer]):
+    """Test the available resources of the EDR Provider class.
 
     Parameters
     ----------
@@ -30,10 +44,10 @@ def test_edr_provider_set_resources(layers: List[pogc.Layer]):
     """
     identifiers = [layer.identifier for layer in layers]
 
-    EdrProvider.set_resources(layers)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
-    assert len(EdrProvider.layers) == len(layers)
-    assert all(layer.identifier in identifiers for layer in EdrProvider.layers)
+    assert len(provider.layers) == len(layers)
+    assert all(layer.identifier in identifiers for layer in provider.layers)
 
 
 def test_edr_provider_get_instance_valid_id(layers: List[pogc.Layer]):
@@ -46,8 +60,7 @@ def test_edr_provider_get_instance_valid_id(layers: List[pogc.Layer]):
     """
     time_instance = next(iter(layers[0].time_instances()))
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     assert provider.get_instance(time_instance) == time_instance
 
@@ -60,8 +73,7 @@ def test_edr_provider_get_instance_invalid_id(layers: List[pogc.Layer]):
     layers : List[pogc.Layer]
         Layers provided by a test fixture.
     """
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     assert provider.get_instance("invalid") is None
 
@@ -76,8 +88,7 @@ def test_edr_provider_parameter_keys(layers: List[pogc.Layer]):
     """
     identifiers = [layer.identifier for layer in layers]
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
     parameters = provider.parameters
 
     assert len(list(parameters.keys())) == len(layers)
@@ -95,8 +106,7 @@ def test_edr_provider_instances(layers: List[pogc.Layer]):
     instance_sets = [layer.time_instances() for layer in layers]
     time_instances = set().union(*instance_sets)
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
     instances = provider.instances()
 
     assert len(instances) == len(time_instances)
@@ -113,8 +123,7 @@ def test_edr_provider_get_fields(layers: List[pogc.Layer]):
     """
     identifiers = [layer.identifier for layer in layers]
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
     fields = provider.get_fields()
 
     assert len(fields.keys()) == len(layers)
@@ -139,8 +148,7 @@ def test_edr_provider_position_request_valid_wkt(
     args["wkt"] = Point(5.2, 52.1)
     parameter_name = single_layer_cube_args_internal["select_properties"][0]
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     response = provider.position(**args)
 
@@ -169,8 +177,7 @@ def test_edr_provider_position_request_invalid_wkt(
     del args["bbox"]
     args["wkt"] = "invalid"
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     with pytest.raises(ProviderInvalidQueryError):
         provider.position(**args)
@@ -192,8 +199,7 @@ def test_edr_provider_position_request_invalid_property(
     args = single_layer_cube_args_internal
     args["select_properties"] = "invalid"
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     with pytest.raises(ProviderInvalidQueryError):
         provider.position(**args)
@@ -215,8 +221,7 @@ def test_edr_provider_cube_request_valid_bbox(
     args = single_layer_cube_args_internal
     parameter_name = single_layer_cube_args_internal["select_properties"][0]
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     response = provider.cube(**args)
 
@@ -244,8 +249,7 @@ def test_edr_provider_cube_request_invalid_bbox(
     args = single_layer_cube_args_internal
     args["bbox"] = "invalid"
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     with pytest.raises(ProviderInvalidQueryError):
         provider.cube(**args)
@@ -266,8 +270,8 @@ def test_edr_provider_cube_request_invalid_altitude(
     """
     args = single_layer_cube_args_internal
     args["z"] = "invalid"
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     with pytest.raises(ProviderInvalidQueryError):
         provider.position(**args)
@@ -289,8 +293,7 @@ def test_edr_provider_area_request_valid_wkt(layers: List[pogc.Layer], single_la
     args["wkt"] = Polygon(((-180.0, -90.0), (-180.0, 90.0), (180.0, -90.0), (180.0, 90.0)))
     parameter_name = single_layer_cube_args_internal["select_properties"][0]
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     response = provider.area(**args)
 
@@ -319,8 +322,7 @@ def test_edr_provider_area_request_invalid_wkt(
     del args["bbox"]
     args["wkt"] = "invalid"
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     with pytest.raises(ProviderInvalidQueryError):
         provider.area(**args)
@@ -342,8 +344,7 @@ def test_edr_provider_cube_request_invalid_datetime(
     args = single_layer_cube_args_internal
     args["datetime_"] = "10_24/2025"
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     with pytest.raises(ProviderInvalidQueryError):
         provider.cube(**args)
@@ -366,8 +367,7 @@ def test_edr_provider_cube_request_valid_geotiff_format(
     args["format_"] = "geotiff"
     parameter_name = single_layer_cube_args_internal["select_properties"][0]
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     response = provider.cube(**args)
 
@@ -396,8 +396,7 @@ def test_edr_provider_cube_request_valid_geotiff_format_multiple_parameters(
     selected_layers = [layer.identifier for layer in layers if layer.group == group]
     args["select_properties"] = selected_layers
 
-    EdrProvider.set_resources(layers)
-    provider = EdrProvider(provider_def=provider_definition)
+    provider = EdrProvider(provider_def=get_provider_definition(layers))
 
     response = provider.cube(**args)
     buffer = io.BytesIO(base64.b64decode(response["fp"]))

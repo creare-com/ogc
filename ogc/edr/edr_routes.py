@@ -7,25 +7,39 @@ import traitlets as tl
 import pygeoapi.plugin
 import pygeoapi.api
 import pygeoapi.api.environmental_data_retrieval as pygeoedr
-from typing import Tuple, Any
+from typing import Tuple, Any, Dict
 from http import HTTPStatus
 from copy import deepcopy
 from pygeoapi.openapi import get_oas
 from ogc import podpac as pogc
 
 from .edr_config import EdrConfig
-from .edr_provider import EdrProvider
 
 
 class EdrRoutes(tl.HasTraits):
     """Class responsible for routing EDR requests to the appropriate pygeoapi API method."""
 
     base_url = tl.Unicode(default_value="http://127.0.0.1:5000/")
-    layers = tl.List(trait=tl.Instance(pogc.Layer), default_value=[])
+    layers = tl.List(trait=tl.Instance(pogc.Layer))
 
-    @property
-    def api(self) -> pygeoapi.api.API:
-        """Property for the API created using a custom configuration.
+    def __init__(self, **kwargs):
+        """Initialize the API based on the available layers."""
+        super().__init__(**kwargs)
+        self.api = self.create_api()
+
+    @tl.observe("layers")
+    def layers_change(self, change: Dict[str, Any]):
+        """Monitor the layers and update the API when a change occurs.
+
+        Parameters
+        ----------
+        change : Dict[str, Any]
+            Dictionary holding type of modification and name of the attribute that triggered it.
+        """
+        self.api = self.create_api()
+
+    def create_api(self) -> pygeoapi.api.API:
+        """Create the pygeoapi API using a custom configuration.
 
         Returns
         -------
@@ -39,7 +53,6 @@ class EdrRoutes(tl.HasTraits):
 
         config = EdrConfig.get_configuration(self.base_url, self.layers)
         open_api = get_oas(config, fail_on_invalid_collection=False)
-        EdrProvider.set_resources(self.layers)
         return pygeoapi.api.API(config=deepcopy(config), openapi=open_api)
 
     def static_files(self, request: pygeoapi.api.APIRequest, file_path: str) -> Tuple[dict, int, str | bytes]:
