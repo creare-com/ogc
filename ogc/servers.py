@@ -109,7 +109,7 @@ class FlaskServer(Flask):
             setattr(self, method_name, method)  # bind route function call to instance method
 
             # Set up the EDR endpoints for the server
-            strict_slashes = get_api_rules(ogc.edr_routes.api.config)
+            strict_slashes = get_api_rules(ogc.edr_routes.api.config).strict_slashes
             self.add_url_rule(
                 f"/{endpoint}/edr",
                 endpoint=f"{endpoint}_landing_page",
