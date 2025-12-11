@@ -372,7 +372,8 @@ class EdrProvider(BaseEDRProvider):
     def interpret_crs(crs: str | None) -> str:
         """Interpret the CRS id string into a valid PyProj CRS format.
 
-        If None provided or the CRS is unknown, return the default.
+        If None provided, return the default.
+        If the provided CRS is invalid, raise an error.
 
         Parameters
         ----------
@@ -383,10 +384,17 @@ class EdrProvider(BaseEDRProvider):
         -------
         str
             Pyproj CRS string.
+
+        Raises
+        ------
+        ProviderInvalidQueryError
+            Raised if the provided CRS string is unknown.
         """
-        default_crs = "urn:ogc:def:crs:OGC:1.3:CRS84"  # Pyproj acceptable format
-        if crs is None or crs.lower() == "crs:84" or crs.lower() not in settings.EDR_CRS.keys():
-            return default_crs
+        if crs is None or crs.lower() == "crs:84":
+            return settings.crs_84_pyproj_format  # Pyproj acceptable format
+
+        if crs.lower() not in [key.lower() for key in settings.EDR_CRS.keys()]:
+            raise ProviderInvalidQueryError("Invalid CRS provided.")
 
         return crs
 
@@ -663,7 +671,7 @@ class EdrProvider(BaseEDRProvider):
 
     @staticmethod
     def to_geotiff_response(dataset: Dict[str, podpac.UnitsDataArray], collection_id: str) -> Dict[str, Any]:
-        """Generate a CoverageJSON of the data for the provided parameters.
+        """Generate a geotiff of the data for the provided parameters.
 
         Parameters
         ----------

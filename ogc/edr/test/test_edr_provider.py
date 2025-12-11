@@ -537,8 +537,9 @@ def test_edr_provider_crs_interpreter_valid_value():
 
 
 def test_edr_provider_crs_interpreter_invalid_value():
-    """Test the CRS interpretation returns default when the argument is unacceptable."""
-    assert EdrProvider.interpret_crs("epsp:4444") == "urn:ogc:def:crs:OGC:1.3:CRS84"
+    """Test the CRS interpretation raises an exception when an invalid argument is provided."""
+    with pytest.raises(ProviderInvalidQueryError):
+        EdrProvider.interpret_crs("epsp:4444")
 
 
 def test_edr_provider_crs_converter():
