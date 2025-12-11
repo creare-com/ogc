@@ -83,7 +83,7 @@ class EdrConfig:
             groups[layer.group].append(layer)
 
         # Generate collection resources based on groups
-        for group_name, layers in groups.items():
+        for group_name, group_layers in groups.items():
             resource = {
                 group_name: {
                     "type": "collection",
@@ -91,14 +91,14 @@ class EdrConfig:
                     "title": group_name,
                     "description": f"Collection of data related to {group_name}",
                     "keywords": ["podpac"],
-                    "extents": EdrConfig._generate_extents(layers),
+                    "extents": EdrConfig._generate_extents(group_layers),
                     "providers": [
                         {
                             "type": "edr",
                             "default": True,
                             "name": "ogc.edr.edr_provider.EdrProvider",
                             "data": group_name,
-                            "layers": layers,
+                            "layers": group_layers,
                             "crs": [
                                 "https://www.opengis.net/def/crs/OGC/1.3/CRS84",
                                 "https://www.opengis.net/def/crs/EPSG/0/4326",
