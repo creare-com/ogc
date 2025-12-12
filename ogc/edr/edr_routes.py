@@ -4,6 +4,7 @@ import json
 import base64
 import io
 import traitlets as tl
+import pygeoapi.l10n
 import pygeoapi.plugin
 import pygeoapi.api
 import pygeoapi.api.environmental_data_retrieval as pygeoedr
@@ -55,6 +56,10 @@ class EdrRoutes(tl.HasTraits):
         open_api = get_oas(config, fail_on_invalid_collection=False)
         return pygeoapi.api.API(config=deepcopy(config), openapi=open_api)
 
+    def clean_configuration_cache(self):
+        """Clean a pygeoapi internal translation cache so that multiple configurations can be used simultaneously."""
+        pygeoapi.l10n._cfg_cache = {}
+
     def static_files(self, request: pygeoapi.api.APIRequest, file_path: str) -> Tuple[dict, int, str | bytes]:
         """Handle static file requests using the custom static file folder or the pygeoapi default folder.
 
@@ -68,6 +73,7 @@ class EdrRoutes(tl.HasTraits):
         Tuple[dict, int, str | bytes]
             Headers, HTTP Status, and Content returned as a tuple to make the server response.
         """
+        self.clean_configuration_cache()
         static_path = os.path.join(os.path.dirname(pygeoapi.__file__), "static")
         if "templates" in self.api.config["server"]:
             static_path = self.api.config["server"]["templates"].get("static", static_path)
@@ -94,6 +100,7 @@ class EdrRoutes(tl.HasTraits):
         Tuple[dict, int, str | bytes]
             Headers, HTTP Status, and Content returned as a tuple to make the server response.
         """
+        self.clean_configuration_cache()
         return pygeoapi.api.landing_page(self.api, request)
 
     def openapi(self, request: pygeoapi.api.APIRequest) -> Tuple[dict, int, str | bytes]:
@@ -109,6 +116,7 @@ class EdrRoutes(tl.HasTraits):
         Tuple[dict, int, str | bytes]
             Headers, HTTP Status, and Content returned as a tuple to make the server response.
         """
+        self.clean_configuration_cache()
         return pygeoapi.api.openapi_(self.api, request)
 
     def conformance(self, request: pygeoapi.api.APIRequest) -> Tuple[dict, int, str | bytes]:
@@ -124,6 +132,7 @@ class EdrRoutes(tl.HasTraits):
         Tuple[dict, int, str | bytes]
             Headers, HTTP Status, and Content returned as a tuple to make the server response.
         """
+        self.clean_configuration_cache()
         return pygeoapi.api.conformance(self.api, request)
 
     def describe_collections(
@@ -145,6 +154,7 @@ class EdrRoutes(tl.HasTraits):
         Tuple[dict, int, str | bytes]
             Headers, HTTP Status, and Content returned as a tuple to make the server response.
         """
+        self.clean_configuration_cache()
         return pygeoapi.api.describe_collections(self.api, request, collection_id)
 
     def describe_instances(
@@ -169,7 +179,7 @@ class EdrRoutes(tl.HasTraits):
         Tuple[dict, int, str | bytes]
             Headers, HTTP Status, and Content returned as a tuple to make the server response.
         """
-
+        self.clean_configuration_cache()
         return pygeoedr.get_collection_edr_instances(self.api, request, collection_id, instance_id=instance_id)
 
     def collection_query(
@@ -197,6 +207,7 @@ class EdrRoutes(tl.HasTraits):
         Tuple[dict, int, Any]
             Headers, HTTP Status, and Content returned as a tuple to make the server response.
         """
+        self.clean_configuration_cache()
         headers, http_status, content = pygeoedr.get_collection_edr_query(
             self.api, request, collection_id, instance_id, query_type=query_type, location_id=None
         )
