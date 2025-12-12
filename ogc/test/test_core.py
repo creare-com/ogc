@@ -7,9 +7,9 @@ import numpy as np
 from ogc.wcs_response_1_0_0 import Coverage
 
 # Create some podpac nodes
-data = np.ones((10, 10))
 lat = np.linspace(90, -90, 11)
 lon = np.linspace(-180, 180, 21)
+data = np.random.default_rng(1).random((11, 21))
 coords = podpac.Coordinates([lat, lon], dims=["lat", "lon"])
 node1 = podpac.data.Array(source=data, coordinates=coords)
 node2 = podpac.data.Array(source=data, coordinates=coords)
@@ -20,6 +20,7 @@ layer1 = pogc.Layer(
     identifier="layer1",
     title="Layer 1",
     abstract="Layer1 Data",
+    group="Layers",
 )
 
 layer2 = pogc.Layer(
@@ -27,6 +28,7 @@ layer2 = pogc.Layer(
     identifier="layer2",
     title="Layer 2",
     abstract="Layer2 Data",
+    group="Layers",
 )
 
 

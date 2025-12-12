@@ -29,13 +29,18 @@ classifiers = [
     # that you indicate whether you support Python 2, Python 3 or both.
     "Programming Language :: Python 3",
 ]
-
+requires-python = ">= 3.10"
 dependencies = [
     'podpac[datatype]',
     'flask',
     'lxml',
     'webob',
     'traitlets',
+    'pygeoapi',
+    'shapely',
+    'numpy',
+    'traitlets',
+    'werkzeug',
 ]
 
 [project.optional-dependencies]
@@ -48,6 +53,7 @@ dev = [
     "sphinx-autobuild",
     # TESTING
     "pytest",
+    "pytest-cov",
     "pytest-mock",
     "pytest-html",
     "pytest-remotedata",
@@ -61,6 +67,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.setuptools.package-data]
+ogc = ["edr/static/**/*", "edr/template/static/**/*", "edr/config/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["ogc"]

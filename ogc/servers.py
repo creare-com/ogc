@@ -11,8 +11,12 @@ from flask import Flask, request, Response, make_response, send_file
 import six
 import traceback
 import logging
+from typing import Callable
+from werkzeug.datastructures import ImmutableMultiDict
 
 from ogc.ogc_common import WCSException
+from pygeoapi.api import APIRequest
+from pygeoapi.util import get_api_rules
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +108,89 @@ class FlaskServer(Flask):
             self.add_url_rule(endpoint, view_func=method, methods=["GET", "POST"])  # add render method as flask route
             setattr(self, method_name, method)  # bind route function call to instance method
 
+            # Set up the EDR endpoints for the server
+            strict_slashes = get_api_rules(ogc.edr_routes.api.config).strict_slashes
+            self.add_url_rule(
+                f"/{endpoint}/edr",
+                endpoint=f"{endpoint}_landing_page",
+                view_func=self.edr_render(ogc.edr_routes.landing_page),
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/static/<path:file_path>",
+                endpoint=f"{endpoint}_static_files",
+                view_func=self.edr_render(ogc.edr_routes.static_files),
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/api",
+                endpoint=f"{endpoint}_api",
+                view_func=self.edr_render(ogc.edr_routes.openapi),
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/openapi",
+                endpoint=f"{endpoint}_openapi",
+                view_func=self.edr_render(ogc.edr_routes.openapi),
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/conformance",
+                endpoint=f"{endpoint}_conformance",
+                view_func=self.edr_render(ogc.edr_routes.conformance),
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/collections",
+                endpoint=f"{endpoint}_collections",
+                view_func=self.edr_render(ogc.edr_routes.describe_collections),
+                defaults={"collection_id": None},
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/collections/<path:collection_id>",
+                endpoint=f"{endpoint}_collection",
+                view_func=self.edr_render(ogc.edr_routes.describe_collections),
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/collections/<path:collection_id>/instances",
+                endpoint=f"{endpoint}_instances",
+                view_func=self.edr_render(ogc.edr_routes.describe_instances),
+                defaults={"instance_id": None},
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>",
+                endpoint=f"{endpoint}_instance",
+                view_func=self.edr_render(ogc.edr_routes.describe_instances),
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/collections/<path:collection_id>/<path:query_type>",
+                endpoint=f"{endpoint}_collection_query",
+                view_func=self.edr_render(ogc.edr_routes.collection_query),
+                defaults={"instance_id": None},
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+            self.add_url_rule(
+                f"/{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>/<path:query_type>",
+                endpoint=f"{endpoint}_instance_query",
+                view_func=self.edr_render(ogc.edr_routes.collection_query),
+                methods=["GET"],
+                strict_slashes=strict_slashes,
+            )
+
     def ogc_render(self, ogc_idx):
         logger.info("OGC server.ogc_render %i", ogc_idx)
         if request.method != "GET":
@@ -163,6 +250,71 @@ class FlaskServer(Flask):
             logger.error("OGC: server.ogc_render Exception: %s", str(e), exc_info=True)
             ee = WCSException()
             return respond_xml(ee.to_xml(), status=500)
+
+    def edr_render(self, callable: Callable) -> Callable:
+        """Function which returns a wrapper for the provided callable.
+        Filters arguments and handles any necessary exceptions.
+
+        Parameters
+        ----------
+        callable : Callable
+            The callable request handler to be wrapped.
+
+        Returns
+        -------
+        Callable
+            Wrapped callable with exception handling and argument filtering.
+        """
+
+        def wrapper(*args, **kwargs) -> Response:
+            """Wrapper for the request handler.
+
+            Returns
+            -------
+            Response
+                The response to the request from the callable or a 500 response on error.
+            """
+            logger.info("OGC server.edr_render")
+            if request.method != "GET":
+                return respond_xml("<p>Only GET supported</p>", status=405)
+            try:
+                # We'll filter out any characters from URl parameter values that
+                # are not in the allowlist.
+                # Note the parameter with key "params" has a serialized JSON value,
+                # so we allow braces, brackets, and quotes.
+                # Allowed chars are:
+                #   -, A through Z, a through z, 0 through 9, spaces
+                #   and the characters + . , _ / : * { } ( ) [ ] "
+                allowed_chars = r'-A-Za-z0-9 +.,_/:*\{\}\(\)\[\]"'
+                match_one_unallowed_char = "[^%s]" % allowed_chars
+                filtered_args = {
+                    # Find every unallowed char in the value and replace it
+                    #    with nothing (remove it).
+                    k: re.sub(match_one_unallowed_char, "", str(v))
+                    for (k, v) in request.args.items()
+                }
+                # Replace the arguments with the filtered option
+                request.args = ImmutableMultiDict(filtered_args)
+                pygeoapi_request = APIRequest.from_flask(request, ["en"])
+                # Build the flask response
+                headers, status, content = callable(pygeoapi_request, *args, **kwargs)
+                response = make_response(content, status)
+                if headers:
+                    response.headers = headers
+                # Check Content Disposition for attachment downloads
+                match = re.search(r'filename="?([^"]+)"?', headers.get("Content-Disposition", ""))
+                if match:
+                    filename = match.group(1)
+                    as_attach = True if filename.endswith("zip") or filename.endswith("tif") else False
+                    return send_file(content, as_attachment=as_attach, download_name=filename)
+                else:
+                    return response
+            except Exception as e:
+                logger.error("OGC: server.edr_render Exception: %s", str(e), exc_info=True)
+                ee = WCSException()
+                return respond_xml(ee.to_xml(), status=500)
+
+        return wrapper
 
 
 class FastAPI(object):
