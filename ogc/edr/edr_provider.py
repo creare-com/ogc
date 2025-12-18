@@ -4,6 +4,7 @@ import numpy as np
 import zipfile
 import traitlets as tl
 from datetime import datetime
+from collections import defaultdict
 from typing import List, Dict, Tuple, Any
 from shapely.geometry.base import BaseGeometry
 from pygeoapi.provider.base import ProviderConnectionError, ProviderInvalidQueryError
@@ -16,6 +17,37 @@ from .. import settings
 
 class EdrProvider(BaseEDRProvider):
     """Custom provider to be used with layer data sources."""
+
+    _layers_dict = defaultdict(list)
+
+    @classmethod
+    def set_layers(cls, base_url: str, layers: List[pogc.Layer]):
+        """Set the layer resources which will be available to the provider.
+
+        Parameters
+        ----------
+        base_url : str
+            The base URL that the layers are available on.
+        layers : List[pogc.Layer]
+            The layers which the provider will have access to.
+        """
+        cls._layers_dict[base_url] = layers
+
+    @classmethod
+    def get_layers(cls, base_url: str) -> List[pogc.Layer]:
+        """Get the layer resources for a specific base URL.
+
+        Parameters
+        ----------
+        base_url : str
+            The base URL for the layers.
+
+        Returns
+        -------
+        List[pogc.Layer]
+            The layers associated with the base URL.
+        """
+        return cls._layers_dict.get(base_url, [])
 
     def __init__(self, provider_def: Dict[str, Any]):
         """Construct the provider using the provider definition.
@@ -30,7 +62,7 @@ class EdrProvider(BaseEDRProvider):
         ProviderConnectionError
             Raised if the specified collection is not found within any layers.
         ProviderConnectionError
-            Raised if the provider does not specify any data sources.
+            Raised if the provider does not specify any base URL.
         """
         super().__init__(provider_def)
         collection_id = provider_def.get("data", None)
@@ -39,9 +71,9 @@ class EdrProvider(BaseEDRProvider):
 
         self.collection_id = str(collection_id)
 
-        self.layers = provider_def.get("layers", [])
-        if len(self.layers) == 0:
-            raise ProviderConnectionError("Valid data sources not found.")
+        self.base_url = provider_def.get("base_url", None)
+        if self.base_url is None:
+            raise ProviderConnectionError("Valid URL identifier not found for the data.")
 
     @property
     def parameters(self) -> Dict[str, pogc.Layer]:
@@ -54,7 +86,9 @@ class EdrProvider(BaseEDRProvider):
         Dict[str, pogc.Layer]
             The parameters as a dictionary of layer identifiers and layer objects.
         """
-        return {layer.identifier: layer for layer in self.layers if layer.group == self.collection_id}
+        return {
+            layer.identifier: layer for layer in self.get_layers(self.base_url) if layer.group == self.collection_id
+        }
 
     def handle_query(self, requested_coordinates: podpac.Coordinates, **kwargs):
         """Handle the requests to the EDR server at the specified requested coordinates.
@@ -150,7 +184,8 @@ class EdrProvider(BaseEDRProvider):
         # Return a coverage json if specified, else return Base64 encoded native response
         if output_format == "json" or output_format == "coveragejson":
             crs = self.interpret_crs(requested_native_coordinates.crs if requested_native_coordinates else None)
-            return self.to_coverage_json(self.layers, dataset, crs)
+            layers = self.get_layers(self.base_url)
+            return self.to_coverage_json(layers, dataset, crs)
         else:
             return self.to_geotiff_response(dataset, self.collection_id)
 
@@ -288,7 +323,8 @@ class EdrProvider(BaseEDRProvider):
             The instances available in the collection.
         """
         instances = set()
-        for layer in self.layers:
+        layers = self.get_layers(self.base_url)
+        for layer in layers:
             if layer.group == self.collection_id:
                 instances.update(layer.time_instances())
         return list(instances)

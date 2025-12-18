@@ -51,12 +51,12 @@ class EdrConfig:
 
         # Add the data resources and provider information
         resources = configuration.get("resources", {})
-        configuration["resources"] = resources | EdrConfig._resources_definition(layers)
+        configuration["resources"] = resources | EdrConfig._resources_definition(base_url, layers)
 
         return configuration
 
     @staticmethod
-    def _resources_definition(layers: List[pogc.Layer]) -> Dict[str, Any]:
+    def _resources_definition(base_url: str, layers: List[pogc.Layer]) -> Dict[str, Any]:
         """Define resource related data for the configuration.
 
         The resources dictionary holds the information needed to generate the collections.
@@ -66,6 +66,8 @@ class EdrConfig:
 
         Parameters
         ----------
+        base_url : str
+            The base URL used as an identifier for the given layers.
         layers : List[pogc.Layer]
             The layers which define the data sources for the EDR server.
 
@@ -98,7 +100,7 @@ class EdrConfig:
                             "default": True,
                             "name": "ogc.edr.edr_provider.EdrProvider",
                             "data": group_name,
-                            "layers": group_layers,
+                            "base_url": base_url,
                             "crs": [
                                 "https://www.opengis.net/def/crs/OGC/1.3/CRS84",
                                 "https://www.opengis.net/def/crs/EPSG/0/4326",
