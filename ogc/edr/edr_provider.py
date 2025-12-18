@@ -575,6 +575,10 @@ class EdrProvider(BaseEDRProvider):
         coordinates = next(iter(dataset.values())).coords
         x_arr, y_arr = EdrProvider.crs_converter(coordinates["lon"].values, coordinates["lat"].values, crs)
 
+        # Convert numpy array coordinates to a flattened list.
+        x_arr = list(x_arr.flatten())
+        y_arr = list(y_arr.flatten())
+
         coverage_json = {
             "type": "Coverage",
             "domain": {
@@ -582,13 +586,13 @@ class EdrProvider(BaseEDRProvider):
                 "domainType": "Grid",
                 "axes": {
                     "x": {
-                        "start": x_arr[0],
-                        "stop": x_arr[-1],
+                        "start": x_arr[0] if len(x_arr) > 0 else None,
+                        "stop": x_arr[-1] if len(x_arr) > 0 else None,
                         "num": len(x_arr),
                     },
                     "y": {
-                        "start": y_arr[0],
-                        "stop": y_arr[-1],
+                        "start": y_arr[0] if len(y_arr) > 0 else None,
+                        "stop": y_arr[-1] if len(y_arr) > 0 else None,
                         "num": len(y_arr),
                     },
                 },
