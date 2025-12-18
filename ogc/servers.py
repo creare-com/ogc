@@ -288,11 +288,15 @@ class FlaskServer(Flask):
                 allowed_chars = r'-A-Za-z0-9 +.,_/:*\{\}\(\)\[\]"'
                 match_one_unallowed_char = "[^%s]" % allowed_chars
                 filtered_args = {
+                    # Convert keys to lower-case.
                     # Find every unallowed char in the value and replace it
                     #    with nothing (remove it).
-                    k: re.sub(match_one_unallowed_char, "", str(v))
+                    k.lower(): re.sub(match_one_unallowed_char, "", str(v))
                     for (k, v) in request.args.items()
                 }
+                # Replace format with its lowercase version to match pygeoapi expectations
+                if filtered_args.get("f", None):
+                    filtered_args["f"] = filtered_args["f"].lower()
                 # Replace the arguments with the filtered option
                 request.args = ImmutableMultiDict(filtered_args)
                 pygeoapi_request = APIRequest.from_flask(request, ["en"])
