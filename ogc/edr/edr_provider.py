@@ -177,6 +177,14 @@ class EdrProvider(BaseEDRProvider):
         dataset = {}
         for requested_parameter, layer in parameters_filtered.items():
             units_data_array = layer.node.eval(requested_native_coordinates)
+            # Recombine stacked temporal dimensions if necessary.
+            # The temporal output should always be stacked, based on stacked input.
+            if "time_forecastOffsetHr" in units_data_array.dims:
+                forecast_offsets = units_data_array.forecastOffsetHr.data.copy()
+                time_data = units_data_array.time.data.copy()
+                units_data_array = units_data_array.drop_vars({"time", "time_forecastOffsetHr", "forecastOffsetHr"})
+                units_data_array = units_data_array.rename(time_forecastOffsetHr="time")
+                units_data_array = units_data_array.assign_coords(time=time_data + forecast_offsets)
             dataset[requested_parameter] = units_data_array
 
         self.check_query_condition(len(dataset) == 0, "No matching parameters found.")
@@ -737,8 +745,8 @@ class EdrProvider(BaseEDRProvider):
         target_coordinates: podpac.Coordinates,
         source_time_instance: np.datetime64 | None,
     ) -> podpac.Coordinates:
-        """Find the intersecting coordinates between source and target coordinates.
-        Convert time instances to offsets for node evalutation.
+        """Find the intersecting latitude and longitude coordinates between the source and target.
+        Convert time instances to stacked time and forecast offsets for node evalutation.
 
         Parameters
         ----------
@@ -754,6 +762,9 @@ class EdrProvider(BaseEDRProvider):
         podpac.Coordinates
             The converted coordinates source coordinates intersecting with the target coordinates.
         """
+        # Find intersections with target keeping source crs
+        source_intersection_coordinates = target_coordinates.intersect(source_coordinates, dims=["lat", "lon"])
+        source_intersection_coordinates = source_intersection_coordinates.transform(source_coordinates.crs)
         # Handle conversion from times and instance to time and offsets
         if (
             "forecastOffsetHr" in target_coordinates.udims
@@ -768,14 +779,12 @@ class EdrProvider(BaseEDRProvider):
 
             # This modifies the time coordinates to account for the new forecast offset hour
             new_coordinates = podpac.Coordinates(
-                [[source_time_instance], time_deltas],
-                ["time", "forecastOffsetHr"],
+                [[[source_time_instance] * len(time_deltas), time_deltas]],
+                [["time", "forecastOffsetHr"]],
                 crs=source_coordinates.crs,
             )
-            source_coordinates = podpac.coordinates.merge_dims([source_coordinates.drop("time"), new_coordinates])
-
-        # Find intersections with target keeping source crs
-        source_intersection_coordinates = target_coordinates.intersect(source_coordinates)
-        source_intersection_coordinates = source_intersection_coordinates.transform(source_coordinates.crs)
+            source_intersection_coordinates = podpac.coordinates.merge_dims(
+                [source_intersection_coordinates.udrop(["time", "forecastOffsetHr"]), new_coordinates]
+            )
 
         return source_intersection_coordinates
