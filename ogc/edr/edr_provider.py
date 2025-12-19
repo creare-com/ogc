@@ -170,7 +170,7 @@ class EdrProvider(BaseEDRProvider):
         )
 
         self.check_query_condition(
-            requested_native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE,
+            bool(requested_native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE),
             "Grid coordinates x_size * y_size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
         )
 
@@ -225,11 +225,13 @@ class EdrProvider(BaseEDRProvider):
         crs = EdrProvider.interpret_crs(crs)
 
         if not isinstance(wkt, BaseGeometry):
-            raise ProviderInvalidQueryError("Invalid wkt provided.")
+            msg = "Invalid WKT string provided for the position query."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
         elif wkt.geom_type == "Point":
             lon, lat = EdrProvider.crs_converter([wkt.x], [wkt.y], crs)
         else:
-            raise ProviderInvalidQueryError("Unknown WKT Type (Use Point).")
+            msg = "Unknown WKT string type for the position query (use Point)."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
 
         requested_coordinates = podpac.Coordinates([lat, lon], dims=["lat", "lon"], crs=crs)
 
@@ -260,7 +262,8 @@ class EdrProvider(BaseEDRProvider):
         crs = EdrProvider.interpret_crs(crs)
 
         if not isinstance(bbox, List) or len(bbox) != 4:
-            raise ProviderInvalidQueryError("Invalid bounding box provided.")
+            msg = "Invalid bounding box provided, expected bounding box of (minx, miny, maxx, maxy)."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
 
         xmin, ymin, xmax, ymax = bbox
         lon, lat = EdrProvider.crs_converter([xmin, xmax], [ymin, ymax], crs)
@@ -297,11 +300,13 @@ class EdrProvider(BaseEDRProvider):
         crs = EdrProvider.interpret_crs(crs)
 
         if not isinstance(wkt, BaseGeometry):
-            raise ProviderInvalidQueryError("Invalid wkt provided.")
+            msg = "Invalid WKT string provided for the area query."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
         elif wkt.geom_type == "Polygon":
             lon, lat = EdrProvider.crs_converter(wkt.exterior.xy[0], wkt.exterior.xy[1], crs)
         else:
-            raise ProviderInvalidQueryError("Unknown WKT Type (Use Polygon).")
+            msg = "Unknown WKT string type for the area query (use Polygon)."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
 
         requested_coordinates = podpac.Coordinates([lat, lon], dims=["lat", "lon"], crs=crs)
 
@@ -426,7 +431,8 @@ class EdrProvider(BaseEDRProvider):
             return settings.crs_84_pyproj_format  # Pyproj acceptable format
 
         if crs.lower() not in [key.lower() for key in settings.EDR_CRS.keys()]:
-            raise ProviderInvalidQueryError("Invalid CRS provided.")
+            msg = f"Invalid CRS provided, expected one of {', '.join(settings.EDR_CRS.keys())}"
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
 
         return crs
 
@@ -683,7 +689,7 @@ class EdrProvider(BaseEDRProvider):
             Raised if the conditional provided is true.
         """
         if conditional:
-            raise ProviderInvalidQueryError(message)
+            raise ProviderInvalidQueryError(message, user_msg=message)
 
     @staticmethod
     def validate_datetime(datetime_string: str) -> bool:
