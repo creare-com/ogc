@@ -184,7 +184,7 @@ def test_edr_provider_position_request_valid_wkt(
 
     response = provider.position(**args)
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == set(["lat", "lon", "time"])
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )
@@ -261,7 +261,7 @@ def test_edr_provider_cube_request_valid_bbox(
 
     response = provider.cube(**args)
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == set(["lat", "lon", "time"])
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )
@@ -337,7 +337,7 @@ def test_edr_provider_area_request_valid_wkt(layers: List[pogc.Layer], single_la
 
     response = provider.area(**args)
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == set(["lat", "lon", "time"])
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )

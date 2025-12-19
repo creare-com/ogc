@@ -226,7 +226,7 @@ def test_edr_routes_collection_query(layers: List[pogc.Layer], single_layer_cube
 
     assert status == HTTPStatus.OK
 
-    assert set(content["domain"]["ranges"][parameter_name]["axisNames"]) == set(["lat", "lon", "time"])
+    assert set(content["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
     assert np.prod(np.array(content["domain"]["ranges"][parameter_name]["shape"])) == len(
         content["domain"]["ranges"][parameter_name]["values"]
     )
