@@ -15,6 +15,7 @@ from pygeoapi.openapi import get_oas
 from ogc import podpac as pogc
 
 from .edr_config import EdrConfig
+from .edr_provider import EdrProvider
 
 
 class EdrRoutes(tl.HasTraits):
@@ -51,7 +52,7 @@ class EdrRoutes(tl.HasTraits):
         # This is a bypass which is needed to get by a conditional check in pygeoapi.
         pygeoapi.plugin.PLUGINS["formatter"]["GeoTiff"] = ""
         pygeoapi.plugin.PLUGINS["formatter"]["CoverageJSON"] = ""
-
+        EdrProvider.set_layers(self.base_url, self.layers)
         config = EdrConfig.get_configuration(self.base_url, self.layers)
         open_api = get_oas(config, fail_on_invalid_collection=False)
         return pygeoapi.api.API(config=deepcopy(config), openapi=open_api)
