@@ -29,7 +29,7 @@ def get_provider_definition(base_url: str) -> Dict[str, Any]:
         "name": "ogc.edr.edr_provider.EdrProvider",
         "data": "Layers",
         "base_url": base_url,
-        "crs": ["https://www.opengis.net/def/crs/OGC/1.3/CRS84", "https://www.opengis.net/def/crs/EPSG/0/4326"],
+        "crs": ["http://www.opengis.net/def/crs/OGC/1.3/CRS84", "http://www.opengis.net/def/crs/EPSG/0/4326"],
         "format": {"name": "GeoJSON", "mimetype": "application/json"},
     }
 
@@ -573,12 +573,13 @@ def test_edr_provider_altitude_invalid_string():
 
 def test_edr_provider_crs_interpreter_default_value():
     """Test the CRS interpretation returns a default value when the argument is None."""
-    assert EdrProvider.interpret_crs(None) == "urn:ogc:def:crs:OGC:1.3:CRS84"
+    assert EdrProvider.interpret_crs(None) == "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 
 
 def test_edr_provider_crs_interpreter_valid_value():
     """Test the CRS interpretation returns a valid value when the argument is acceptable."""
-    assert EdrProvider.interpret_crs("epsg:4326") == "epsg:4326"
+    crs = "http://www.opengis.net/def/crs/EPSG/0/4326"
+    assert EdrProvider.interpret_crs(crs) == crs
 
 
 def test_edr_provider_crs_interpreter_invalid_value():
