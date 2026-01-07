@@ -304,6 +304,9 @@ class FlaskServer(Flask):
                 # Replace format with its lowercase version to match pygeoapi expectations
                 if filtered_args.get("f", None):
                     filtered_args["f"] = filtered_args["f"].lower()
+
+                filtered_args["base_url"] = request.base_url
+
                 # Replace the arguments with the filtered option
                 request.args = ImmutableMultiDict(filtered_args)
                 pygeoapi_request = APIRequest.from_flask(request, ["en"])
