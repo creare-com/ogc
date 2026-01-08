@@ -1,5 +1,5 @@
 # Base image for the development container
-ARG BASE_URL=python:3.11-slim
+ARG BASE_URL=python:3.12-slim
 FROM ${BASE_URL}
 
 USER root
