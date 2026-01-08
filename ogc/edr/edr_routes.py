@@ -61,8 +61,8 @@ class EdrRoutes(tl.HasTraits):
         """
         # Allow specifying GeoTiff or CoverageJSON in the format argument.
         # This is a bypass which is needed to get by a conditional check in pygeoapi.
-        pygeoapi.plugin.PLUGINS["formatter"]["GeoTiff"] = ""
-        pygeoapi.plugin.PLUGINS["formatter"]["CoverageJSON"] = ""
+        pygeoapi.plugin.PLUGINS["formatter"]["geotiff"] = ""
+        pygeoapi.plugin.PLUGINS["formatter"]["coveragejson"] = ""
         EdrProvider.set_layers(self.base_url, self.layers)
         config = EdrConfig.get_configuration(self.base_url, self.layers)
         open_api = get_oas(config, fail_on_invalid_collection=False)
