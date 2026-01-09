@@ -10,8 +10,9 @@ import os
 
 # Settings applied around the OGC server package.
 crs_84 = "crs:84"
-crs_84_pyproj_format = "urn:ogc:def:crs:OGC:1.3:CRS84"
 epsg_4326 = "epsg:4326"
+crs_84_uri_format = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+epsg_4326_uri_format = "http://www.opengis.net/def/crs/EPSG/0/4326"
 
 # Default/Supported WMS CRS/SRS
 WMS_CRS = {
@@ -32,9 +33,8 @@ WCS_CRS = {
     crs_84: {"minx": -180, "miny": -90, "maxx": 180, "maxy": 90},
 }
 EDR_CRS = {
-    epsg_4326: {"minx": -90.0, "miny": -180.0, "maxx": 90.0, "maxy": 180.0},
-    crs_84: {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
-    crs_84_pyproj_format: {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
+    epsg_4326_uri_format: {"minx": -90.0, "miny": -180.0, "maxx": 90.0, "maxy": 180.0},
+    crs_84_uri_format: {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
 }
 
 # WMS Capabilities timestamp format

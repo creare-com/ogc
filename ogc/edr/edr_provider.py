@@ -427,8 +427,8 @@ class EdrProvider(BaseEDRProvider):
         ProviderInvalidQueryError
             Raised if the provided CRS string is unknown.
         """
-        if crs is None or crs.lower() == "crs:84":
-            return settings.crs_84_pyproj_format  # Pyproj acceptable format
+        if crs is None:
+            return settings.crs_84_uri_format  # Pyproj acceptable format
 
         if crs.lower() not in [key.lower() for key in settings.EDR_CRS.keys()]:
             msg = f"Invalid CRS provided, expected one of {', '.join(settings.EDR_CRS.keys())}"

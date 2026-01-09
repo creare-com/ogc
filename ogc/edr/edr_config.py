@@ -102,8 +102,8 @@ class EdrConfig:
                             "data": group_name,
                             "base_url": base_url,
                             "crs": [
-                                "https://www.opengis.net/def/crs/OGC/1.3/CRS84",
-                                "https://www.opengis.net/def/crs/EPSG/0/4326",
+                                settings.crs_84_uri_format,
+                                settings.epsg_4326_uri_format,
                             ],
                             "format": {
                                 "name": "geotiff",
@@ -163,14 +163,14 @@ class EdrConfig:
         return {
             "spatial": {
                 "bbox": [llc_lon, llc_lat, urc_lon, urc_lat],  # minx, miny, maxx, maxy
-                "crs": "https://www.opengis.net/def/crs/OGC/1.3/CRS84",
+                "crs": settings.crs_84_uri_format,
             },
             **(
                 {
                     "temporal": {
                         "begin": datetime.fromisoformat(time_range[0]),  # start datetime in RFC3339
                         "end": datetime.fromisoformat(time_range[-1]),  # end datetime in RFC3339
-                        "trs": "https://www.opengis.net/def/uom/ISO-8601/0/Gregorian",
+                        "trs": "http://www.opengis.net/def/uom/ISO-8601/0/Gregorian",
                     }
                 }
                 if time_range is not None
@@ -200,5 +200,5 @@ class EdrConfig:
                 layer.grid_coordinates.URC.lat,
             )
         except Exception:
-            crs_extents = settings.EDR_CRS["crs:84"]
+            crs_extents = settings.EDR_CRS[settings.crs_84_uri_format]
             return (crs_extents["minx"], crs_extents["miny"], crs_extents["maxx"], crs_extents["maxy"])

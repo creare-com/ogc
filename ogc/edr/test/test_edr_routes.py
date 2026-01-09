@@ -24,7 +24,7 @@ def mock_request(request_args: Dict[str, Any] = {}) -> APIRequest:
     APIRequest
         Mock API request for route testing.
     """
-    environ = create_environ(base_url="http://127.0.0.1:5000/ogc/")
+    environ = create_environ(base_url="http://127.0.0.1:5000/ogc/edr")
     request = Request(environ)
     request.args = ImmutableMultiDict(request_args.items())
     return APIRequest(request, ["en"])
@@ -336,3 +336,16 @@ def test_edr_routes_collection_query_missing_parameter(
     )
 
     assert status == HTTPStatus.BAD_REQUEST
+
+
+def test_edr_routes_request_url_updates_configuration_url():
+    """Test the EDR routes request base URL updates the configuration URL."""
+    request_url = "http://test:5000/ogc/edr/static/img/logo.png"
+    expected_config_url = "http://test:5000/ogc/edr"
+    request = mock_request({"base_url": request_url})
+    edr_routes = EdrRoutes(layers=[])
+
+    _, status, _ = edr_routes.static_files(request, "img/logo.png")
+
+    assert status == HTTPStatus.OK
+    assert edr_routes.api.config["server"]["url"] == expected_config_url

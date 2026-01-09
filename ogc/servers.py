@@ -54,6 +54,13 @@ def home(endpoint):
             <li><a href="?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&LAYER={test_layer}&STYLE=default&FORMAT=image/png">WMS GetLegend Example (PNG)</a> <i>(v1.3.0)</i></li>
         </ul>
         </li>
+        <li> EDR: Open Geospatial Consortium (OGC) Environmental Data Retrieval (EDR) <i>(v1.0.1)</i>
+        <ul>
+            <li><a href="{endpoint}/edr?f=html">EDR Landing Page (HTML)</a> <i>(v1.0.1)</i></li>
+            <li><a href="{endpoint}/edr/conformance?f=json">EDR Conformance (JSON)</a> <i>(v1.0.1)</i></li>
+            <li><a href="{endpoint}/edr/collections?f=json">EDR Collections (JSON)</a> <i>(v1.0.1)</i></li>
+        </ul>
+        </li>
     </ul>
     """
 
@@ -297,6 +304,9 @@ class FlaskServer(Flask):
                 # Replace format with its lowercase version to match pygeoapi expectations
                 if filtered_args.get("f", None):
                     filtered_args["f"] = filtered_args["f"].lower()
+
+                filtered_args["base_url"] = request.base_url
+
                 # Replace the arguments with the filtered option
                 request.args = ImmutableMultiDict(filtered_args)
                 pygeoapi_request = APIRequest.from_flask(request, ["en"])
