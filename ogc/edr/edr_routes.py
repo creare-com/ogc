@@ -253,8 +253,11 @@ class EdrRoutes(tl.HasTraits):
         if "fn" in content and "fp" in content:
             # Return the file name in the header and the content as only the binary data
             filename = content["fn"]
+            headers["Content-Type"] = "image/tiff"
             headers["Content-Disposition"] = f"attachment; filename={filename}"
             # Decode the content string which is the Base64 representation of the data
             content = io.BytesIO(base64.b64decode(content["fp"]))
+        else:
+            headers["Content-Type"] = "application/prs.coverage+json"
 
         return headers, http_status, content
