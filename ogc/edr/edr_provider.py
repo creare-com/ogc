@@ -612,16 +612,32 @@ class EdrProvider(BaseEDRProvider):
                 },
                 "referencing": [
                     {
-                        "coordinates": ["lon", "lat"],
+                        "coordinates": ["x", "y"],
                         "system": {"type": "GeographicCRS", "id": crs},
                     },
-                    {
-                        "coordinates": ["t"],
-                        "system": {
-                            "type": "TemporalRS",
-                            "calendar": "Gregorian",
-                        },
-                    },
+                    *(
+                        [
+                            {
+                                "coordinates": ["t"],
+                                "system": {
+                                    "type": "TemporalRS",
+                                    "calendar": "Gregorian",
+                                },
+                            }
+                        ]
+                        if "time" in coordinates.dims
+                        else []
+                    ),
+                    *(
+                        [
+                            {
+                                "coordinates": ["z"],
+                                "system": {"type": "VerticalCRS"},
+                            }
+                        ]
+                        if "alt" in coordinates.dims
+                        else []
+                    ),
                 ],
                 "parameters": {},
                 "ranges": {},
