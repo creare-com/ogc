@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import numpy as np
 import traitlets as tl
 from datetime import datetime
@@ -52,6 +53,11 @@ class EdrConfig:
         # Add the data resources and provider information
         resources = configuration.get("resources", {})
         configuration["resources"] = resources | EdrConfig._resources_definition(base_url, layers)
+
+        # Force the log level based on the configuration as it is loaded, otherwise it is ignored
+        if configuration.get("logging", {}).get("level"):
+            api_logger = logging.getLogger("pygeoapi")
+            api_logger.setLevel(configuration["logging"]["level"])
 
         return configuration
 
