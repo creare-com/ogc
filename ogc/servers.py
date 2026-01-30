@@ -17,6 +17,7 @@ from werkzeug.datastructures import ImmutableMultiDict
 from ogc.ogc_common import WCSException
 from pygeoapi.api import APIRequest
 from pygeoapi.util import get_api_rules
+from . import settings
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +194,7 @@ class FlaskServer(Flask):
             self.add_url_rule(
                 f"/{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>/<path:query_type>",
                 endpoint=f"{endpoint}_instance_query",
-                view_func=self.edr_render(ogc.edr_routes.collection_query),
+                view_func=self.edr_render(ogc.edr_routes.collection_query, default_format=settings.GEOTIFF),
                 methods=["GET"],
                 strict_slashes=strict_slashes,
             )
@@ -258,7 +259,7 @@ class FlaskServer(Flask):
             ee = WCSException()
             return respond_xml(ee.to_xml(), status=500)
 
-    def edr_render(self, callable: Callable) -> Callable:
+    def edr_render(self, callable: Callable, default_format: str | None = "json") -> Callable:
         """Function which returns a wrapper for the provided callable.
         Filters arguments and handles any necessary exceptions.
 
@@ -266,6 +267,8 @@ class FlaskServer(Flask):
         ----------
         callable : Callable
             The callable request handler to be wrapped.
+        default_format: str | None
+            The optional default data output format, by default "json".
 
         Returns
         -------
@@ -302,8 +305,9 @@ class FlaskServer(Flask):
                     for (k, v) in request.args.items()
                 }
                 # Replace format with its lowercase version to match pygeoapi expectations
-                if filtered_args.get("f", None):
-                    filtered_args["f"] = filtered_args["f"].lower()
+                format_argument = filtered_args.get("f", default_format)
+                if format_argument is not None:
+                    filtered_args["f"] = format_argument.lower()
 
                 filtered_args["base_url"] = request.base_url
 

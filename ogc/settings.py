@@ -37,6 +37,12 @@ EDR_CRS = {
     crs_84_uri_format: {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
 }
 
+# EDR query output formats
+GEOTIFF = "GeoTIFF"
+JSON = "JSON"
+COVERAGE_JSON = "CoverageJSON"
+EDR_QUERY_FORMATS = [GEOTIFF, COVERAGE_JSON, JSON]
+
 # WMS Capabilities timestamp format
 USE_TIMES_LIST = False
 PAST_DAYS_INCLUDED = 7
