@@ -249,6 +249,9 @@ class EdrRoutes(tl.HasTraits):
             self.api, request, collection_id, instance_id, query_type=query_type, location_id=None
         )
 
+        if "text/html" in headers.get("Content-Type", ""):
+            return headers, http_status, content
+
         content = json.loads(content)
         if "fn" in content and "fp" in content:
             # Return the file name in the header and the content as only the binary data

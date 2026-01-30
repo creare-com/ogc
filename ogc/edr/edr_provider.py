@@ -200,7 +200,11 @@ class EdrProvider(BaseEDRProvider):
 
         self.check_query_condition(len(dataset) == 0, "No matching parameters found.")
 
-        if output_format == settings.COVERAGE_JSON.lower() or output_format == settings.JSON.lower():
+        if (
+            output_format == settings.COVERAGE_JSON.lower()
+            or output_format == settings.JSON.lower()
+            or output_format == settings.HTML.lower()
+        ):
             crs = self.interpret_crs(requested_native_coordinates.crs if requested_native_coordinates else None)
             layers = self.get_layers(self.base_url, self.collection_id)
             return self.to_coverage_json(layers, dataset, crs)
