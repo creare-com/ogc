@@ -461,7 +461,7 @@ def test_edr_provider_datetime_single_value():
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
     expected_times = [np.datetime64(available_times[0])]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
@@ -470,10 +470,12 @@ def test_edr_provider_datetime_single_value():
 def test_edr_provider_datetime_range_closed():
     """Test the datetime interpreter method of the EDR Provider class with a closed datetime range."""
     time_string = "2025-10-24/2025-10-26"
-    available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
-    expected_times = [np.datetime64(time) for time in available_times[0:3]]
+    available_times = np.array(
+        ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"], dtype="datetime64"
+    )
+    expected_times = [time for time in available_times[0:3]]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
@@ -482,10 +484,12 @@ def test_edr_provider_datetime_range_closed():
 def test_edr_provider_datetime_open_start():
     """Test the datetime interpreter method of the EDR Provider class with a open datetime start."""
     time_string = "../2025-10-27"
-    available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
-    expected_times = [np.datetime64(time) for time in available_times[0:4]]
+    available_times = np.array(
+        ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"], dtype="datetime64"
+    )
+    expected_times = [time for time in available_times[0:4]]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
@@ -494,10 +498,12 @@ def test_edr_provider_datetime_open_start():
 def test_edr_provider_datetime_open_end():
     """Test the datetime interpreter method of the EDR Provider class with a open datetime end."""
     time_string = "2025-10-25/.."
-    available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
-    expected_times = [np.datetime64(time) for time in available_times[1:]]
+    available_times = np.array(
+        ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"], dtype="datetime64"
+    )
+    expected_times = [time for time in available_times[1:]]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
@@ -506,11 +512,12 @@ def test_edr_provider_datetime_open_end():
 def test_edr_provider_datetime_invalid_string():
     """Test the datetime interpreter method of the EDR Provider class with an invalid string."""
     time_string = "2025-10-25/../../.."
-    available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
+    available_times = np.array(
+        ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"], dtype="datetime64"
+    )
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
-
-    assert time_coords is None
+    with pytest.raises(ProviderInvalidQueryError):
+        EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
 
 def test_edr_provider_altitude_single_value():
@@ -566,9 +573,8 @@ def test_edr_provider_altitude_invalid_string():
     altitude_string = "../20"
     available_altitudes = [0.0, 5.0, 10.0, 15.0, 20.0]
 
-    altitude_coords = EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
-
-    assert altitude_coords is None
+    with pytest.raises(ProviderInvalidQueryError):
+        EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
 
 
 def test_edr_provider_crs_interpreter_default_value():
@@ -597,4 +603,4 @@ def test_edr_provider_crs_converter():
     lon = y
     lat = x
 
-    assert EdrProvider.crs_converter(x, y, "epsg:4326") == (lon, lat)
+    assert EdrProvider.crs_converter(x, y, "http://www.opengis.net/def/crs/EPSG/0/4326") == (lon, lat)

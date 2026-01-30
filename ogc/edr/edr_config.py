@@ -1,9 +1,7 @@
 import os
 import json
 import logging
-import numpy as np
 import traitlets as tl
-from datetime import datetime
 from collections import defaultdict
 from typing import List, Dict, Tuple, Any
 from ogc import podpac as pogc
@@ -100,6 +98,8 @@ class EdrConfig:
                     "description": f"Collection of data related to {group_name}",
                     "keywords": ["podpac"],
                     "extents": EdrConfig._generate_extents(group_layers),
+                    "height_units": EdrConfig._vertical_units(group_layers),
+                    "output_formats": settings.EDR_QUERY_FORMATS,
                     "providers": [
                         {
                             "type": "edr",
@@ -112,7 +112,7 @@ class EdrConfig:
                                 settings.epsg_4326_uri_format,
                             ],
                             "format": {
-                                "name": "geotiff",
+                                "name": settings.GEOTIFF,
                                 "mimetype": "image/tiff",
                             },
                         }
@@ -138,8 +138,8 @@ class EdrConfig:
             The extents dictionary for the layers.
         """
         llc_lon, llc_lat, urc_lon, urc_lat = None, None, None, None
-        min_time, max_time = None, None
-        time_range = None
+        time_range = set()
+        vertical_range = set()
         # Determine bounding box which holds all layers
         for layer in layers:
             llc_lon_tmp, llc_lat_tmp, urc_lon_tmp, urc_lat_tmp = EdrConfig._wgs84_bounding_box(layer)
@@ -151,20 +151,15 @@ class EdrConfig:
                 urc_lon = max(urc_lon, urc_lon_tmp)
                 urc_lat = max(urc_lat, urc_lat_tmp)
 
-            if hasattr(layer, "valid_times") and layer.valid_times is not tl.Undefined and len(layer.valid_times) > 0:
-                layer_min_time = np.min(layer.valid_times)
-                layer_max_time = np.max(layer.valid_times)
-                if any(time is None for time in [min_time, max_time]):
-                    min_time = layer_min_time
-                    max_time = layer_max_time
-                else:
-                    min_time = min(min_time, layer_min_time)
-                    max_time = max(max_time, layer_max_time)
+            coordinates_list = layer.get_coordinates_list()
+            if len(coordinates_list) > 0 and "alt" in coordinates_list[0].udims:
+                vertical_range.update(coordinates_list[0]["alt"].coordinates)
 
-                time_range = [
-                    min_time.isoformat(),
-                    max_time.isoformat(),
-                ]
+            if hasattr(layer, "valid_times") and layer.valid_times is not tl.Undefined and len(layer.valid_times) > 0:
+                time_range.update(layer.valid_times)
+
+        sorted_time_range = sorted(time_range)
+        sorted_vertical_range = sorted(vertical_range)
 
         return {
             "spatial": {
@@ -174,12 +169,24 @@ class EdrConfig:
             **(
                 {
                     "temporal": {
-                        "begin": datetime.fromisoformat(time_range[0]),  # start datetime in RFC3339
-                        "end": datetime.fromisoformat(time_range[-1]),  # end datetime in RFC3339
+                        "begin": sorted_time_range[0],  # start datetime in RFC3339
+                        "end": sorted_time_range[-1],  # end datetime in RFC3339
+                        "values": sorted_time_range,
                         "trs": "http://www.opengis.net/def/uom/ISO-8601/0/Gregorian",
                     }
                 }
-                if time_range is not None
+                if len(sorted_time_range) > 0
+                else {}
+            ),
+            **(
+                {
+                    "vertical": {
+                        "interval": [sorted_vertical_range[0], sorted_vertical_range[-1]],
+                        "values": sorted_vertical_range,
+                        "vrs": "http://www.opengis.net/def/uom/EPSG/0/9001",
+                    }
+                }
+                if len(sorted_vertical_range) > 0
                 else {}
             ),
         }
@@ -208,3 +215,25 @@ class EdrConfig:
         except Exception:
             crs_extents = settings.EDR_CRS[settings.crs_84_uri_format]
             return (crs_extents["minx"], crs_extents["miny"], crs_extents["maxx"], crs_extents["maxy"])
+
+    @staticmethod
+    def _vertical_units(layers: List[pogc.Layer]) -> List[str]:
+        """Retrieve the vertical units for the layers.
+
+        Parameters
+        ----------
+        layer : List[pogc.Layer]
+            The layers from which to get the vertical units.
+
+        Returns
+        -------
+        str | None
+            The vertical units available for the layers.
+        """
+        vertical_units = set()
+        for layer in layers:
+            coordinates_list = layer.get_coordinates_list()
+            if len(coordinates_list) > 0 and coordinates_list[0].alt_units:
+                vertical_units.add(coordinates_list[0].alt_units)
+
+        return list(vertical_units)
