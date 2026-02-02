@@ -117,6 +117,16 @@ class EdrConfig:
                             },
                         }
                     ],
+                    "formatters": [
+                        {
+                            "name": "ogc.edr.edr_formatter.GeoTiffFormatter",
+                            "mimetype": "image/tiff",
+                        },
+                        {
+                            "name": "ogc.edr.edr_formatter.CoverageJsonFormatter",
+                            "mimetype": "application/prs.coverage+json",
+                        },
+                    ],
                 }
             }
             resources.update(resource)
