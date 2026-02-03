@@ -170,7 +170,6 @@ class EdrProvider(BaseEDRProvider):
                 len(altitude_coords["alt"].coordinates) > 1 and output_format == settings.GEOTIFF.lower(),
                 "GeoTIFF output currently only supports single altitude requests.",
             )
-            self.check_query_condition(len(requested_parameters) == 0, "Invalid parameters provided.")
             requested_coordinates = podpac.coordinates.merge_dims([altitude_coords, requested_coordinates])
 
         # Handle defining native coordinates for the query, these should match between each layer
@@ -276,7 +275,7 @@ class EdrProvider(BaseEDRProvider):
         if len(bbox) == 6:
             xmin, ymin, zmin, xmax, ymax, zmax = bbox
             # Set the z argument if not specified using a closed interval from the bounding box data
-            if kwargs["z"] is None:
+            if kwargs.get("z") is None:
                 kwargs["z"] = f"{zmin}/{zmax}"
         else:
             xmin, ymin, xmax, ymax = bbox
@@ -650,14 +649,14 @@ class EdrProvider(BaseEDRProvider):
             Raised if the provided altitude string is invalid.
         """
 
-        if len(available_altitudes) == 0:
+        if not altitude_string and len(available_altitudes) == 0:
             return None
-        if not altitude_string:
-            return podpac.Coordinates([available_altitudes], dims=["alt"], crs=crs)
 
         try:
             altitudes = None
-            if "/" in altitude_string:
+            if not altitude_string:
+                altitudes = available_altitudes
+            elif "/" in altitude_string:
                 altitudes_split = altitude_string.split("/")
                 if len(altitudes_split) == 2:
                     minimum = float(altitudes_split[0])
@@ -671,6 +670,10 @@ class EdrProvider(BaseEDRProvider):
             else:
                 altitudes = [float(alt) for alt in altitude_string.split(",")]
         except ValueError:
+            msg = "Invalid vertical level requested."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
+
+        if altitudes is None:
             msg = "Invalid vertical level requested."
             raise ProviderInvalidQueryError(msg, user_msg=msg)
 
@@ -711,28 +714,25 @@ class EdrProvider(BaseEDRProvider):
             Raised if the provided time string is invalid.
         """
 
-        if len(available_times) == 0:
+        if not time_string and len(available_times) == 0:
             return None
 
         try:
             times = None
-            np_available_times = np.array(available_times)
             if not time_string:
-                times = np_available_times
+                times = available_times
             elif "/" in time_string:
                 times_split = time_string.split("/")
                 if len(times_split) == 2:
                     minimum = times_split[0]
                     maximum = times_split[1]
                     if minimum == "..":
-                        times = [time for time in np_available_times if time <= np.datetime64(maximum)]
+                        times = [time for time in available_times if time <= np.datetime64(maximum)]
                     elif maximum == "..":
-                        times = [time for time in np_available_times if time >= np.datetime64(minimum)]
+                        times = [time for time in available_times if time >= np.datetime64(minimum)]
                     else:
                         times = [
-                            time
-                            for time in np_available_times
-                            if np.datetime64(minimum) <= time <= np.datetime64(maximum)
+                            time for time in available_times if np.datetime64(minimum) <= time <= np.datetime64(maximum)
                         ]
             else:
                 times = [np.datetime64(time_string)]
@@ -895,26 +895,6 @@ class EdrProvider(BaseEDRProvider):
         """
         if conditional:
             raise ProviderInvalidQueryError(message, user_msg=message)
-
-    @staticmethod
-    def validate_datetime(datetime_string: str) -> bool:
-        """Validate whether a string can be converted to a numpy datetime.
-
-        Parameters
-        ----------
-        date_string : str
-            The datetime string to be validated.
-
-        Returns
-        -------
-        bool
-            Whether the datetime string can be converted to a numpy datetime.
-        """
-        try:
-            np.datetime64(datetime_string)
-            return True
-        except ValueError:
-            return False
 
     @staticmethod
     def to_geotiff_response(dataset: Dict[str, podpac.UnitsDataArray], collection_id: str) -> Dict[str, Any]:

@@ -230,6 +230,8 @@ def test_edr_provider_position_request_invalid_property(
     """
     base_url = "/"
     args = single_layer_cube_args_internal
+    del args["bbox"]
+    args["wkt"] = Point(5.2, 52.1)
     args["select_properties"] = "invalid"
 
     provider = EdrProvider(provider_def=get_provider_definition(base_url))
@@ -283,6 +285,30 @@ def test_edr_provider_cube_request_invalid_bbox(
     base_url = "/"
     args = single_layer_cube_args_internal
     args["bbox"] = "invalid"
+
+    provider = EdrProvider(provider_def=get_provider_definition(base_url))
+    provider.set_layers(base_url, layers)
+
+    with pytest.raises(ProviderInvalidQueryError):
+        provider.cube(**args)
+
+
+def test_edr_provider_cube_request_invalid_instance(
+    layers: List[pogc.Layer], single_layer_cube_args_internal: Dict[str, Any]
+):
+    """Test the cube method of the EDR Provider class with an invalid instance.
+
+    Parameters
+    ----------
+    layers : List[pogc.Layer]
+        Layers provided by a test fixture.
+
+    single_layer_cube_args_internal : Dict[str, Any]
+        Single layer arguments with internal pygeoapi keys provided by a test fixture.
+    """
+    base_url = "/"
+    args = single_layer_cube_args_internal
+    args["instance"] = "invalid"
 
     provider = EdrProvider(provider_def=get_provider_definition(base_url))
     provider.set_layers(base_url, layers)
@@ -459,7 +485,8 @@ def test_edr_provider_datetime_single_value():
     """Test the datetime interpreter method of the EDR Provider class with a single datetime value."""
     time_string = "2025-10-24"
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
-    expected_times = [np.datetime64(available_times[0])]
+    available_times = [np.datetime64(time) for time in available_times]
+    expected_times = available_times[0]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
@@ -470,10 +497,9 @@ def test_edr_provider_datetime_single_value():
 def test_edr_provider_datetime_range_closed():
     """Test the datetime interpreter method of the EDR Provider class with a closed datetime range."""
     time_string = "2025-10-24/2025-10-26"
-    available_times = np.array(
-        ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"], dtype="datetime64"
-    )
-    expected_times = [time for time in available_times[0:3]]
+    available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
+    available_times = [np.datetime64(time) for time in available_times]
+    expected_times = available_times[0:3]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
@@ -484,10 +510,9 @@ def test_edr_provider_datetime_range_closed():
 def test_edr_provider_datetime_open_start():
     """Test the datetime interpreter method of the EDR Provider class with a open datetime start."""
     time_string = "../2025-10-27"
-    available_times = np.array(
-        ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"], dtype="datetime64"
-    )
-    expected_times = [time for time in available_times[0:4]]
+    available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
+    available_times = [np.datetime64(time) for time in available_times]
+    expected_times = available_times[0:4]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
@@ -498,10 +523,9 @@ def test_edr_provider_datetime_open_start():
 def test_edr_provider_datetime_open_end():
     """Test the datetime interpreter method of the EDR Provider class with a open datetime end."""
     time_string = "2025-10-25/.."
-    available_times = np.array(
-        ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"], dtype="datetime64"
-    )
-    expected_times = [time for time in available_times[1:]]
+    available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
+    available_times = [np.datetime64(time) for time in available_times]
+    expected_times = available_times[1:]
 
     time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
@@ -512,9 +536,8 @@ def test_edr_provider_datetime_open_end():
 def test_edr_provider_datetime_invalid_string():
     """Test the datetime interpreter method of the EDR Provider class with an invalid string."""
     time_string = "2025-10-25/../../.."
-    available_times = np.array(
-        ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"], dtype="datetime64"
-    )
+    available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
+    available_times = [np.datetime64(time) for time in available_times]
 
     with pytest.raises(ProviderInvalidQueryError):
         EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
