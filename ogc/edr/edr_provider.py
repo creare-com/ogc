@@ -376,7 +376,7 @@ class EdrProvider(BaseEDRProvider):
             fields[parameter_key] = {
                 "type": "number",
                 "title": parameter_key,
-                "description": f"{layer.title} ({layer.abstract})",
+                "description": layer.abstract,
                 "x-ogc-unit": layer.get_units(),
             }
         return fields
@@ -764,7 +764,7 @@ class EdrProvider(BaseEDRProvider):
                                 "en": param,
                             }
                         },
-                        "description": f"{layer.title} ({layer.abstract})",
+                        "description": layer.abstract,
                         "unit": {
                             "label": {"en": units},
                             "symbol": {
