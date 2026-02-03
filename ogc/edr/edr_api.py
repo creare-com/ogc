@@ -98,11 +98,7 @@ class EdrAPI:
 
         collection_description = json.loads(content)
         collection_configuration = filter_dict_by_key_value(api.config["resources"], "type", "collection")
-
-        if dataset is not None:
-            collections = [collection_description]
-        else:
-            collections = collection_description.get("collections", [])
+        collections = [collection_description] if dataset is not None else collection_description.get("collections", [])
 
         for collection in collections:
             collection_id = collection["id"]
@@ -171,25 +167,17 @@ class EdrAPI:
         provider = get_provider_by_type(collection_configuration[dataset]["providers"], "edr")
         provider_plugin = load_plugin("provider", provider)
         provider_parameters = provider_plugin.get_fields()
-        base_url = provider["base_url"]
-
-        if instance_id is not None:
-            instances = [instance_description]
-        else:
-            instances = instance_description.get("instances", [])
-
-        collection_layers = EdrProvider.get_layers(base_url, dataset)
+        instances = [instance_description] if instance_id is not None else instance_description.get("instances", [])
+        collection_layers = EdrProvider.get_layers(provider["base_url"], dataset)
 
         for instance in instances:
-            collection_id = dataset
-
             extents = instance.get("extent", {})
-            if "vertical" in collection_configuration[collection_id]["extents"]:
-                extents = extents | {"vertical": collection_configuration[collection_id]["extents"]["vertical"]}
+            if "vertical" in collection_configuration[dataset]["extents"]:
+                extents = extents | {"vertical": collection_configuration[dataset]["extents"]["vertical"]}
 
             times = EdrProvider.get_datetimes(collection_layers, instance["id"])
             if len(times) > 0:
-                trs = collection_configuration[collection_id]["extents"]["temporal"].get("trs")
+                trs = collection_configuration[dataset]["extents"]["temporal"].get("trs")
                 temporal_extents = EdrAPI._temporal_extents(times, trs)
                 extents = extents | temporal_extents
 
@@ -201,9 +189,9 @@ class EdrAPI:
             extents = extents | spatial_extents
             instance["extent"] = extents
 
-            instance["output_formats"] = collection_configuration[collection_id].get("output_formats", [])
+            instance["output_formats"] = collection_configuration[dataset].get("output_formats", [])
 
-            height_units = collection_configuration[collection_id].get("height_units")
+            height_units = collection_configuration[dataset].get("height_units")
             for query_type in instance["data_queries"]:
                 data_query_additions = {
                     "query_type": query_type,

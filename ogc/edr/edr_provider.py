@@ -122,17 +122,25 @@ class EdrProvider(BaseEDRProvider):
         Raises
         ------
         ProviderInvalidQueryError
+            Raised if an invalid instance is provided.
+        ProviderInvalidQueryError
+            Raised if an invalid parameter is provided.
+        ProviderInvalidQueryError
+            Raised if an invalid output format is provided.
+        ProviderInvalidQueryError
             Raised if a datetime string is provided but cannot be interpreted.
         ProviderInvalidQueryError
             Raised if an altitude string is provided but cannot be interpreted.
         ProviderInvalidQueryError
-            Raised if the parameters are invalid.
+            Raised if a GeoTIFF request includes multiple time bands.
         ProviderInvalidQueryError
-            Raised if an instance is provided and it is invalid.
+            Raised if a GeoTIFF request includes multiple vertical bands.
         ProviderInvalidQueryError
             Raised if native coordinates could not be found.
         ProviderInvalidQueryError
             Raised if the request queries for native coordinates exceeding the max allowable size.
+        ProviderInvalidQueryError
+            Raised if no parameters could not be evaluated.
         """
         instance = kwargs.get("instance")
         requested_parameters = kwargs.get("select_properties")
@@ -140,11 +148,9 @@ class EdrProvider(BaseEDRProvider):
         datetime_arg = kwargs.get("datetime_")
         z_arg = kwargs.get("z")
 
-        output_format = str(output_format).lower()
-        self.check_query_condition(
-            not any(output_format == query_format.lower() for query_format in settings.EDR_QUERY_FORMATS),
-            "Invalid output format provided.",
-        )
+        instance = self.validate_instance(instance)
+        requested_parameters = self.validate_parameters(requested_parameters)
+        output_format = self.validate_output_format(output_format)
 
         available_times = self.get_datetimes(list(self.parameters.values()), instance)
         available_altitudes = self.get_altitudes(list(self.parameters.values()))
@@ -152,19 +158,6 @@ class EdrProvider(BaseEDRProvider):
             available_times, datetime_arg, instance, requested_coordinates.crs
         )
         altitude_coords = self.interpret_altitude_coordinates(available_altitudes, z_arg, requested_coordinates.crs)
-        # Allow parameters without case-sensitivity, default to using all parameters
-        parameters_filtered = self.parameters
-        if requested_parameters is not None and len(requested_parameters) > 0:
-            parameters_lower = [param.lower() for param in requested_parameters or []]
-            parameters_filtered = {
-                key: value
-                for key, value in self.parameters.items()
-                if key.lower() in parameters_lower and value is not None
-            }
-        self.check_query_condition(len(parameters_filtered) == 0, "Invalid parameters provided.")
-        self.check_query_condition(
-            instance is not None and instance not in self.instances(), "Invalid instance provided."
-        )
 
         if time_coords is not None:
             self.check_query_condition(
@@ -177,14 +170,12 @@ class EdrProvider(BaseEDRProvider):
                 len(altitude_coords["alt"].coordinates) > 1 and output_format == settings.GEOTIFF.lower(),
                 "GeoTIFF output currently only supports single altitude requests.",
             )
-            self.check_query_condition(len(parameters_filtered) == 0, "Invalid parameters provided.")
+            self.check_query_condition(len(requested_parameters) == 0, "Invalid parameters provided.")
             requested_coordinates = podpac.coordinates.merge_dims([altitude_coords, requested_coordinates])
 
         # Handle defining native coordinates for the query, these should match between each layer
-        coordinates_list = next(iter(parameters_filtered.values())).get_coordinates_list()
-
+        coordinates_list = next(iter(requested_parameters.values())).get_coordinates_list()
         self.check_query_condition(len(coordinates_list) == 0, "Native coordinates not found.")
-
         requested_native_coordinates = self.get_native_coordinates(requested_coordinates, coordinates_list[0])
 
         self.check_query_condition(
@@ -193,7 +184,7 @@ class EdrProvider(BaseEDRProvider):
         )
 
         dataset = {}
-        for requested_parameter, layer in parameters_filtered.items():
+        for requested_parameter, layer in requested_parameters.items():
             units_data_array = EdrProvider.evaluate_layer(requested_native_coordinates, layer)
             if units_data_array is not None:
                 dataset[requested_parameter] = units_data_array
@@ -292,6 +283,7 @@ class EdrProvider(BaseEDRProvider):
 
         lon, lat = EdrProvider.crs_converter([xmin, xmax], [ymin, ymax], crs)
         requested_coordinates = podpac.Coordinates([lat, lon], dims=["lat", "lon"], crs=crs)
+
         return self.handle_query(requested_coordinates, **kwargs)
 
     def area(self, **kwargs):
@@ -380,6 +372,102 @@ class EdrProvider(BaseEDRProvider):
                 "x-ogc-unit": layer.get_units(),
             }
         return fields
+
+    def validate_output_format(self, output_format: str | None) -> str:
+        """Validate the output format for a query.
+
+        If None provided, return the default.
+        If the provided output format is invalid, raise an error.
+
+        Parameters
+        ----------
+        output_format : str | None
+            The specified output format which needs to be validated.
+
+        Returns
+        -------
+        str
+            Output format string.
+
+        Raises
+        ------
+        ProviderInvalidQueryError
+            Raised if the provided output format is invalid.
+        """
+        if output_format is None:
+            return self.native_format.lower()
+
+        if output_format.lower() not in [key.lower() for key in settings.EDR_QUERY_FORMATS]:
+            msg = f"Invalid format provided, expected one of {', '.join(settings.EDR_QUERY_FORMATS)}"
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
+
+        return output_format.lower()
+
+    def validate_instance(self, instance: str | None) -> str | None:
+        """Validate the instance for a query.
+
+        If None provided, the collection is being queried.
+        If the instance is invalid, raise an error.
+
+        Parameters
+        ----------
+        instance : str | None
+            The instance which needs to be validated.
+
+        Returns
+        -------
+        str | None
+            The validated instance or None if the collection is being queried.
+
+        Raises
+        ------
+        ProviderInvalidQueryError
+            Raised if the provided instance is invalid.
+        """
+        if instance is None:
+            return None
+
+        if instance not in self.instances():
+            msg = "Invalid instance provided."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
+
+        return instance
+
+    def validate_parameters(self, parameters: List[str] | None) -> Dict[str, pogc.Layer]:
+        """Validate the parameters for a query.
+
+        If None provided or an list is empty, return all parameters.
+        If the provided parameter list is invalid, raise an error.
+
+        Parameters
+        ----------
+        parameters : List[str] | None
+            The specified parameters for a query.
+
+        Returns
+        -------
+        Dict[str, pogc.Layer]
+            The validated parameters dictionary containing associated layers.
+
+        Raises
+        ------
+        ProviderInvalidQueryError
+            Raised if the provided parameters are invalid.
+        """
+        if parameters is None or len(parameters) == 0:
+            return self.parameters
+
+        parameters_lower = [param.lower() for param in parameters]
+        parameters_filtered = {
+            key: value
+            for key, value in self.parameters.items()
+            if key.lower() in parameters_lower and value is not None
+        }
+        if len(parameters_filtered) != len(parameters):
+            msg = "Invalid parameters provided."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
+
+        return parameters_filtered
 
     @staticmethod
     def evaluate_layer(requested_coordinates: podpac.Coordinates, layer: pogc.Layer) -> podpac.UnitsDataArray | None:
@@ -485,7 +573,7 @@ class EdrProvider(BaseEDRProvider):
 
         Parameters
         ----------
-        crs : str
+        crs : str | None
             The input CRS id string which needs to be validated/converted.
 
         Returns
