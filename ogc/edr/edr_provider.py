@@ -766,7 +766,7 @@ class EdrProvider(BaseEDRProvider):
                         },
                         "description": layer.abstract,
                         "unit": {
-                            "label": {"en": units},
+                            "label": {"en": param},
                             "symbol": {
                                 "value": units,
                                 "type": None,
