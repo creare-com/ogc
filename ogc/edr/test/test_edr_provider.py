@@ -6,6 +6,7 @@ import io
 import podpac
 from shapely import Point, Polygon
 from typing import Dict, List, Any
+from ogc import settings
 from ogc import podpac as pogc
 from ogc.edr.edr_provider import EdrProvider
 from pygeoapi.provider.base import ProviderInvalidQueryError
@@ -30,7 +31,7 @@ def get_provider_definition(base_url: str) -> Dict[str, Any]:
         "name": "ogc.edr.edr_provider.EdrProvider",
         "data": "Layers",
         "base_url": base_url,
-        "crs": ["http://www.opengis.net/def/crs/OGC/1.3/CRS84", "http://www.opengis.net/def/crs/EPSG/0/4326"],
+        "crs": list(settings.EDR_CRS.keys()),
         "format": {"name": "GeoJSON", "mimetype": "application/json"},
     }
 
@@ -616,13 +617,12 @@ def test_edr_provider_altitude_invalid_string():
 
 def test_edr_provider_crs_interpreter_default_value():
     """Test the CRS interpretation returns a default value when the argument is None."""
-    assert EdrProvider.interpret_crs(None) == "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+    assert EdrProvider.interpret_crs(None) == settings.crs_84_uri_format
 
 
 def test_edr_provider_crs_interpreter_valid_value():
     """Test the CRS interpretation returns a valid value when the argument is acceptable."""
-    crs = "http://www.opengis.net/def/crs/EPSG/0/4326"
-    assert EdrProvider.interpret_crs(crs) == crs
+    assert EdrProvider.interpret_crs(settings.epsg_4326_uri_format) == settings.epsg_4326_uri_format
 
 
 def test_edr_provider_crs_interpreter_invalid_value():
@@ -640,4 +640,4 @@ def test_edr_provider_crs_converter():
     lon = y
     lat = x
 
-    assert EdrProvider.crs_converter(x, y, "http://www.opengis.net/def/crs/EPSG/0/4326") == (lon, lat)
+    assert EdrProvider.crs_converter(x, y, crs=settings.epsg_4326_uri_format) == (lon, lat)

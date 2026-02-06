@@ -107,10 +107,7 @@ class EdrConfig:
                             "name": "ogc.edr.edr_provider.EdrProvider",
                             "data": group_name,
                             "base_url": base_url,
-                            "crs": [
-                                settings.crs_84_uri_format,
-                                settings.epsg_4326_uri_format,
-                            ],
+                            "crs": list(settings.EDR_CRS.keys()),
                             "format": {
                                 "name": settings.GEOTIFF,
                                 "mimetype": "image/tiff",

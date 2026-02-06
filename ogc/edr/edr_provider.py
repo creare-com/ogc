@@ -951,7 +951,7 @@ class EdrProvider(BaseEDRProvider):
         """
         # Find intersections with target keeping source crs
         target_spatial_coordinates = podpac.Coordinates(
-            [target_coordinates["lat"], target_coordinates["lon"]], dims=["lat", "lon"]
+            [target_coordinates["lat"], target_coordinates["lon"]], dims=["lat", "lon"], crs=target_coordinates.crs
         )
         source_intersection_coordinates = target_spatial_coordinates.intersect(source_coordinates, dims=["lat", "lon"])
         source_intersection_coordinates = source_intersection_coordinates.transform(source_coordinates.crs)
