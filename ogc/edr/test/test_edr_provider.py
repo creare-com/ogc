@@ -3,6 +3,7 @@ import numpy as np
 import zipfile
 import base64
 import io
+import podpac
 from shapely import Point, Polygon
 from typing import Dict, List, Any
 from ogc import podpac as pogc
@@ -541,6 +542,19 @@ def test_edr_provider_datetime_invalid_string():
 
     with pytest.raises(ProviderInvalidQueryError):
         EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
+
+
+def test_edr_provider_get_altitudes():
+    """Test the get altitudes method of the EDR Provider class with a layer containing altitude data."""
+    latitude = np.arange(1, 5)
+    longitude = np.arange(1, 5)
+    altitude = np.arange(1, 10)
+    data = np.random.default_rng(1).random((len(latitude), len(longitude), len(altitude)))
+    coords = podpac.Coordinates([latitude, longitude, altitude], dims=["lat", "lon", "alt"])
+    node = podpac.data.Array(source=data, coordinates=coords)
+    layer = pogc.Layer(node=node, identifier="Test")
+
+    np.testing.assert_array_equal(EdrProvider.get_altitudes([layer]), altitude)
 
 
 def test_edr_provider_altitude_single_value():
