@@ -213,7 +213,6 @@ def test_edr_routes_collection_query(layers: List[pogc.Layer], single_layer_cube
     collection_id = layers[0].group
     instance_id = next(iter(layers[0].time_instances()))
     parameter_name = single_layer_cube_args["parameter-name"][0]
-    single_layer_cube_args["f"] = "json"
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
@@ -314,7 +313,7 @@ def test_edr_routes_collection_query_invalid_bbox(layers: List[pogc.Layer], sing
 def test_edr_routes_collection_query_missing_parameter(
     layers: List[pogc.Layer], single_layer_cube_args: Dict[str, Any]
 ):
-    """Test the EDR colletion query with a missing parameter.
+    """Test the EDR colletion query with a missing parameter. All parameters are expected to be returned.
 
     Parameters
     ----------
@@ -328,14 +327,15 @@ def test_edr_routes_collection_query_missing_parameter(
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
-    _, status, _ = edr_routes.collection_query(
+    _, status, content = edr_routes.collection_query(
         request,
         collection_id=layers[0].group,
         instance_id=next(iter(layers[0].time_instances())),
         query_type="cube",
     )
 
-    assert status == HTTPStatus.BAD_REQUEST
+    assert status == HTTPStatus.OK
+    assert content["domain"]["ranges"].keys() == {layer.identifier for layer in layers}
 
 
 def test_edr_routes_request_url_updates_configuration_url():

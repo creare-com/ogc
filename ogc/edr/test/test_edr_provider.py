@@ -3,8 +3,10 @@ import numpy as np
 import zipfile
 import base64
 import io
+import podpac
 from shapely import Point, Polygon
 from typing import Dict, List, Any
+from ogc import settings
 from ogc import podpac as pogc
 from ogc.edr.edr_provider import EdrProvider
 from pygeoapi.provider.base import ProviderInvalidQueryError
@@ -29,7 +31,7 @@ def get_provider_definition(base_url: str) -> Dict[str, Any]:
         "name": "ogc.edr.edr_provider.EdrProvider",
         "data": "Layers",
         "base_url": base_url,
-        "crs": ["http://www.opengis.net/def/crs/OGC/1.3/CRS84", "http://www.opengis.net/def/crs/EPSG/0/4326"],
+        "crs": list(settings.EDR_CRS.keys()),
         "format": {"name": "GeoJSON", "mimetype": "application/json"},
     }
 
@@ -230,6 +232,8 @@ def test_edr_provider_position_request_invalid_property(
     """
     base_url = "/"
     args = single_layer_cube_args_internal
+    del args["bbox"]
+    args["wkt"] = Point(5.2, 52.1)
     args["select_properties"] = "invalid"
 
     provider = EdrProvider(provider_def=get_provider_definition(base_url))
@@ -283,6 +287,30 @@ def test_edr_provider_cube_request_invalid_bbox(
     base_url = "/"
     args = single_layer_cube_args_internal
     args["bbox"] = "invalid"
+
+    provider = EdrProvider(provider_def=get_provider_definition(base_url))
+    provider.set_layers(base_url, layers)
+
+    with pytest.raises(ProviderInvalidQueryError):
+        provider.cube(**args)
+
+
+def test_edr_provider_cube_request_invalid_instance(
+    layers: List[pogc.Layer], single_layer_cube_args_internal: Dict[str, Any]
+):
+    """Test the cube method of the EDR Provider class with an invalid instance.
+
+    Parameters
+    ----------
+    layers : List[pogc.Layer]
+        Layers provided by a test fixture.
+
+    single_layer_cube_args_internal : Dict[str, Any]
+        Single layer arguments with internal pygeoapi keys provided by a test fixture.
+    """
+    base_url = "/"
+    args = single_layer_cube_args_internal
+    args["instance"] = "invalid"
 
     provider = EdrProvider(provider_def=get_provider_definition(base_url))
     provider.set_layers(base_url, layers)
@@ -459,9 +487,10 @@ def test_edr_provider_datetime_single_value():
     """Test the datetime interpreter method of the EDR Provider class with a single datetime value."""
     time_string = "2025-10-24"
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
-    expected_times = [np.datetime64(available_times[0])]
+    available_times = [np.datetime64(time) for time in available_times]
+    expected_times = available_times[0]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
@@ -471,9 +500,10 @@ def test_edr_provider_datetime_range_closed():
     """Test the datetime interpreter method of the EDR Provider class with a closed datetime range."""
     time_string = "2025-10-24/2025-10-26"
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
-    expected_times = [np.datetime64(time) for time in available_times[0:3]]
+    available_times = [np.datetime64(time) for time in available_times]
+    expected_times = available_times[0:3]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
@@ -483,9 +513,10 @@ def test_edr_provider_datetime_open_start():
     """Test the datetime interpreter method of the EDR Provider class with a open datetime start."""
     time_string = "../2025-10-27"
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
-    expected_times = [np.datetime64(time) for time in available_times[0:4]]
+    available_times = [np.datetime64(time) for time in available_times]
+    expected_times = available_times[0:4]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
@@ -495,9 +526,10 @@ def test_edr_provider_datetime_open_end():
     """Test the datetime interpreter method of the EDR Provider class with a open datetime end."""
     time_string = "2025-10-25/.."
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
-    expected_times = [np.datetime64(time) for time in available_times[1:]]
+    available_times = [np.datetime64(time) for time in available_times]
+    expected_times = available_times[1:]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
     assert time_coords is not None
     np.testing.assert_array_equal(time_coords["time"].coordinates, expected_times)
@@ -507,10 +539,23 @@ def test_edr_provider_datetime_invalid_string():
     """Test the datetime interpreter method of the EDR Provider class with an invalid string."""
     time_string = "2025-10-25/../../.."
     available_times = ["2025-10-24", "2025-10-25", "2025-10-26", "2025-10-27", "2025-10-28"]
+    available_times = [np.datetime64(time) for time in available_times]
 
-    time_coords = EdrProvider.interpret_time_coordinates(available_times, time_string, None)
+    with pytest.raises(ProviderInvalidQueryError):
+        EdrProvider.interpret_time_coordinates(available_times, time_string, None, None)
 
-    assert time_coords is None
+
+def test_edr_provider_get_altitudes():
+    """Test the get altitudes method of the EDR Provider class with a layer containing altitude data."""
+    latitude = np.arange(1, 5)
+    longitude = np.arange(1, 5)
+    altitude = np.arange(1, 10)
+    data = np.random.default_rng(1).random((len(latitude), len(longitude), len(altitude)))
+    coords = podpac.Coordinates([latitude, longitude, altitude], dims=["lat", "lon", "alt"])
+    node = podpac.data.Array(source=data, coordinates=coords)
+    layer = pogc.Layer(node=node, identifier="Test")
+
+    np.testing.assert_array_equal(EdrProvider.get_altitudes([layer]), altitude)
 
 
 def test_edr_provider_altitude_single_value():
@@ -566,20 +611,18 @@ def test_edr_provider_altitude_invalid_string():
     altitude_string = "../20"
     available_altitudes = [0.0, 5.0, 10.0, 15.0, 20.0]
 
-    altitude_coords = EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
-
-    assert altitude_coords is None
+    with pytest.raises(ProviderInvalidQueryError):
+        EdrProvider.interpret_altitude_coordinates(available_altitudes, altitude_string, None)
 
 
 def test_edr_provider_crs_interpreter_default_value():
     """Test the CRS interpretation returns a default value when the argument is None."""
-    assert EdrProvider.interpret_crs(None) == "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+    assert EdrProvider.interpret_crs(None) == settings.crs_84_uri_format
 
 
 def test_edr_provider_crs_interpreter_valid_value():
     """Test the CRS interpretation returns a valid value when the argument is acceptable."""
-    crs = "http://www.opengis.net/def/crs/EPSG/0/4326"
-    assert EdrProvider.interpret_crs(crs) == crs
+    assert EdrProvider.interpret_crs(settings.epsg_4326_uri_format) == settings.epsg_4326_uri_format
 
 
 def test_edr_provider_crs_interpreter_invalid_value():
@@ -597,4 +640,4 @@ def test_edr_provider_crs_converter():
     lon = y
     lat = x
 
-    assert EdrProvider.crs_converter(x, y, "epsg:4326") == (lon, lat)
+    assert EdrProvider.crs_converter(x, y, crs=settings.epsg_4326_uri_format) == (lon, lat)

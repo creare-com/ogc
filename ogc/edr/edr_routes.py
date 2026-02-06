@@ -7,13 +7,13 @@ import traitlets as tl
 import pygeoapi.l10n
 import pygeoapi.plugin
 import pygeoapi.api
-import pygeoapi.api.environmental_data_retrieval as pygeoedr
 from typing import Tuple, Any, Dict
 from http import HTTPStatus
 from copy import deepcopy
 from pygeoapi.openapi import get_oas
 from ogc import podpac as pogc
 
+from .edr_api import EdrAPI
 from .edr_config import EdrConfig
 from .edr_provider import EdrProvider
 
@@ -133,7 +133,7 @@ class EdrRoutes(tl.HasTraits):
         """
         self.clean_configuration_cache()
         self.update_configuration_base_url(request)
-        return pygeoapi.api.landing_page(self.api, request)
+        return EdrAPI.landing_page(self.api, request)
 
     def openapi(self, request: pygeoapi.api.APIRequest) -> Tuple[dict, int, str | bytes]:
         """Handle API documentation requests for the server.
@@ -150,7 +150,7 @@ class EdrRoutes(tl.HasTraits):
         """
         self.clean_configuration_cache()
         self.update_configuration_base_url(request)
-        return pygeoapi.api.openapi_(self.api, request)
+        return EdrAPI.openapi_(self.api, request)
 
     def conformance(self, request: pygeoapi.api.APIRequest) -> Tuple[dict, int, str | bytes]:
         """Handle conformance requests for the server.
@@ -167,7 +167,7 @@ class EdrRoutes(tl.HasTraits):
         """
         self.clean_configuration_cache()
         self.update_configuration_base_url(request)
-        return pygeoapi.api.conformance(self.api, request)
+        return EdrAPI.conformance(self.api, request)
 
     def describe_collections(
         self,
@@ -190,7 +190,7 @@ class EdrRoutes(tl.HasTraits):
         """
         self.clean_configuration_cache()
         self.update_configuration_base_url(request)
-        return pygeoapi.api.describe_collections(self.api, request, collection_id)
+        return EdrAPI.describe_collections(self.api, request, collection_id)
 
     def describe_instances(
         self,
@@ -216,7 +216,7 @@ class EdrRoutes(tl.HasTraits):
         """
         self.clean_configuration_cache()
         self.update_configuration_base_url(request)
-        return pygeoedr.get_collection_edr_instances(self.api, request, collection_id, instance_id=instance_id)
+        return EdrAPI.get_collection_edr_instances(self.api, request, collection_id, instance_id=instance_id)
 
     def collection_query(
         self,
@@ -245,16 +245,22 @@ class EdrRoutes(tl.HasTraits):
         """
         self.clean_configuration_cache()
         self.update_configuration_base_url(request)
-        headers, http_status, content = pygeoedr.get_collection_edr_query(
+        headers, http_status, content = EdrAPI.get_collection_edr_query(
             self.api, request, collection_id, instance_id, query_type=query_type, location_id=None
         )
+
+        if "text/html" in headers.get("Content-Type", ""):
+            return headers, http_status, content
 
         content = json.loads(content)
         if "fn" in content and "fp" in content:
             # Return the file name in the header and the content as only the binary data
             filename = content["fn"]
+            headers["Content-Type"] = "image/tiff"
             headers["Content-Disposition"] = f"attachment; filename={filename}"
             # Decode the content string which is the Base64 representation of the data
             content = io.BytesIO(base64.b64decode(content["fp"]))
+        else:
+            headers["Content-Type"] = "application/prs.coverage+json"
 
         return headers, http_status, content

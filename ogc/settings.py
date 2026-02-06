@@ -12,6 +12,7 @@ import os
 crs_84 = "crs:84"
 epsg_4326 = "epsg:4326"
 crs_84_uri_format = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
+crs_84h_uri_format = "http://www.opengis.net/def/crs/OGC/0/CRS84h"
 epsg_4326_uri_format = "http://www.opengis.net/def/crs/EPSG/0/4326"
 
 # Default/Supported WMS CRS/SRS
@@ -35,7 +36,15 @@ WCS_CRS = {
 EDR_CRS = {
     epsg_4326_uri_format: {"minx": -90.0, "miny": -180.0, "maxx": 90.0, "maxy": 180.0},
     crs_84_uri_format: {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
+    crs_84h_uri_format: {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
 }
+
+# EDR query output formats
+GEOTIFF = "GeoTIFF"
+JSON = "JSON"
+COVERAGE_JSON = "CoverageJSON"
+HTML = "HTML"
+EDR_QUERY_FORMATS = [GEOTIFF, COVERAGE_JSON, JSON, HTML]
 
 # WMS Capabilities timestamp format
 USE_TIMES_LIST = False

@@ -23,7 +23,7 @@ def test_edr_configuration_contains_layer_groups(layers: List[pogc.Layer]):
 
     assert len(group_keys) > 0
     for key in group_keys:
-        assert configuration["resources"].get(key, None) is not None
+        assert configuration["resources"].get(key) is not None
 
 
 def test_edr_configuration_contains_spatial_extent(layers: List[pogc.Layer], single_layer_cube_args: Dict[str, Any]):

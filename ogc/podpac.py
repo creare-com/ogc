@@ -16,6 +16,7 @@ import xarray as xr
 import json
 import textwrap
 import re
+from datetime import datetime
 
 
 def _uppercase_for_dict_keys(lower_dict):
@@ -64,7 +65,7 @@ class Layer(ogc.Layer):
             List of available time instances as a strings.
         """
         time_instances = set()
-        coordinates_list = self.node.find_coordinates()
+        coordinates_list = self.get_coordinates_list()
 
         # Time instances are created if a node has both time and offsets.
         if (
@@ -72,9 +73,43 @@ class Layer(ogc.Layer):
             and "time" in coordinates_list[0].udims
             and "forecastOffsetHr" in coordinates_list[0].udims
         ):
-            time_instances.update([str(time) for time in coordinates_list[0]["time"].coordinates])
+            time_instances.update(
+                [
+                    time.astype("datetime64[ms]").astype(datetime).isoformat()
+                    for time in coordinates_list[0]["time"].coordinates
+                ]
+            )
 
         return list(time_instances)
+
+    def get_coordinates_list(self) -> List[Coordinates]:
+        """Retrieve the coordinates list from the node.
+
+        Returns
+        -------
+        List[Coordinates]
+            List of coordinates from the node.
+        """
+        if self.node is None:
+            return []
+
+        return self.node.find_coordinates()
+
+    def get_units(self) -> str | None:
+        """Retrieve the units from the node.
+
+        Returns
+        -------
+        str | None
+            The units from the node.
+        """
+        units = None
+        if self.node is not None and self.node.units is not None:
+            units = self.node.units
+        elif self.node is not None and self.node.style is not None:
+            units = self.node.style.units
+
+        return units
 
     def get_node(self, args):
         return self.node
