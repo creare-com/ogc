@@ -271,6 +271,41 @@ def test_edr_provider_cube_request_valid_bbox(
     )
 
 
+def test_edr_provider_cube_request_valid_bbox_with_resolution(
+    layers: List[pogc.Layer], single_layer_cube_args_internal: Dict[str, Any]
+):
+    """Test the cube method of the EDR Provider class with a valid bounding box and a specific resolution.
+
+    The tested node is adjusted to ensure use interpolation.
+
+    Parameters
+    ----------
+    layers : List[pogc.Layer]
+        Layers provided by a test fixture.
+
+    single_layer_cube_args_internal : Dict[str, Any]
+        Single layer arguments with internal pygeoapi keys provided by a test fixture.
+    """
+    base_url = "/"
+    args = single_layer_cube_args_internal
+    parameter_name = single_layer_cube_args_internal["select_properties"][0]
+    resolution_x = 15
+    resolution_y = 20
+
+    provider = EdrProvider(provider_def=get_provider_definition(base_url))
+    layers[0].node = layers[0].node.interpolate()
+    provider.set_layers(base_url, layers)
+    provider.set_extra_query_args({"resolution-x": resolution_x, "resolution-y": resolution_y})
+
+    response = provider.cube(**args)
+
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == resolution_x * resolution_y
+    assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
+        response["domain"]["ranges"][parameter_name]["values"]
+    )
+
+
 def test_edr_provider_cube_request_invalid_bbox(
     layers: List[pogc.Layer], single_layer_cube_args_internal: Dict[str, Any]
 ):

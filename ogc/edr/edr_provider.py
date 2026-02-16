@@ -18,6 +18,18 @@ class EdrProvider(BaseEDRProvider):
     """Custom provider to be used with layer data sources."""
 
     _layers_dict = defaultdict(list)
+    _extra_args = defaultdict()
+
+    @classmethod
+    def set_extra_query_args(cls, args: Dict[str, Any]):
+        """Set the extra arguments which will be available to the provider on a request.
+
+        Parameters
+        ----------
+        args : Dict[str, Any]
+            The extra arguments which are not included in the default requests.
+        """
+        cls._extra_args = args
 
     @classmethod
     def set_layers(cls, base_url: str, layers: List[pogc.Layer]):
@@ -147,11 +159,15 @@ class EdrProvider(BaseEDRProvider):
         output_format = kwargs.get("format_")
         datetime_arg = kwargs.get("datetime_")
         z_arg = kwargs.get("z")
+        resolution_x = self._extra_args.get("resolution-x")
+        resolution_y = self._extra_args.get("resolution-y")
 
         instance = self.validate_instance(instance)
         requested_parameters = self.validate_parameters(requested_parameters)
         output_format = self.validate_output_format(output_format)
+        resolution_x, resolution_y = self.validate_resolution(resolution_x, resolution_y)
 
+        crs = self.interpret_crs(requested_coordinates.crs)
         available_times = self.get_datetimes(list(self.parameters.values()), instance)
         available_altitudes = self.get_altitudes(list(self.parameters.values()))
         time_coords = self.interpret_time_coordinates(
@@ -175,7 +191,10 @@ class EdrProvider(BaseEDRProvider):
         # Handle defining native coordinates for the query, these should match between each layer
         coordinates_list = next(iter(requested_parameters.values())).get_coordinates_list()
         self.check_query_condition(len(coordinates_list) == 0, "Native coordinates not found.")
-        requested_native_coordinates = self.get_native_coordinates(requested_coordinates, coordinates_list[0])
+        resolution_lon, resolution_lat = self.crs_converter(resolution_x, resolution_y, crs)
+        requested_native_coordinates = self.get_native_coordinates(
+            requested_coordinates, coordinates_list[0], resolution_lat, resolution_lon
+        )
 
         self.check_query_condition(
             bool(requested_native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE),
@@ -195,7 +214,6 @@ class EdrProvider(BaseEDRProvider):
             or output_format == settings.JSON.lower()
             or output_format == settings.HTML.lower()
         ):
-            crs = self.interpret_crs(requested_native_coordinates.crs if requested_native_coordinates else None)
             layers = self.get_layers(self.base_url, self.collection_id)
             return self.to_coverage_json(layers, dataset, crs)
 
@@ -402,6 +420,44 @@ class EdrProvider(BaseEDRProvider):
 
         return output_format.lower()
 
+    def validate_resolution(self, resolution_x: str | None, resolution_y: str | None) -> Tuple[int, int]:
+        """Validate the resolutions and return the values as integers.
+
+        If no resolution is provided in a specific direction a zero value should be used to indicate native resolution.
+
+        Parameters
+        ----------
+        resolution_x : str | None
+            The resolution in the x-direction or None.
+        resolution_y : str | None
+            The resolution in the y-direction or None.
+
+        Returns
+        -------
+        Tuple[int, int]
+            Resolution x and y as integers.
+
+        Raises
+        ------
+        ProviderInvalidQueryError
+            Raised if either of the provided resolutions is invalid.
+        """
+        valid_resolutions = True
+        validated_resolution_x = 0
+        validated_resolution_y = 0
+        try:
+            validated_resolution_x = int(0 if resolution_x is None else resolution_x)
+            validated_resolution_y = int(0 if resolution_y is None else resolution_y)
+            valid_resolutions = validated_resolution_x >= 0 and validated_resolution_y >= 0
+        except ValueError:
+            valid_resolutions = False
+
+        if not valid_resolutions:
+            msg = "Invalid resolution provided, expected positive integer."
+            raise ProviderInvalidQueryError(msg, user_msg=msg)
+
+        return validated_resolution_x, validated_resolution_y
+
     def validate_instance(self, instance: str | None) -> str | None:
         """Validate the instance for a query.
 
@@ -503,6 +559,13 @@ class EdrProvider(BaseEDRProvider):
                 units_data_array = units_data_array.drop_vars({"time", "time_forecastOffsetHr", "forecastOffsetHr"})
                 units_data_array = units_data_array.rename(time_forecastOffsetHr="time")
                 units_data_array = units_data_array.assign_coords(time=time_data + forecast_offsets)
+                if units_data_array.attrs.get("bounds", None):
+                    filtered_bounds = {
+                        coord: bnd
+                        for coord, bnd in units_data_array.attrs["bounds"].items()
+                        if coord in units_data_array.coords.dims
+                    }
+                    units_data_array.attrs["bounds"] = filtered_bounds
 
         return units_data_array
 
@@ -934,6 +997,8 @@ class EdrProvider(BaseEDRProvider):
     def get_native_coordinates(
         source_coordinates: podpac.Coordinates,
         target_coordinates: podpac.Coordinates,
+        resolution_lat: int,
+        resolution_lon: int,
     ) -> podpac.Coordinates:
         """Find the intersecting latitude and longitude coordinates between the source and target.
 
@@ -943,15 +1008,38 @@ class EdrProvider(BaseEDRProvider):
             The source coordinates to be converted.
         target_coordinates : podpac.Coordinates
             The target coordinates to find intersections on.
+        resolution_lat: int
+            The desired resolution in the latitudinal direction, with a zero value using native resolution.
+        resolution_lon: int
+            The desired resolution in the longitudinal direction, with a zero value using native resolution.
 
         Returns
         -------
         podpac.Coordinates
             The converted coordinates source coordinates intersecting with the target coordinates.
         """
+        latitudes = (
+            target_coordinates["lat"].coordinates
+            if resolution_lat == 0
+            else np.linspace(
+                np.min(source_coordinates["lat"].coordinates),
+                np.max(source_coordinates["lat"].coordinates),
+                resolution_lat,
+            )
+        )
+        longitudes = (
+            target_coordinates["lon"].coordinates
+            if resolution_lon == 0
+            else np.linspace(
+                np.min(source_coordinates["lon"].coordinates),
+                np.max(source_coordinates["lon"].coordinates),
+                resolution_lon,
+            )
+        )
+
         # Find intersections with target keeping source crs
         target_spatial_coordinates = podpac.Coordinates(
-            [target_coordinates["lat"], target_coordinates["lon"]], dims=["lat", "lon"], crs=target_coordinates.crs
+            [latitudes, longitudes], dims=["lat", "lon"], crs=target_coordinates.crs
         )
         source_intersection_coordinates = target_spatial_coordinates.intersect(source_coordinates, dims=["lat", "lon"])
         source_intersection_coordinates = source_intersection_coordinates.transform(source_coordinates.crs)

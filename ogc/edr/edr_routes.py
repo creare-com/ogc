@@ -245,6 +245,7 @@ class EdrRoutes(tl.HasTraits):
         """
         self.clean_configuration_cache()
         self.update_configuration_base_url(request)
+        EdrProvider.set_extra_query_args(request._args)
         headers, http_status, content = EdrAPI.get_collection_edr_query(
             self.api, request, collection_id, instance_id, query_type=query_type, location_id=None
         )
