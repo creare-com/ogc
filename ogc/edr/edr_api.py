@@ -386,7 +386,7 @@ class EdrAPI:
         Returns
         -------
         Dict[str, Any]
-            The updated OpenAPI definition to be returned.
+            The customized OpenAPI definition.
         """
         server_tag = "Server"
         collection_tag = "Collection Information"
@@ -413,6 +413,24 @@ class EdrAPI:
                     ),
                 }
             },
+        }
+
+        query_base_parameters = [
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/crs.yaml"},
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/datetime.yaml"},
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/parameter-name.yaml"},
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/z.yaml"},
+        ]
+        query_responses = {
+            "200": {
+                "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/200.yaml",
+            },
+            "400": {
+                "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/400.yaml",
+            },
+            "404": resource_not_found_error,
+            "default": internal_application_error,
         }
 
         openapi = {}
@@ -517,24 +535,11 @@ class EdrAPI:
                     "parameters": [
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/areaCoords.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/crs.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/datetime.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/parameter-name.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/z.yaml"},
+                        *query_base_parameters,
                     ],
-                    "responses": {
-                        "200": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/200.yaml",
-                        },
-                        "400": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/400.yaml",
-                        },
-                        "404": resource_not_found_error,
-                        "default": internal_application_error,
-                    },
+                    "responses": query_responses,
                 },
             },
             "/collections/{collectionId}/cube": {
@@ -546,24 +551,11 @@ class EdrAPI:
                     "parameters": [
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/bbox.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/crs.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/datetime.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/parameter-name.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/z.yaml"},
+                        *query_base_parameters,
                     ],
-                    "responses": {
-                        "200": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/200.yaml",
-                        },
-                        "400": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/400.yaml",
-                        },
-                        "404": resource_not_found_error,
-                        "default": internal_application_error,
-                    },
+                    "responses": query_responses,
                 },
             },
             "/collections/{collectionId}/position": {
@@ -573,26 +565,11 @@ class EdrAPI:
                     "tags": [query_tag],
                     "operationId": "getCollectionPosition",
                     "parameters": [
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/crs.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/datetime.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/parameter-name.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/positionCoords.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/z.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        *query_base_parameters,
                     ],
-                    "responses": {
-                        "200": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/200.yaml",
-                        },
-                        "400": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/400.yaml",
-                        },
-                        "404": resource_not_found_error,
-                        "default": internal_application_error,
-                    },
+                    "responses": query_responses,
                 },
             },
             "/collections/{collectionId}/instances/": {
@@ -643,25 +620,12 @@ class EdrAPI:
                     "parameters": [
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/areaCoords.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/crs.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/datetime.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/queries/instanceId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/parameter-name.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/z.yaml"},
+                        *query_base_parameters,
                     ],
-                    "responses": {
-                        "200": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/200.yaml",
-                        },
-                        "400": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/400.yaml",
-                        },
-                        "404": resource_not_found_error,
-                        "default": internal_application_error,
-                    },
+                    "responses": query_responses,
                 },
             },
             "/collections/{collectionId}/instances/{instanceId}/cube": {
@@ -673,25 +637,12 @@ class EdrAPI:
                     "parameters": [
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/bbox.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/crs.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/datetime.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/queries/instanceId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/parameter-name.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/z.yaml"},
+                        *query_base_parameters,
                     ],
-                    "responses": {
-                        "200": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/200.yaml",
-                        },
-                        "400": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/400.yaml",
-                        },
-                        "404": resource_not_found_error,
-                        "default": internal_application_error,
-                    },
+                    "responses": query_responses,
                 },
             },
             "/collections/{collectionId}/instances/{instanceId}/position": {
@@ -701,27 +652,12 @@ class EdrAPI:
                     "tags": [query_tag],
                     "operationId": "getCollectionInstancePosition",
                     "parameters": [
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/crs.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/datetime.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/queries/instanceId.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/parameter-name.yaml"},
                         {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/positionCoords.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
-                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/z.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/queries/instanceId.yaml"},
+                        *query_base_parameters,
                     ],
-                    "responses": {
-                        "200": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/200.yaml",
-                        },
-                        "400": {
-                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/400.yaml",
-                        },
-                        "404": resource_not_found_error,
-                        "default": internal_application_error,
-                    },
+                    "responses": query_responses,
                 },
             },
         }
