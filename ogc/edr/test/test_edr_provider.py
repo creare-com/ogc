@@ -276,7 +276,7 @@ def test_edr_provider_cube_request_valid_bbox_with_resolution(
 ):
     """Test the cube method of the EDR Provider class with a valid bounding box and a specific resolution.
 
-    The tested node is adjusted to ensure use interpolation.
+    The tested node is adjusted to ensure interpolation is used.
 
     Parameters
     ----------

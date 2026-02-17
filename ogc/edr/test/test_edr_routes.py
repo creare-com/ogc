@@ -89,7 +89,7 @@ def test_edr_routes_conformance(layers: List[pogc.Layer]):
 
     assert status == HTTPStatus.OK
     assert len(response["conformsTo"]) > 0
-    assert "http://www.opengis.net/spec/ogcapi-edr-1/1.0/conf/core" in response["conformsTo"]
+    assert "https://www.opengis.net/spec/ogcapi-edr-1/1.1/conf/core" in response["conformsTo"]
 
 
 def test_edr_routes_api():
@@ -102,7 +102,7 @@ def test_edr_routes_api():
 
     assert status == HTTPStatus.OK
     assert response["paths"]["/"]
-    assert response["paths"]["/openapi"]
+    assert response["paths"]["/api"]
     assert response["paths"]["/conformance"]
     assert response["paths"]["/collections"]
 
