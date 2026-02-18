@@ -16,6 +16,15 @@ from .edr_provider import EdrProvider
 class EdrAPI:
     """Used to modify the default responses before returning data to the user."""
 
+    CONFORMANCE_CLASSES = sorted(
+        {
+            "https://www.opengis.net/spec/ogcapi-common-1/1.0/conf/core",
+            "https://www.opengis.net/spec/ogcapi-common-2/1.0/conf/collections",
+            "https://www.opengis.net/spec/ogcapi-edr-1/1.1/conf/core",
+        }
+    )
+    SCHEMA_CLASS = "https://schemas.opengis.net/ogcapi/edr/1.1/openapi"
+
     @jsonldify
     @staticmethod
     def landing_page(api: API, request: APIRequest) -> Tuple[dict, int, str]:
@@ -51,7 +60,24 @@ class EdrAPI:
         Tuple[dict, int, str]
             Headers, HTTP Status, and Content returned as a tuple.
         """
-        return pygeoapi.api.openapi_(api, request)
+        html_path = "openapi/redoc.html" if request._args.get("ui") == "redoc" else "openapi/swagger.html"
+        headers = request.get_response_headers(**api.api_headers)
+
+        if request.format == pygeoapi.api.F_HTML:
+            data = {"openapi-document-path": f"{api.base_url}/openapi"}
+            content = pygeoapi.api.render_j2_template(
+                api.tpl_config, api.config["server"]["templates"], html_path, data, request.locale
+            )
+
+            return headers, HTTPStatus.OK, content
+
+        headers["Content-Type"] = "application/vnd.oai.openapi+json;version=3.0"
+
+        if isinstance(api.openapi, dict):
+            openapi = EdrAPI._openapi_update(api.openapi)
+            return headers, HTTPStatus.OK, to_json(openapi, api.pretty_print)
+        else:
+            return headers, HTTPStatus.OK, api.openapi
 
     @staticmethod
     def conformance(api: API, request: APIRequest) -> Tuple[dict, int, str]:
@@ -69,7 +95,18 @@ class EdrAPI:
         Tuple[dict, int, str]
             Headers, HTTP Status, and Content returned as a tuple.
         """
-        return pygeoapi.api.conformance(api, request)
+        html_path = "conformance.html"
+        conformance = {"conformsTo": list(EdrAPI.CONFORMANCE_CLASSES)}
+
+        headers = request.get_response_headers(**api.api_headers)
+        if request.format == pygeoapi.api.F_HTML:
+            content = pygeoapi.api.render_j2_template(
+                api.tpl_config, api.config["server"]["templates"], html_path, conformance, request.locale
+            )
+
+            return headers, HTTPStatus.OK, content
+
+        return headers, HTTPStatus.OK, to_json(conformance, api.pretty_print)
 
     @jsonldify
     @staticmethod
@@ -336,3 +373,293 @@ class EdrAPI:
                     },
                 }
         return instance_parameters
+
+    @staticmethod
+    def _openapi_update(api: Dict[str, Any]) -> Dict[str, Any]:
+        """Update the default OpenAPI definition to a custom format.
+
+        Parameters
+        ----------
+        api : Dict[str, Any]
+            The OpenAPI definition to be updated.
+
+        Returns
+        -------
+        Dict[str, Any]
+            The customized OpenAPI definition.
+        """
+        server_tag = "Server"
+        collection_tag = "Collection Information"
+        instance_tag = "Instance Information"
+        query_tag = "Query"
+
+        resource_not_found_error = {"description": "Resource not found."}
+        internal_application_error = {
+            "description": "Internal application error",
+            "content": {
+                "application/xml": {
+                    "schema": {
+                        "type": "object",
+                        "format": "xml",
+                        "xml": {"name": "ExceptionReport"},
+                    },
+                    "example": (
+                        '<?xml version="1.0"?>'
+                        "<ExceptionReport>"
+                        '<Exception exceptionCode="NoApplicableCode">'
+                        "<ExceptionText>Internal application error</ExceptionText>"
+                        "</Exception>"
+                        "</ExceptionReport>"
+                    ),
+                }
+            },
+        }
+
+        query_base_parameters = [
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/crs.yaml"},
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/datetime.yaml"},
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/parameter-name.yaml"},
+            {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/z.yaml"},
+        ]
+        query_responses = {
+            "200": {
+                "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/200.yaml",
+            },
+            "400": {
+                "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/400.yaml",
+            },
+            "404": resource_not_found_error,
+            "default": internal_application_error,
+        }
+
+        openapi = {}
+        openapi["openapi"] = api.get("openapi")
+        openapi["info"] = api.get("info")
+        openapi["servers"] = api.get("servers")
+        openapi["tags"] = [server_tag, collection_tag, instance_tag, query_tag]
+        openapi["paths"] = {
+            "/": {
+                "get": {
+                    "summary": "Landing Page",
+                    "description": "Landing page of the API.",
+                    "tags": [server_tag],
+                    "operationId": "getLandingPage",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+                    ],
+                    "responses": {
+                        "200": {
+                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/core/landingPage.yaml",
+                        },
+                        "default": internal_application_error,
+                    },
+                },
+            },
+            "/api": {
+                "get": {
+                    "summary": "Capabilities of the API.",
+                    "description": "API",
+                    "tags": [server_tag],
+                    "operationId": "getApi",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "API capabilities",
+                        },
+                        "default": internal_application_error,
+                    },
+                },
+            },
+            "/conformance": {
+                "get": {
+                    "summary": "Conformance classes defining standard compliance of the API.",
+                    "description": "Conformance Classes",
+                    "tags": [server_tag],
+                    "operationId": "getConformance",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+                    ],
+                    "responses": {
+                        "200": {
+                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/core/conformance.yaml",
+                        },
+                        "default": internal_application_error,
+                    },
+                },
+            },
+            "/collections": {
+                "get": {
+                    "summary": "Collection information for all available collections.",
+                    "description": "Collections",
+                    "tags": [collection_tag],
+                    "operationId": "getCollections",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+                    ],
+                    "responses": {
+                        "200": {
+                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/collections/collections.yaml",
+                        },
+                        "default": internal_application_error,
+                    },
+                },
+            },
+            "/collections/{collectionId}": {
+                "get": {
+                    "summary": "Collection information for a single collection.",
+                    "description": "Collection",
+                    "tags": [collection_tag],
+                    "operationId": "getCollection",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+                    ],
+                    "responses": {
+                        "200": {
+                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/collections/collection.yaml",
+                        },
+                        "404": resource_not_found_error,
+                        "default": internal_application_error,
+                    },
+                },
+            },
+            "/collections/{collectionId}/area": {
+                "get": {
+                    "summary": "Query a collection for an area.",
+                    "description": "Collection Area Query",
+                    "tags": [query_tag],
+                    "operationId": "getCollectionArea",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/areaCoords.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
+                        *query_base_parameters,
+                    ],
+                    "responses": query_responses,
+                },
+            },
+            "/collections/{collectionId}/cube": {
+                "get": {
+                    "summary": "Query a collection for a cube.",
+                    "description": "Collection Cube Query",
+                    "tags": [query_tag],
+                    "operationId": "getCollectionCube",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/bbox.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
+                        *query_base_parameters,
+                    ],
+                    "responses": query_responses,
+                },
+            },
+            "/collections/{collectionId}/position": {
+                "get": {
+                    "summary": "Query a collection for a position.",
+                    "description": "Collection Position Query",
+                    "tags": [query_tag],
+                    "operationId": "getCollectionPosition",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/positionCoords.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        *query_base_parameters,
+                    ],
+                    "responses": query_responses,
+                },
+            },
+            "/collections/{collectionId}/instances/": {
+                "get": {
+                    "summary": "Instance information for all available instances in a collection.",
+                    "description": "Collection Instances",
+                    "tags": [instance_tag],
+                    "operationId": "getCollectionInstances",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                    ],
+                    "responses": {
+                        "200": {
+                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/instances.yaml",
+                        },
+                        "404": resource_not_found_error,
+                        "default": internal_application_error,
+                    },
+                },
+            },
+            "/collections/{collectionId}/instances/{instanceId}": {
+                "get": {
+                    "summary": "Instance information for a single instance in a collection.",
+                    "description": "Collection Instance",
+                    "tags": [instance_tag],
+                    "operationId": "getCollectionInstance",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/f.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/queries/instanceId.yaml"},
+                    ],
+                    "responses": {
+                        "200": {
+                            "$ref": f"{EdrAPI.SCHEMA_CLASS}/responses/queries/instances.yaml",
+                        },
+                        "404": resource_not_found_error,
+                        "default": internal_application_error,
+                    },
+                },
+            },
+            "/collections/{collectionId}/instances/{instanceId}/area": {
+                "get": {
+                    "summary": "Query a collection instance for an area.",
+                    "description": "Instance Area Query",
+                    "tags": [query_tag],
+                    "operationId": "getCollectionInstanceArea",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/areaCoords.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/queries/instanceId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
+                        *query_base_parameters,
+                    ],
+                    "responses": query_responses,
+                },
+            },
+            "/collections/{collectionId}/instances/{instanceId}/cube": {
+                "get": {
+                    "summary": "Query a collection instance for a cube.",
+                    "description": "Instance Cube Query",
+                    "tags": [query_tag],
+                    "operationId": "getCollectionInstanceCube",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/bbox.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/queries/instanceId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-x.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/resolution-y.yaml"},
+                        *query_base_parameters,
+                    ],
+                    "responses": query_responses,
+                },
+            },
+            "/collections/{collectionId}/instances/{instanceId}/position": {
+                "get": {
+                    "summary": "Query a collection instance for a position.",
+                    "description": "Instance Position Query",
+                    "tags": [query_tag],
+                    "operationId": "getCollectionInstancePosition",
+                    "parameters": [
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/core/positionCoords.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/collections/collectionId.yaml"},
+                        {"$ref": f"{EdrAPI.SCHEMA_CLASS}/parameters/queries/instanceId.yaml"},
+                        *query_base_parameters,
+                    ],
+                    "responses": query_responses,
+                },
+            },
+        }
+
+        return openapi
