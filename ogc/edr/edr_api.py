@@ -155,6 +155,12 @@ class EdrAPI:
 
             collection["output_formats"] = collection_configuration[collection_id].get("output_formats", [])
 
+            collection_queryable = EdrProvider.is_collection_queryable(provider["base_url"], collection_id)
+            if not collection_queryable:
+                collection_without_queryables = EdrAPI._remove_query_metadata(collection)
+                collection["links"] = collection_without_queryables["links"]
+                collection["data_queries"] = collection_without_queryables["data_queries"]
+
             height_units = collection_configuration[collection_id].get("height_units", [])
             query_formats = collection_configuration[collection_id].get("query_formats", {})
             for query_type in collection["data_queries"]:
@@ -377,6 +383,30 @@ class EdrAPI:
                     },
                 }
         return instance_parameters
+
+    @staticmethod
+    def _remove_query_metadata(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove metadata from the dictionary which relates to query types such as position and cube.
+
+        Parameters
+        ----------
+        data : Dict[str, Any]
+            The dictionary to remove query metadata from.
+
+        Returns
+        -------
+        Dict[str, Any]
+            The updated dictionary with metadata removed.
+        """
+        filtered_data = data.copy()
+        data_queries = data.get("data_queries", {})
+        filtered_data["data_queries"] = {"instances": data_queries.get("instances")}
+        filtered_data["links"] = []
+        for link in data["links"]:
+            if link.get("rel") != "data" or "/instances" in link.get("href", ""):
+                filtered_data["links"].append(link)
+
+        return filtered_data
 
     @staticmethod
     def _openapi_update(api: Dict[str, Any]) -> Dict[str, Any]:

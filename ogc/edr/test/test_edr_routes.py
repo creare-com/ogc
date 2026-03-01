@@ -149,7 +149,7 @@ def test_edr_routes_describe_collection(layers: List[pogc.Layer]):
     assert status == HTTPStatus.OK
     assert response["id"] == collection_id
     assert list(response["parameter_names"].keys()) == [layer.identifier for layer in collection_layers]
-    assert list(response["data_queries"].keys()) == ["position", "cube", "area", "instances"]
+    assert list(response["data_queries"].keys()) == ["instances"]
 
 
 def test_edr_routes_describe_instances(layers: List[pogc.Layer]):

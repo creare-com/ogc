@@ -67,6 +67,29 @@ class EdrProvider(BaseEDRProvider):
         else:
             return layers
 
+    @classmethod
+    def is_collection_queryable(cls, base_url: str, group: str) -> bool:
+        """Determine whether a collection contains directly queryable data or is only queryable through instances.
+
+        Parameters
+        ----------
+        base_url : str
+            The base URL for the layers.
+        group : str
+            Collection to check if direct querying is possible.
+
+        Returns
+        -------
+        bool
+            True if the collection can be queried directly, false otherwise.
+        """
+        layers = cls.get_layers(base_url, group)
+        for layer in layers:
+            coordinates = layer.get_coordinates_list()
+            if len(coordinates) > 0 and "forecastOffsetHr" not in coordinates[0].udims:
+                return True
+        return False
+
     def __init__(self, provider_def: Dict[str, Any]):
         """Construct the provider using the provider definition.
 
@@ -543,8 +566,6 @@ class EdrProvider(BaseEDRProvider):
     def evaluate_layer(requested_coordinates: podpac.Coordinates, layer: pogc.Layer) -> podpac.UnitsDataArray | None:
         """Evaluate a layer using the requested coordinates.
 
-        Temporal coordinates are ignored if the layer does not include them.
-
         Parameters
         ----------
         requested_coordinates : podpac.Coordinates
@@ -560,7 +581,12 @@ class EdrProvider(BaseEDRProvider):
         coordinates = layer.get_coordinates_list()
         layer_requested_coordinates = requested_coordinates
         units_data_array = None
-        if len(coordinates) > 0 and "time" not in coordinates[0].udims:
+        layer_has_instances = "forecastOffsetHr" in coordinates[0].udims
+        request_has_instances = "forecastOffsetHr" in requested_coordinates.udims
+        if len(coordinates) <= 0 or (layer_has_instances ^ request_has_instances):
+            return units_data_array
+
+        if "time" not in coordinates[0].udims:
             layer_requested_coordinates = layer_requested_coordinates.udrop(
                 ["time", "forecastOffsetHr"], ignore_missing=True
             )
