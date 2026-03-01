@@ -147,6 +147,10 @@ class EdrProvider(BaseEDRProvider):
             The requested datetime/datetimes for data retrieval.
         z : str
             The requested vertical level/levels for data retrieval.
+        resolution-x : str
+            The number of requested data points, as a string, in the x-direction.
+        resolution-y : str
+            The number of requested data points, as a string, in the y-direction.
 
         Returns
         -------
@@ -179,8 +183,8 @@ class EdrProvider(BaseEDRProvider):
         output_format = kwargs.get("format_")
         datetime_arg = kwargs.get("datetime_")
         z_arg = kwargs.get("z")
-        resolution_x = self._extra_args.get("resolution-x")
-        resolution_y = self._extra_args.get("resolution-y")
+        resolution_x = kwargs.get("resolution-x")
+        resolution_y = kwargs.get("resolution-y")
 
         instance = self.validate_instance(instance)
         requested_parameters = self.validate_parameters(requested_parameters)
@@ -311,6 +315,8 @@ class EdrProvider(BaseEDRProvider):
         crs = kwargs.get("crs")
         crs = EdrProvider.interpret_crs(crs)
         kwargs["format_"] = self.validate_output_format(kwargs["format_"], "cube")
+        kwargs["resolution-x"] = self._extra_args.get("resolution-x")
+        kwargs["resolution-y"] = self._extra_args.get("resolution-y")
 
         if not isinstance(bbox, List) or (len(bbox) != 4 and len(bbox) != 6):
             msg = (
@@ -363,6 +369,8 @@ class EdrProvider(BaseEDRProvider):
         crs = kwargs.get("crs")
         crs = EdrProvider.interpret_crs(crs)
         kwargs["format_"] = self.validate_output_format(kwargs["format_"], "area")
+        kwargs["resolution-x"] = self._extra_args.get("resolution-x")
+        kwargs["resolution-y"] = self._extra_args.get("resolution-y")
 
         if not isinstance(wkt, BaseGeometry):
             msg = "Invalid WKT string provided for the area query."
