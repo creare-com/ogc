@@ -88,7 +88,6 @@ class EdrProvider(BaseEDRProvider):
             raise ProviderConnectionError("Data not found.")
 
         self.collection_id = str(collection_id)
-        self.native_format = provider_def["format"]["name"]
 
         self.base_url = provider_def.get("base_url", "")
         if not self.base_url:
@@ -138,8 +137,6 @@ class EdrProvider(BaseEDRProvider):
         ProviderInvalidQueryError
             Raised if an invalid parameter is provided.
         ProviderInvalidQueryError
-            Raised if an invalid output format is provided.
-        ProviderInvalidQueryError
             Raised if a datetime string is provided but cannot be interpreted.
         ProviderInvalidQueryError
             Raised if an altitude string is provided but cannot be interpreted.
@@ -164,7 +161,6 @@ class EdrProvider(BaseEDRProvider):
 
         instance = self.validate_instance(instance)
         requested_parameters = self.validate_parameters(requested_parameters)
-        output_format = self.validate_output_format(output_format)
         resolution_x, resolution_y = self.validate_resolution(resolution_x, resolution_y)
 
         crs = self.interpret_crs(requested_coordinates.crs)
@@ -228,6 +224,8 @@ class EdrProvider(BaseEDRProvider):
             WKT geometry
         crs : str
             The requested CRS for the return coordinates and data.
+        format_ : str
+            The requested output format of the data.
 
         Returns
         -------
@@ -237,6 +235,8 @@ class EdrProvider(BaseEDRProvider):
         Raises
         ------
         ProviderInvalidQueryError
+            Raised if an invalid output format is provided.
+        ProviderInvalidQueryError
             Raised if the wkt string is not provided.
         ProviderInvalidQueryError
             Raised if the wkt string is an unknown type.
@@ -245,6 +245,7 @@ class EdrProvider(BaseEDRProvider):
         wkt = kwargs.get("wkt")
         crs = kwargs.get("crs")
         crs = EdrProvider.interpret_crs(crs)
+        kwargs["format_"] = self.validate_output_format(kwargs["format_"], "position")
 
         if not isinstance(wkt, BaseGeometry):
             msg = "Invalid WKT string provided for the position query."
@@ -268,6 +269,8 @@ class EdrProvider(BaseEDRProvider):
             Bbox geometry (for cube queries)
         crs : str
             The requested CRS for the return coordinates and data.
+        format_ : str
+            The requested output format of the data.
 
         Returns
         -------
@@ -277,11 +280,14 @@ class EdrProvider(BaseEDRProvider):
         Raises
         ------
         ProviderInvalidQueryError
+            Raised if an invalid output format is provided.
+        ProviderInvalidQueryError
             Raised if the bounding box is invalid.
         """
         bbox = kwargs.get("bbox")
         crs = kwargs.get("crs")
         crs = EdrProvider.interpret_crs(crs)
+        kwargs["format_"] = self.validate_output_format(kwargs["format_"], "cube")
 
         if not isinstance(bbox, List) or (len(bbox) != 4 and len(bbox) != 6):
             msg = (
@@ -312,6 +318,8 @@ class EdrProvider(BaseEDRProvider):
             WKT geometry
         crs : str
             The requested CRS for the return coordinates and data.
+        format_ : str
+            The requested output format of the data.
 
         Returns
         -------
@@ -321,6 +329,8 @@ class EdrProvider(BaseEDRProvider):
         Raises
         ------
         ProviderInvalidQueryError
+            Raised if an invalid output format is provided.
+        ProviderInvalidQueryError
             Raised if the wkt string is not provided.
         ProviderInvalidQueryError
             Raised if the wkt string is an unknown type.
@@ -329,6 +339,7 @@ class EdrProvider(BaseEDRProvider):
         wkt = kwargs.get("wkt")
         crs = kwargs.get("crs")
         crs = EdrProvider.interpret_crs(crs)
+        kwargs["format_"] = self.validate_output_format(kwargs["format_"], "area")
 
         if not isinstance(wkt, BaseGeometry):
             msg = "Invalid WKT string provided for the area query."
@@ -390,7 +401,7 @@ class EdrProvider(BaseEDRProvider):
             }
         return fields
 
-    def validate_output_format(self, output_format: str | None) -> str:
+    def validate_output_format(self, output_format: str | None, query_type: str) -> str:
         """Validate the output format for a query.
 
         If None provided, return the default.
@@ -400,6 +411,8 @@ class EdrProvider(BaseEDRProvider):
         ----------
         output_format : str | None
             The specified output format which needs to be validated.
+        query_type: str
+            The query type to validate output formats against.
 
         Returns
         -------
@@ -412,10 +425,12 @@ class EdrProvider(BaseEDRProvider):
             Raised if the provided output format is invalid.
         """
         if output_format is None:
-            return self.native_format.lower()
+            return settings.EDR_QUERY_DEFAULTS.get(query_type, "")
 
-        if output_format.lower() not in [key.lower() for key in settings.EDR_QUERY_FORMATS]:
-            msg = f"Invalid format provided, expected one of {', '.join(settings.EDR_QUERY_FORMATS)}"
+        if output_format.lower() not in [key.lower() for key in settings.EDR_QUERY_FORMATS.get(query_type, [])]:
+            msg = (
+                f"Invalid format provided, expected one of {', '.join(settings.EDR_QUERY_FORMATS.get(query_type, []))}"
+            )
             raise ProviderInvalidQueryError(msg, user_msg=msg)
 
         return output_format.lower()

@@ -44,7 +44,16 @@ GEOTIFF = "GeoTIFF"
 JSON = "JSON"
 COVERAGE_JSON = "CoverageJSON"
 HTML = "HTML"
-EDR_QUERY_FORMATS = [GEOTIFF, COVERAGE_JSON, JSON, HTML]
+EDR_QUERY_FORMATS = {
+    "cube": [GEOTIFF, COVERAGE_JSON, JSON, HTML],
+    "area": [GEOTIFF, COVERAGE_JSON, JSON, HTML],
+    "position": [COVERAGE_JSON, JSON, HTML],
+}
+EDR_QUERY_DEFAULTS = {
+    "cube": GEOTIFF,
+    "area": GEOTIFF,
+    "position": COVERAGE_JSON,
+}
 
 # WMS Capabilities timestamp format
 USE_TIMES_LIST = False

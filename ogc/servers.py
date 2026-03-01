@@ -194,7 +194,7 @@ class FlaskServer(Flask):
             self.add_url_rule(
                 f"/{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>/<path:query_type>",
                 endpoint=f"{endpoint}_instance_query",
-                view_func=self.edr_render(ogc.edr_routes.collection_query, default_format=settings.GEOTIFF),
+                view_func=self.edr_render(ogc.edr_routes.collection_query),
                 methods=["GET"],
                 strict_slashes=strict_slashes,
             )
@@ -259,7 +259,7 @@ class FlaskServer(Flask):
             ee = WCSException()
             return respond_xml(ee.to_xml(), status=500)
 
-    def edr_render(self, callable: Callable, default_format: str | None = "json") -> Callable:
+    def edr_render(self, callable: Callable) -> Callable:
         """Function which returns a wrapper for the provided callable.
         Filters arguments and handles any necessary exceptions.
 
@@ -267,9 +267,6 @@ class FlaskServer(Flask):
         ----------
         callable : Callable
             The callable request handler to be wrapped.
-        default_format: str | None
-            The optional default data output format, by default "json".
-
         Returns
         -------
         Callable
@@ -305,6 +302,10 @@ class FlaskServer(Flask):
                     for (k, v) in request.args.items()
                 }
                 # Replace format with its lowercase version to match pygeoapi expectations
+                query_type = kwargs.get("query_type")
+                default_format = settings.JSON
+                if query_type is not None:
+                    default_format = settings.EDR_QUERY_DEFAULTS.get(query_type, default_format)
                 format_argument = filtered_args.get("f", default_format)
                 if format_argument is not None:
                     filtered_args["f"] = format_argument.lower()

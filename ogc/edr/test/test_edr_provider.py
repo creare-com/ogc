@@ -217,6 +217,32 @@ def test_edr_provider_position_request_invalid_wkt(
         provider.position(**args)
 
 
+def test_edr_provider_position_request_invalid_format(
+    layers: List[pogc.Layer], single_layer_cube_args_internal: Dict[str, Any]
+):
+    """Test the position method of the EDR Provider class with an invalid format.
+
+    Parameters
+    ----------
+    layers : List[pogc.Layer]
+        Layers provided by a test fixture.
+
+    single_layer_cube_args_internal : Dict[str, Any]
+        Single layer arguments with internal pygeoapi keys provided by a test fixture.
+    """
+    base_url = "/"
+    args = single_layer_cube_args_internal
+    del args["bbox"]
+    args["wkt"] = Point(5.2, 52.1)
+    args["format_"] = settings.GEOTIFF
+
+    provider = EdrProvider(provider_def=get_provider_definition(base_url))
+    provider.set_layers(base_url, layers)
+
+    with pytest.raises(ProviderInvalidQueryError):
+        provider.position(**args)
+
+
 def test_edr_provider_position_request_invalid_property(
     layers: List[pogc.Layer], single_layer_cube_args_internal: Dict[str, Any]
 ):

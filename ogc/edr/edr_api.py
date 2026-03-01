@@ -156,9 +156,11 @@ class EdrAPI:
             collection["output_formats"] = collection_configuration[collection_id].get("output_formats", [])
 
             height_units = collection_configuration[collection_id].get("height_units", [])
+            query_formats = collection_configuration[collection_id].get("query_formats", {})
             for query_type in collection["data_queries"]:
                 data_query_additions = {
                     "query_type": query_type,
+                    **(query_formats.get(query_type) if query_formats.get(query_type) is not None else {}),
                     **({"height_units": height_units} if query_type == "cube" else {}),
                 }
                 variables = collection["data_queries"][query_type]["link"].get("variables", {})
@@ -229,9 +231,11 @@ class EdrAPI:
             instance["output_formats"] = collection_configuration[dataset].get("output_formats", [])
 
             height_units = collection_configuration[dataset].get("height_units")
+            query_formats = collection_configuration[dataset].get("query_formats", {})
             for query_type in instance["data_queries"]:
                 data_query_additions = {
                     "query_type": query_type,
+                    **(query_formats.get(query_type) if query_formats.get(query_type) is not None else {}),
                     **({"height_units": height_units} if query_type == "cube" else {}),
                 }
                 variables = instance["data_queries"][query_type]["link"].get("variables", {})

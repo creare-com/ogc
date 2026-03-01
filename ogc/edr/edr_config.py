@@ -99,7 +99,8 @@ class EdrConfig:
                     "keywords": ["podpac"],
                     "extents": EdrConfig._generate_extents(group_layers),
                     "height_units": EdrConfig._vertical_units(group_layers),
-                    "output_formats": settings.EDR_QUERY_FORMATS,
+                    "output_formats": list({item for values in settings.EDR_QUERY_FORMATS.values() for item in values}),
+                    "query_formats": EdrConfig.data_query_formats(),
                     "providers": [
                         {
                             "type": "edr",
@@ -244,3 +245,20 @@ class EdrConfig:
                 vertical_units.add(coordinates_list[0].alt_units)
 
         return list(vertical_units)
+
+    @staticmethod
+    def data_query_formats() -> Dict[str, Any]:
+        """Get data related to the available query output formats and the default format.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Query format data for each query type.
+        """
+        query_formats = {}
+        for query_type, formats in settings.EDR_QUERY_FORMATS.items():
+            query_formats[query_type] = {
+                "output_formats": formats,
+                "default_output_format": settings.EDR_QUERY_DEFAULTS.get(query_type),
+            }
+        return query_formats
