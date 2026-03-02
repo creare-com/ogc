@@ -975,6 +975,8 @@ class EdrProvider(BaseEDRProvider):
                     }
                 }
                 coverage_json["domain"]["parameters"].update(parameter_definition)
+
+            data = [None if np.isnan(x) or np.isinf(x) else x for x in data_array.values.flatten()]
             coverage_json["domain"]["ranges"].update(
                 {
                     param: {
@@ -982,7 +984,7 @@ class EdrProvider(BaseEDRProvider):
                         "dataType": "float",
                         "axisNames": list(data_array.coords.keys()),
                         "shape": data_array.shape,
-                        "values": list(data_array.values.flatten()),  # Row Major Order
+                        "values": data,  # Row Major Order
                     }
                 }
             )
