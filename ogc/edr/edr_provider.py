@@ -85,8 +85,8 @@ class EdrProvider(BaseEDRProvider):
         """
         layers = cls.get_layers(base_url, group)
         for layer in layers:
-            coordinates = layer.get_coordinates_list()
-            if len(coordinates) > 0 and "forecastOffsetHr" not in coordinates[0].udims:
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and "forecastOffsetHr" not in coordinates.udims:
                 return True
         return False
 
@@ -212,11 +212,11 @@ class EdrProvider(BaseEDRProvider):
             requested_coordinates = podpac.coordinates.merge_dims([altitude_coords, requested_coordinates])
 
         # Handle defining native coordinates for the query, these should match between each layer
-        coordinates_list = next(iter(requested_parameters.values())).get_coordinates_list()
-        self.check_query_condition(len(coordinates_list) == 0, "Native coordinates not found.")
+        coordinates = next(iter(requested_parameters.values())).get_coordinates()
+        self.check_query_condition(coordinates is None, "Native coordinates not found.")
         resolution_lon, resolution_lat = self.crs_converter(resolution_x, resolution_y, crs)
         requested_native_coordinates = self.get_native_coordinates(
-            requested_coordinates, coordinates_list[0], resolution_lat, resolution_lon
+            requested_coordinates, coordinates, resolution_lat, resolution_lon
         )
 
         self.check_query_condition(
@@ -586,12 +586,15 @@ class EdrProvider(BaseEDRProvider):
         podpac.UnitsDataArray
             The units data array returned from evaluation or None if the node was not found.
         """
-        coordinates = layer.get_coordinates_list()
+        coordinates = layer.get_coordinates()
         layer_requested_coordinates = requested_coordinates
         units_data_array = None
-        layer_has_instances = "forecastOffsetHr" in coordinates[0].udims
+        if coordinates is None:
+            return units_data_array
+
+        layer_has_instances = "forecastOffsetHr" in coordinates.udims
         request_has_instances = "forecastOffsetHr" in requested_coordinates.udims
-        if len(coordinates) <= 0 or (layer_has_instances ^ request_has_instances):
+        if layer_has_instances ^ request_has_instances:
             return units_data_array
 
         if "time" not in coordinates[0].udims:
@@ -635,9 +638,9 @@ class EdrProvider(BaseEDRProvider):
 
         available_altitudes = set()
         for layer in layers:
-            coordinates_list = layer.get_coordinates_list()
-            if len(coordinates_list) > 0 and "alt" in coordinates_list[0].udims:
-                available_altitudes.update(coordinates_list[0]["alt"].coordinates)
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and "alt" in coordinates.udims:
+                available_altitudes.update(coordinates["alt"].coordinates)
 
         return list(available_altitudes)
 
@@ -659,19 +662,19 @@ class EdrProvider(BaseEDRProvider):
 
         available_times = set()
         for layer in layers:
-            coordinates_list = layer.get_coordinates_list()
-            if len(coordinates_list) > 0 and "time" in coordinates_list[0].udims:
-                if instance_time in layer.time_instances() and "forecastOffsetHr" in coordinates_list[0].udims:
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and "time" in coordinates.udims:
+                if instance_time in layer.time_instances() and "forecastOffsetHr" in coordinates.udims:
                     # Retrieve available forecastOffSetHr and instance time combinations
                     instance_datetime = np.datetime64(instance_time)
-                    instance_coordinates = coordinates_list[0].select({"time": [instance_datetime, instance_datetime]})
+                    instance_coordinates = coordinates.select({"time": [instance_datetime, instance_datetime]})
                     selected_offset_coordinates = instance_coordinates["forecastOffsetHr"].coordinates
                     available_times.update(
                         [np.datetime64(instance_time) + offset for offset in selected_offset_coordinates]
                     )
-                elif not instance_time and "forecastOffsetHr" not in coordinates_list[0].udims:
+                elif not instance_time and "forecastOffsetHr" not in coordinates.udims:
                     # Retrieve layer times for non-instance requests
-                    available_times.update(coordinates_list[0]["time"].coordinates)
+                    available_times.update(coordinates["time"].coordinates)
 
         return list(available_times)
 
@@ -976,7 +979,7 @@ class EdrProvider(BaseEDRProvider):
                 }
                 coverage_json["domain"]["parameters"].update(parameter_definition)
 
-            data = [None if np.isnan(x) or np.isinf(x) else x for x in data_array.values.flatten()]
+            data = [x if np.isfinite(x) else None for x in data_array.values.flatten()]
             coverage_json["domain"]["ranges"].update(
                 {
                     param: {

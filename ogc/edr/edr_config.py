@@ -159,9 +159,9 @@ class EdrConfig:
                 urc_lon = max(urc_lon, urc_lon_tmp)
                 urc_lat = max(urc_lat, urc_lat_tmp)
 
-            coordinates_list = layer.get_coordinates_list()
-            if len(coordinates_list) > 0 and "alt" in coordinates_list[0].udims:
-                vertical_range.update(coordinates_list[0]["alt"].coordinates)
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and "alt" in coordinates.udims:
+                vertical_range.update(coordinates["alt"].coordinates)
 
             if hasattr(layer, "valid_times") and layer.valid_times is not tl.Undefined and len(layer.valid_times) > 0:
                 time_range.update(layer.valid_times)
@@ -240,9 +240,9 @@ class EdrConfig:
         """
         vertical_units = set()
         for layer in layers:
-            coordinates_list = layer.get_coordinates_list()
-            if len(coordinates_list) > 0 and coordinates_list[0].alt_units:
-                vertical_units.add(coordinates_list[0].alt_units)
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and coordinates.alt_units:
+                vertical_units.add(coordinates.alt_units)
 
         return list(vertical_units)
 

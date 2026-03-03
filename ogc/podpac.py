@@ -65,35 +65,40 @@ class Layer(ogc.Layer):
             List of available time instances as a strings.
         """
         time_instances = set()
-        coordinates_list = self.get_coordinates_list()
+        coordinates = self.get_coordinates()
 
         # Time instances are created if a node has both time and offsets.
-        if (
-            len(coordinates_list) > 0
-            and "time" in coordinates_list[0].udims
-            and "forecastOffsetHr" in coordinates_list[0].udims
-        ):
+        if coordinates is not None and "time" in coordinates.udims and "forecastOffsetHr" in coordinates.udims:
             time_instances.update(
-                [
-                    time.astype("datetime64[ms]").astype(datetime).isoformat()
-                    for time in coordinates_list[0]["time"].coordinates
-                ]
+                [time.astype("datetime64[ms]").astype(datetime).isoformat() for time in coordinates["time"].coordinates]
             )
 
         return list(time_instances)
 
-    def get_coordinates_list(self) -> List[Coordinates]:
-        """Retrieve the coordinates list from the node.
+    def get_coordinates(self) -> Coordinates | None:
+        """Retrieve the coordinates from the node.
 
         Returns
         -------
-        List[Coordinates]
-            List of coordinates from the node.
+        Coordinates | None
+            Coordinates from the node or None if not found.
         """
         if self.node is None:
-            return []
+            return None
 
-        return self.node.find_coordinates()
+        coordinates_list = self.node.find_coordinates()
+        dimension_set = set()
+        coordinates = None
+
+        for coords in coordinates_list:
+            dimension_set.update(coords.udims)
+            if coordinates is None or len(coords.udims) > len(coordinates.udims):
+                coordinates = coords
+
+        if coordinates is not None and not all(dim in coordinates.udims for dim in dimension_set):
+            raise ValueError("Not all node coordinate dimensions contained in the layer coordinates.")
+
+        return coordinates
 
     def get_units(self) -> str | None:
         """Retrieve the units from the node.
