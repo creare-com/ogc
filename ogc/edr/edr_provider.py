@@ -2,9 +2,11 @@ import base64
 import io
 import numpy as np
 import zipfile
+import pyproj
 from datetime import datetime
 from collections import defaultdict
 from typing import List, Dict, Tuple, Any
+from pyproj.exceptions import CRSError
 from shapely.geometry.base import BaseGeometry
 from pygeoapi.provider.base import ProviderConnectionError, ProviderInvalidQueryError
 from pygeoapi.provider.base_edr import BaseEDRProvider
@@ -249,8 +251,6 @@ class EdrProvider(BaseEDRProvider):
         ----------
         wkt : shapely.geometry
             WKT geometry
-        crs : str
-            The requested CRS for the return coordinates and data.
         format_ : str
             The requested output format of the data.
 
@@ -270,7 +270,7 @@ class EdrProvider(BaseEDRProvider):
         """
         lat, lon = [], []
         wkt = kwargs.get("wkt")
-        crs = kwargs.get("crs")
+        crs = self._extra_args.get("crs")
         crs = EdrProvider.interpret_crs(crs)
         kwargs["format_"] = self.validate_output_format(kwargs["format_"], "position")
 
@@ -294,8 +294,6 @@ class EdrProvider(BaseEDRProvider):
         ----------
         bbox : List[float]
             Bbox geometry (for cube queries)
-        crs : str
-            The requested CRS for the return coordinates and data.
         format_ : str
             The requested output format of the data.
 
@@ -312,7 +310,7 @@ class EdrProvider(BaseEDRProvider):
             Raised if the bounding box is invalid.
         """
         bbox = kwargs.get("bbox")
-        crs = kwargs.get("crs")
+        crs = self._extra_args.get("crs")
         crs = EdrProvider.interpret_crs(crs)
         kwargs["format_"] = self.validate_output_format(kwargs["format_"], "cube")
         kwargs["resolution-x"] = self._extra_args.get("resolution-x")
@@ -345,8 +343,6 @@ class EdrProvider(BaseEDRProvider):
         ----------
         wkt : shapely.geometry
             WKT geometry
-        crs : str
-            The requested CRS for the return coordinates and data.
         format_ : str
             The requested output format of the data.
 
@@ -366,7 +362,7 @@ class EdrProvider(BaseEDRProvider):
         """
         lat, lon = [], []
         wkt = kwargs.get("wkt")
-        crs = kwargs.get("crs")
+        crs = self._extra_args.get("crs")
         crs = EdrProvider.interpret_crs(crs)
         kwargs["format_"] = self.validate_output_format(kwargs["format_"], "area")
         kwargs["resolution-x"] = self._extra_args.get("resolution-x")
@@ -680,7 +676,7 @@ class EdrProvider(BaseEDRProvider):
 
     @staticmethod
     def interpret_crs(crs: str | None) -> str:
-        """Interpret the CRS id string into a valid PyProj CRS format.
+        """Interpret the CRS id string into a valid WKT CRS format.
 
         If None provided, return the default.
         If the provided CRS is invalid, raise an error.
@@ -693,7 +689,7 @@ class EdrProvider(BaseEDRProvider):
         Returns
         -------
         str
-            Pyproj CRS string.
+            WKT CRS string.
 
         Raises
         ------
@@ -701,13 +697,20 @@ class EdrProvider(BaseEDRProvider):
             Raised if the provided CRS string is unknown.
         """
         if crs is None:
-            return settings.crs_84_uri_format  # Pyproj acceptable format
+            return pyproj.CRS(settings.crs_84_uri_format).to_wkt()  # Pyproj acceptable format
 
-        if crs.lower() not in [key.lower() for key in settings.EDR_CRS.keys()]:
-            msg = f"Invalid CRS provided, expected one of {', '.join(settings.EDR_CRS.keys())}"
-            raise ProviderInvalidQueryError(msg, user_msg=msg)
+        try:
+            wkt_crs = pyproj.CRS(crs).to_wkt()
+            wkt_options = [pyproj.CRS(key).to_wkt() for key in settings.EDR_CRS.keys()]
+        except CRSError:
+            wkt_crs = None
+            wkt_options = []
 
-        return crs
+        if wkt_crs is None or wkt_crs not in wkt_options:
+            error_msg = msg = f"Invalid CRS provided, expected one of {', '.join(settings.EDR_CRS.keys())}"
+            raise ProviderInvalidQueryError(msg, user_msg=error_msg)
+
+        return wkt_crs
 
     @staticmethod
     def crs_converter(x: Any, y: Any, crs: str) -> Tuple[Any, Any]:
@@ -727,7 +730,9 @@ class EdrProvider(BaseEDRProvider):
         Tuple[Any, Any]
             The X,Y as Longitude/Latitude data.
         """
-        if crs.lower() == settings.epsg_4326_uri_format.lower():
+        wkt_crs = pyproj.CRS(crs).to_wkt()
+        wkt_epsg_4326 = pyproj.CRS(settings.epsg_4326_uri_format).to_wkt()
+        if wkt_crs == wkt_epsg_4326:
             return (y, x)
 
         return (x, y)
@@ -1072,6 +1077,9 @@ class EdrProvider(BaseEDRProvider):
         podpac.Coordinates
             The converted coordinates source coordinates intersecting with the target coordinates.
         """
+        if len(source_coordinates["lat"].coordinates) == 1 and len(source_coordinates["lon"].coordinates) == 1:
+            return source_coordinates
+
         latitudes = (
             target_coordinates["lat"].coordinates
             if resolution_lat == 0

@@ -4,6 +4,7 @@ import zipfile
 import base64
 import io
 import podpac
+import pyproj
 from shapely import Point, Polygon
 from typing import Dict, List, Any
 from ogc import settings
@@ -678,12 +679,15 @@ def test_edr_provider_altitude_invalid_string():
 
 def test_edr_provider_crs_interpreter_default_value():
     """Test the CRS interpretation returns a default value when the argument is None."""
-    assert EdrProvider.interpret_crs(None) == settings.crs_84_uri_format
+
+    assert EdrProvider.interpret_crs(None) == pyproj.CRS(settings.crs_84_uri_format).to_wkt()
 
 
 def test_edr_provider_crs_interpreter_valid_value():
     """Test the CRS interpretation returns a valid value when the argument is acceptable."""
-    assert EdrProvider.interpret_crs(settings.epsg_4326_uri_format) == settings.epsg_4326_uri_format
+    assert (
+        EdrProvider.interpret_crs(settings.epsg_4326_uri_format) == pyproj.CRS(settings.epsg_4326_uri_format).to_wkt()
+    )
 
 
 def test_edr_provider_crs_interpreter_invalid_value():
