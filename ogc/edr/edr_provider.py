@@ -223,7 +223,7 @@ class EdrProvider(BaseEDRProvider):
 
         self.check_query_condition(
             bool(requested_native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE),
-            "Grid coordinates x_size * y_size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
+            "Coordinates size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
         )
 
         dataset = {}
