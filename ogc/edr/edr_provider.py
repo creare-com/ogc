@@ -903,6 +903,9 @@ class EdrProvider(BaseEDRProvider):
         x_arr = list(x_arr.flatten())
         y_arr = list(y_arr.flatten())
 
+        lon_map_value, lat_map_value = EdrProvider.crs_converter("x", "y", crs)
+        dimension_map = {"time": "t", "alt": "z", "lon": lon_map_value, "lat": lat_map_value}
+
         coverage_json = {
             "type": "Coverage",
             "domain": {
@@ -992,7 +995,7 @@ class EdrProvider(BaseEDRProvider):
                     param: {
                         "type": "NdArray",
                         "dataType": "float",
-                        "axisNames": list(data_array.coords.keys()),
+                        "axisNames": [dimension_map.get(str(key), str(key)) for key in data_array.coords.keys()],
                         "shape": data_array.shape,
                         "values": data,  # Row Major Order
                     }

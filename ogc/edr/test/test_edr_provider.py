@@ -229,7 +229,7 @@ def test_edr_provider_position_request_valid_wkt(
     response = provider.position(**args)
     response = get_json_with_cleanup(response["fp"])
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )
@@ -335,7 +335,7 @@ def test_edr_provider_cube_request_valid_bbox(
     response = provider.cube(**args)
     response = get_json_with_cleanup(response["fp"])
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )
@@ -370,7 +370,7 @@ def test_edr_provider_cube_request_valid_bbox_with_resolution(
     response = provider.cube(**args)
     response = get_json_with_cleanup(response["fp"])
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == resolution_x * resolution_y
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
@@ -472,7 +472,7 @@ def test_edr_provider_area_request_valid_wkt(layers: List[pogc.Layer], single_la
     response = provider.area(**args)
     response = get_json_with_cleanup(response["fp"])
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )
