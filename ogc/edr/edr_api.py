@@ -362,7 +362,7 @@ class EdrAPI:
         Dict[str, Any]
             The metadata for available parameters in the instance.
         """
-        instance_parameters = {"parameter_names": {}}
+        instance_parameters = {}
         for key, value in provider_parameters.items():
             layer = next((layer for layer in collection_layers if layer.identifier == key), None)
             if layer is not None and instance in layer.time_instances():
