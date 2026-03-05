@@ -320,14 +320,7 @@ class FlaskServer(Flask):
                 response = make_response(content, status)
                 if headers:
                     response.headers = headers
-                # Check Content Disposition for attachment downloads
-                match = re.search(r'filename="?([^"]+)"?', headers.get("Content-Disposition", ""))
-                if match:
-                    filename = match.group(1)
-                    as_attach = True if filename.endswith("zip") or filename.endswith("tif") else False
-                    return send_file(content, as_attachment=as_attach, download_name=filename)
-                else:
-                    return response
+                return response
             except Exception as e:
                 logger.error("OGC: server.edr_render Exception: %s", str(e), exc_info=True)
                 ee = WCSException()

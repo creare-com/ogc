@@ -1,5 +1,5 @@
-import base64
-import io
+import json
+import tempfile
 import numpy as np
 import zipfile
 import pyproj
@@ -240,7 +240,7 @@ class EdrProvider(BaseEDRProvider):
             or output_format == settings.HTML.lower()
         ):
             layers = self.get_layers(self.base_url, self.collection_id)
-            return self.to_coverage_json(layers, dataset, crs)
+            return self.to_coverage_json(layers, dataset, self.collection_id, crs)
 
         return self.to_geotiff_response(dataset, self.collection_id)
 
@@ -874,7 +874,7 @@ class EdrProvider(BaseEDRProvider):
 
     @staticmethod
     def to_coverage_json(
-        layers: List[pogc.Layer], dataset: Dict[str, podpac.UnitsDataArray], crs: str
+        layers: List[pogc.Layer], dataset: Dict[str, podpac.UnitsDataArray], collection_id: str, crs: str
     ) -> Dict[str, Any]:
         """Generate a CoverageJSON of the data for the provided parameters.
 
@@ -884,13 +884,15 @@ class EdrProvider(BaseEDRProvider):
             Layers which were used in the dataset creation for metadata information.
         dataset : Dict[str, podpac.UnitsDataArray]
             Data in an units data array format with matching parameter key.
+        collection_id : str
+            The collection id of the data used in naming the output file.
         crs : str
             The CRS associated with the requested coordinates and data response.
 
         Returns
         -------
         Dict[str, Any]
-            A dictionary of the CoverageJSON data.
+            A dictionary of the desired output file name and data path.
         """
 
         # Determine the bounding coordinates, assume they all are the same
@@ -997,7 +999,12 @@ class EdrProvider(BaseEDRProvider):
                 }
             )
 
-        return coverage_json
+        encoder = json.JSONEncoder()
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".json", delete=False) as named_file:
+            for chunk in encoder.iterencode(coverage_json):
+                named_file.write(chunk)
+
+        return {"fp": named_file.name, "fn": f"{collection_id}.json"}
 
     @staticmethod
     def check_query_condition(conditional: bool, message: str):
@@ -1032,25 +1039,26 @@ class EdrProvider(BaseEDRProvider):
         Returns
         -------
         Dict[str, Any]
-            A dictionary the file name and data with a Base64 encoding.
+            A dictionary of the desired output file name and data path.
         """
         if len(dataset) == 1:
             units_data_array = next(iter(dataset.values()))
             geotiff_bytes = units_data_array.to_format("geotiff").read()
+            with tempfile.NamedTemporaryFile(mode="wb+", suffix=".tif", delete=False) as named_file:
+                named_file.write(geotiff_bytes)
             return {
-                "fp": base64.b64encode(geotiff_bytes).decode("utf-8"),
+                "fp": named_file.name,
                 "fn": f"{next(iter(dataset.keys()))}.tif",
             }
         else:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for parameter, data_array in dataset.items():
-                    geotiff_memory_file = data_array.to_format("geotiff")
-                    tiff_filename = f"{parameter}.tif"
-                    zip_file.writestr(tiff_filename, geotiff_memory_file.read())
+            with tempfile.NamedTemporaryFile(mode="wb+", suffix=".zip", delete=False) as named_file:
+                with zipfile.ZipFile(named_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for parameter, data_array in dataset.items():
+                        geotiff_memory_file = data_array.to_format("geotiff")
+                        tiff_filename = f"{parameter}.tif"
+                        zip_file.writestr(tiff_filename, geotiff_memory_file.read())
 
-            zip_buffer.seek(0)
-            return {"fp": base64.b64encode(zip_buffer.read()).decode("utf-8"), "fn": f"{collection_id}.zip"}
+            return {"fp": named_file.name, "fn": f"{collection_id}.zip"}
 
     @staticmethod
     def get_native_coordinates(

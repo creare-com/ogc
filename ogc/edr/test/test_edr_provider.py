@@ -1,8 +1,9 @@
 import pytest
 import numpy as np
 import zipfile
-import base64
 import io
+import json
+import os
 import podpac
 import pyproj
 from shapely import Point, Polygon
@@ -11,6 +12,46 @@ from ogc import settings
 from ogc import podpac as pogc
 from ogc.edr.edr_provider import EdrProvider
 from pygeoapi.provider.base import ProviderInvalidQueryError
+
+
+def get_json_with_cleanup(path: str) -> Dict[str, Any]:
+    """Get JSON data from a path and remove the file after retrieval.
+
+    Parameters
+    ----------
+    path : str
+        The JSON file path.
+
+    Returns
+    -------
+    Dict[str, Any]
+        JSON data from the path.
+    """
+    with open(path, "r") as f:
+        response = json.load(f)
+
+    os.remove(path)
+    return response
+
+
+def get_bytes_with_cleanup(path: str) -> bytes:
+    """Get byte data from a path and remove the file after retrieval.
+
+    Parameters
+    ----------
+    path : str
+        The file path.
+
+    Returns
+    -------
+    bytes
+        Binary data from the path.
+    """
+    with open(path, "rb") as f:
+        response = f.read()
+
+    os.remove(path)
+    return response
 
 
 def get_provider_definition(base_url: str) -> Dict[str, Any]:
@@ -186,6 +227,7 @@ def test_edr_provider_position_request_valid_wkt(
     provider.set_layers(base_url, layers)
 
     response = provider.position(**args)
+    response = get_json_with_cleanup(response["fp"])
 
     assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
@@ -291,6 +333,7 @@ def test_edr_provider_cube_request_valid_bbox(
     provider.set_layers(base_url, layers)
 
     response = provider.cube(**args)
+    response = get_json_with_cleanup(response["fp"])
 
     assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
@@ -325,6 +368,7 @@ def test_edr_provider_cube_request_valid_bbox_with_resolution(
     provider.set_extra_query_args({"resolution-x": resolution_x, "resolution-y": resolution_y})
 
     response = provider.cube(**args)
+    response = get_json_with_cleanup(response["fp"])
 
     assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == resolution_x * resolution_y
@@ -426,6 +470,7 @@ def test_edr_provider_area_request_valid_wkt(layers: List[pogc.Layer], single_la
     provider.set_layers(base_url, layers)
 
     response = provider.area(**args)
+    response = get_json_with_cleanup(response["fp"])
 
     assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
@@ -504,9 +549,10 @@ def test_edr_provider_cube_request_valid_geotiff_format(
     provider.set_layers(base_url, layers)
 
     response = provider.cube(**args)
+    data = get_bytes_with_cleanup(response["fp"])
 
     assert response["fn"] == f"{parameter_name}.tif"
-    assert len(base64.b64decode(response["fp"])) > 0
+    assert len(data) > 0
 
 
 def test_edr_provider_cube_request_valid_geotiff_format_multiple_parameters(
@@ -535,8 +581,7 @@ def test_edr_provider_cube_request_valid_geotiff_format_multiple_parameters(
     provider.set_layers(base_url, layers)
 
     response = provider.cube(**args)
-    buffer = io.BytesIO(base64.b64decode(response["fp"]))
-
+    buffer = io.BytesIO(get_bytes_with_cleanup(response["fp"]))
     assert response["fn"] == f"{group}.zip"
     assert zipfile.is_zipfile(buffer)
     with zipfile.ZipFile(buffer, "r") as zf:
