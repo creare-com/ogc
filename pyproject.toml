@@ -36,7 +36,7 @@ dependencies = [
     'lxml',
     'webob',
     'traitlets',
-    'pygeoapi',
+    'pygeoapi==0.22.0',
     'shapely',
     'numpy',
     'traitlets',
