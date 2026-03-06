@@ -1,5 +1,7 @@
+import os
 import json
 import numpy as np
+import tempfile
 from pygeoapi.api import APIRequest
 from http import HTTPStatus
 from typing import Dict, List, Any
@@ -149,7 +151,7 @@ def test_edr_routes_describe_collection(layers: List[pogc.Layer]):
     assert status == HTTPStatus.OK
     assert response["id"] == collection_id
     assert list(response["parameter_names"].keys()) == [layer.identifier for layer in collection_layers]
-    assert list(response["data_queries"].keys()) == ["position", "cube", "area", "instances"]
+    assert list(response["data_queries"].keys()) == ["instances"]
 
 
 def test_edr_routes_describe_instances(layers: List[pogc.Layer]):
@@ -222,10 +224,11 @@ def test_edr_routes_collection_query(layers: List[pogc.Layer], single_layer_cube
         instance_id=instance_id,
         query_type="cube",
     )
+    content = json.loads("".join(content))
 
     assert status == HTTPStatus.OK
 
-    assert set(content["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(content["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(content["domain"]["ranges"][parameter_name]["shape"])) == len(
         content["domain"]["ranges"][parameter_name]["values"]
     )
@@ -333,6 +336,7 @@ def test_edr_routes_collection_query_missing_parameter(
         instance_id=next(iter(layers[0].time_instances())),
         query_type="cube",
     )
+    content = json.loads("".join(content))
 
     assert status == HTTPStatus.OK
     assert content["domain"]["ranges"].keys() == {layer.identifier for layer in layers}
@@ -349,3 +353,31 @@ def test_edr_routes_request_url_updates_configuration_url():
 
     assert status == HTTPStatus.OK
     assert edr_routes.api.config["server"]["url"] == expected_config_url
+
+
+def test_edr_routes_file_cleanup_unused_generator():
+    """Test the EDR routes properly cleans up files if the generator goes unused."""
+    named_file = tempfile.NamedTemporaryFile(mode="w+", delete=False)
+    generator = EdrRoutes.file_generator_with_cleanup(named_file.name, "r")
+
+    assert os.path.exists(named_file.name)
+
+    del generator
+
+    assert not os.path.exists(named_file.name)
+
+
+def test_edr_routes_file_cleanup_generator_error():
+    """Test the EDR routes properly cleans up files if the generator has an error."""
+    named_file = tempfile.NamedTemporaryFile(mode="w+", delete=False)
+    generator = EdrRoutes.file_generator_with_cleanup(named_file.name, "r")
+
+    assert os.path.exists(named_file.name)
+
+    try:
+        next(generator)
+        generator.close()
+    except StopIteration:
+        pass
+
+    assert not os.path.exists(named_file.name)

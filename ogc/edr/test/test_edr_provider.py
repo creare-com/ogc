@@ -1,15 +1,57 @@
 import pytest
 import numpy as np
 import zipfile
-import base64
 import io
+import json
+import os
 import podpac
+import pyproj
 from shapely import Point, Polygon
 from typing import Dict, List, Any
 from ogc import settings
 from ogc import podpac as pogc
 from ogc.edr.edr_provider import EdrProvider
 from pygeoapi.provider.base import ProviderInvalidQueryError
+
+
+def get_json_with_cleanup(path: str) -> Dict[str, Any]:
+    """Get JSON data from a path and remove the file after retrieval.
+
+    Parameters
+    ----------
+    path : str
+        The JSON file path.
+
+    Returns
+    -------
+    Dict[str, Any]
+        JSON data from the path.
+    """
+    with open(path, "r") as f:
+        response = json.load(f)
+
+    os.remove(path)
+    return response
+
+
+def get_bytes_with_cleanup(path: str) -> bytes:
+    """Get byte data from a path and remove the file after retrieval.
+
+    Parameters
+    ----------
+    path : str
+        The file path.
+
+    Returns
+    -------
+    bytes
+        Binary data from the path.
+    """
+    with open(path, "rb") as f:
+        response = f.read()
+
+    os.remove(path)
+    return response
 
 
 def get_provider_definition(base_url: str) -> Dict[str, Any]:
@@ -185,8 +227,9 @@ def test_edr_provider_position_request_valid_wkt(
     provider.set_layers(base_url, layers)
 
     response = provider.position(**args)
+    response = get_json_with_cleanup(response["fp"])
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )
@@ -209,6 +252,32 @@ def test_edr_provider_position_request_invalid_wkt(
     args = single_layer_cube_args_internal
     del args["bbox"]
     args["wkt"] = "invalid"
+
+    provider = EdrProvider(provider_def=get_provider_definition(base_url))
+    provider.set_layers(base_url, layers)
+
+    with pytest.raises(ProviderInvalidQueryError):
+        provider.position(**args)
+
+
+def test_edr_provider_position_request_invalid_format(
+    layers: List[pogc.Layer], single_layer_cube_args_internal: Dict[str, Any]
+):
+    """Test the position method of the EDR Provider class with an invalid format.
+
+    Parameters
+    ----------
+    layers : List[pogc.Layer]
+        Layers provided by a test fixture.
+
+    single_layer_cube_args_internal : Dict[str, Any]
+        Single layer arguments with internal pygeoapi keys provided by a test fixture.
+    """
+    base_url = "/"
+    args = single_layer_cube_args_internal
+    del args["bbox"]
+    args["wkt"] = Point(5.2, 52.1)
+    args["format_"] = settings.GEOTIFF
 
     provider = EdrProvider(provider_def=get_provider_definition(base_url))
     provider.set_layers(base_url, layers)
@@ -264,8 +333,9 @@ def test_edr_provider_cube_request_valid_bbox(
     provider.set_layers(base_url, layers)
 
     response = provider.cube(**args)
+    response = get_json_with_cleanup(response["fp"])
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )
@@ -298,8 +368,9 @@ def test_edr_provider_cube_request_valid_bbox_with_resolution(
     provider.set_extra_query_args({"resolution-x": resolution_x, "resolution-y": resolution_y})
 
     response = provider.cube(**args)
+    response = get_json_with_cleanup(response["fp"])
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == resolution_x * resolution_y
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
@@ -399,8 +470,9 @@ def test_edr_provider_area_request_valid_wkt(layers: List[pogc.Layer], single_la
     provider.set_layers(base_url, layers)
 
     response = provider.area(**args)
+    response = get_json_with_cleanup(response["fp"])
 
-    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"lat", "lon", "time"}
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
     assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
         response["domain"]["ranges"][parameter_name]["values"]
     )
@@ -477,9 +549,10 @@ def test_edr_provider_cube_request_valid_geotiff_format(
     provider.set_layers(base_url, layers)
 
     response = provider.cube(**args)
+    data = get_bytes_with_cleanup(response["fp"])
 
     assert response["fn"] == f"{parameter_name}.tif"
-    assert len(base64.b64decode(response["fp"])) > 0
+    assert len(data) > 0
 
 
 def test_edr_provider_cube_request_valid_geotiff_format_multiple_parameters(
@@ -508,8 +581,7 @@ def test_edr_provider_cube_request_valid_geotiff_format_multiple_parameters(
     provider.set_layers(base_url, layers)
 
     response = provider.cube(**args)
-    buffer = io.BytesIO(base64.b64decode(response["fp"]))
-
+    buffer = io.BytesIO(get_bytes_with_cleanup(response["fp"]))
     assert response["fn"] == f"{group}.zip"
     assert zipfile.is_zipfile(buffer)
     with zipfile.ZipFile(buffer, "r") as zf:
@@ -652,12 +724,15 @@ def test_edr_provider_altitude_invalid_string():
 
 def test_edr_provider_crs_interpreter_default_value():
     """Test the CRS interpretation returns a default value when the argument is None."""
-    assert EdrProvider.interpret_crs(None) == settings.crs_84_uri_format
+
+    assert EdrProvider.interpret_crs(None) == pyproj.CRS(settings.crs_84_uri_format).to_wkt()
 
 
 def test_edr_provider_crs_interpreter_valid_value():
     """Test the CRS interpretation returns a valid value when the argument is acceptable."""
-    assert EdrProvider.interpret_crs(settings.epsg_4326_uri_format) == settings.epsg_4326_uri_format
+    assert (
+        EdrProvider.interpret_crs(settings.epsg_4326_uri_format) == pyproj.CRS(settings.epsg_4326_uri_format).to_wkt()
+    )
 
 
 def test_edr_provider_crs_interpreter_invalid_value():

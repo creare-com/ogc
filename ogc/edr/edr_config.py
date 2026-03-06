@@ -99,7 +99,8 @@ class EdrConfig:
                     "keywords": ["podpac"],
                     "extents": EdrConfig._generate_extents(group_layers),
                     "height_units": EdrConfig._vertical_units(group_layers),
-                    "output_formats": settings.EDR_QUERY_FORMATS,
+                    "output_formats": list({item for values in settings.EDR_QUERY_FORMATS.values() for item in values}),
+                    "query_formats": EdrConfig.data_query_formats(),
                     "providers": [
                         {
                             "type": "edr",
@@ -158,9 +159,9 @@ class EdrConfig:
                 urc_lon = max(urc_lon, urc_lon_tmp)
                 urc_lat = max(urc_lat, urc_lat_tmp)
 
-            coordinates_list = layer.get_coordinates_list()
-            if len(coordinates_list) > 0 and "alt" in coordinates_list[0].udims:
-                vertical_range.update(coordinates_list[0]["alt"].coordinates)
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and "alt" in coordinates.udims:
+                vertical_range.update(coordinates["alt"].coordinates)
 
             if hasattr(layer, "valid_times") and layer.valid_times is not tl.Undefined and len(layer.valid_times) > 0:
                 time_range.update(layer.valid_times)
@@ -239,8 +240,25 @@ class EdrConfig:
         """
         vertical_units = set()
         for layer in layers:
-            coordinates_list = layer.get_coordinates_list()
-            if len(coordinates_list) > 0 and coordinates_list[0].alt_units:
-                vertical_units.add(coordinates_list[0].alt_units)
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and coordinates.alt_units:
+                vertical_units.add(coordinates.alt_units)
 
         return list(vertical_units)
+
+    @staticmethod
+    def data_query_formats() -> Dict[str, Any]:
+        """Get data related to the available query output formats and the default format.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Query format data for each query type.
+        """
+        query_formats = {}
+        for query_type, formats in settings.EDR_QUERY_FORMATS.items():
+            query_formats[query_type] = {
+                "output_formats": formats,
+                "default_output_format": settings.EDR_QUERY_DEFAULTS.get(query_type),
+            }
+        return query_formats

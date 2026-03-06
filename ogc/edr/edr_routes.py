@@ -1,13 +1,12 @@
 import os
 import mimetypes
 import json
-import base64
-import io
 import traitlets as tl
+import weakref
 import pygeoapi.l10n
 import pygeoapi.plugin
 import pygeoapi.api
-from typing import Tuple, Any, Dict
+from typing import Tuple, Any, Dict, Generator
 from http import HTTPStatus
 from copy import deepcopy
 from pygeoapi.openapi import get_oas
@@ -255,13 +254,73 @@ class EdrRoutes(tl.HasTraits):
 
         content = json.loads(content)
         if "fn" in content and "fp" in content:
-            # Return the file name in the header and the content as only the binary data
-            filename = content["fn"]
-            headers["Content-Type"] = "image/tiff"
-            headers["Content-Disposition"] = f"attachment; filename={filename}"
-            # Decode the content string which is the Base64 representation of the data
-            content = io.BytesIO(base64.b64decode(content["fp"]))
-        else:
-            headers["Content-Type"] = "application/prs.coverage+json"
+            data_path = content["fp"]
+            binary_mode = "rb"
+            text_mode = "r"
+            mode = text_mode
+            if data_path.endswith(".tif"):
+                mode = binary_mode
+                headers["Content-Type"] = "image/tiff"
+            elif data_path.endswith(".zip"):
+                mode = binary_mode
+                headers["Content-Type"] = "application/zip"
+            elif data_path.endswith(".json"):
+                mode = text_mode
+                headers["Content-Type"] = "application/prs.coverage+json"
+
+            headers["Content-Disposition"] = f"attachment; filename={content["fn"]}"
+            content = self.file_generator_with_cleanup(data_path, mode)
 
         return headers, http_status, content
+
+    @staticmethod
+    def file_generator_with_cleanup(path: str, mode: str, chunk_size=1024 * 1024) -> Generator[str | bytes, None, None]:
+        """Create a generator for file data with cleanup.
+
+        Parameters
+        ----------
+        path : str
+            The path to the file.
+        mode : str
+            The mode to open the file with.
+        chunk_size : int, optional
+            The character or byte size of each chunk read from the file, by default 1024*1024
+
+        Yields
+        ------
+        Generator[str | bytes, None, None]
+            Chunks of data from the file.
+        """
+
+        def _cleanup(path: str):
+            """Cleanup a file if it exists.
+
+            Parameters
+            ----------
+            path : str
+                The path to cleanup.
+            """
+            if os.path.exists(path):
+                os.remove(path)
+
+        def _generator() -> Generator[str | bytes, None, None]:
+            """Create the generator for reading file data.
+
+            Yields
+            ------
+            Generator[str | bytes, None, None]
+                Chunks of file data.
+            """
+            try:
+                with open(path, mode) as f:
+                    while True:
+                        chunk = f.read(chunk_size)
+                        if not chunk:
+                            break
+                        yield chunk
+            finally:
+                _cleanup(path)
+
+        generator = _generator()
+        weakref.finalize(generator, _cleanup, path)  # Ensure file removal even if generator is never used
+        return generator

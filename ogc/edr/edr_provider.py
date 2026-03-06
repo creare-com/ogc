@@ -1,10 +1,12 @@
-import base64
-import io
+import json
+import tempfile
 import numpy as np
 import zipfile
+import pyproj
 from datetime import datetime
 from collections import defaultdict
 from typing import List, Dict, Tuple, Any
+from pyproj.exceptions import CRSError
 from shapely.geometry.base import BaseGeometry
 from pygeoapi.provider.base import ProviderConnectionError, ProviderInvalidQueryError
 from pygeoapi.provider.base_edr import BaseEDRProvider
@@ -67,6 +69,29 @@ class EdrProvider(BaseEDRProvider):
         else:
             return layers
 
+    @classmethod
+    def is_collection_queryable(cls, base_url: str, group: str) -> bool:
+        """Determine whether a collection contains directly queryable data or is only queryable through instances.
+
+        Parameters
+        ----------
+        base_url : str
+            The base URL for the layers.
+        group : str
+            Collection to check if direct querying is possible.
+
+        Returns
+        -------
+        bool
+            True if the collection can be queried directly, false otherwise.
+        """
+        layers = cls.get_layers(base_url, group)
+        for layer in layers:
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and "forecastOffsetHr" not in coordinates.udims:
+                return True
+        return False
+
     def __init__(self, provider_def: Dict[str, Any]):
         """Construct the provider using the provider definition.
 
@@ -88,7 +113,6 @@ class EdrProvider(BaseEDRProvider):
             raise ProviderConnectionError("Data not found.")
 
         self.collection_id = str(collection_id)
-        self.native_format = provider_def["format"]["name"]
 
         self.base_url = provider_def.get("base_url", "")
         if not self.base_url:
@@ -125,6 +149,10 @@ class EdrProvider(BaseEDRProvider):
             The requested datetime/datetimes for data retrieval.
         z : str
             The requested vertical level/levels for data retrieval.
+        resolution-x : str
+            The number of requested data points, as a string, in the x-direction.
+        resolution-y : str
+            The number of requested data points, as a string, in the y-direction.
 
         Returns
         -------
@@ -137,8 +165,6 @@ class EdrProvider(BaseEDRProvider):
             Raised if an invalid instance is provided.
         ProviderInvalidQueryError
             Raised if an invalid parameter is provided.
-        ProviderInvalidQueryError
-            Raised if an invalid output format is provided.
         ProviderInvalidQueryError
             Raised if a datetime string is provided but cannot be interpreted.
         ProviderInvalidQueryError
@@ -159,12 +185,11 @@ class EdrProvider(BaseEDRProvider):
         output_format = kwargs.get("format_")
         datetime_arg = kwargs.get("datetime_")
         z_arg = kwargs.get("z")
-        resolution_x = self._extra_args.get("resolution-x")
-        resolution_y = self._extra_args.get("resolution-y")
+        resolution_x = kwargs.get("resolution-x")
+        resolution_y = kwargs.get("resolution-y")
 
         instance = self.validate_instance(instance)
         requested_parameters = self.validate_parameters(requested_parameters)
-        output_format = self.validate_output_format(output_format)
         resolution_x, resolution_y = self.validate_resolution(resolution_x, resolution_y)
 
         crs = self.interpret_crs(requested_coordinates.crs)
@@ -189,16 +214,16 @@ class EdrProvider(BaseEDRProvider):
             requested_coordinates = podpac.coordinates.merge_dims([altitude_coords, requested_coordinates])
 
         # Handle defining native coordinates for the query, these should match between each layer
-        coordinates_list = next(iter(requested_parameters.values())).get_coordinates_list()
-        self.check_query_condition(len(coordinates_list) == 0, "Native coordinates not found.")
+        coordinates = next(iter(requested_parameters.values())).get_coordinates()
+        self.check_query_condition(coordinates is None, "Native coordinates not found.")
         resolution_lon, resolution_lat = self.crs_converter(resolution_x, resolution_y, crs)
         requested_native_coordinates = self.get_native_coordinates(
-            requested_coordinates, coordinates_list[0], resolution_lat, resolution_lon
+            requested_coordinates, coordinates, resolution_lat, resolution_lon
         )
 
         self.check_query_condition(
             bool(requested_native_coordinates.size > settings.MAX_GRID_COORDS_REQUEST_SIZE),
-            "Grid coordinates x_size * y_size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
+            "Coordinates size must be less than %d" % settings.MAX_GRID_COORDS_REQUEST_SIZE,
         )
 
         dataset = {}
@@ -215,7 +240,7 @@ class EdrProvider(BaseEDRProvider):
             or output_format == settings.HTML.lower()
         ):
             layers = self.get_layers(self.base_url, self.collection_id)
-            return self.to_coverage_json(layers, dataset, crs)
+            return self.to_coverage_json(layers, dataset, self.collection_id, crs)
 
         return self.to_geotiff_response(dataset, self.collection_id)
 
@@ -226,8 +251,8 @@ class EdrProvider(BaseEDRProvider):
         ----------
         wkt : shapely.geometry
             WKT geometry
-        crs : str
-            The requested CRS for the return coordinates and data.
+        format_ : str
+            The requested output format of the data.
 
         Returns
         -------
@@ -237,14 +262,17 @@ class EdrProvider(BaseEDRProvider):
         Raises
         ------
         ProviderInvalidQueryError
+            Raised if an invalid output format is provided.
+        ProviderInvalidQueryError
             Raised if the wkt string is not provided.
         ProviderInvalidQueryError
             Raised if the wkt string is an unknown type.
         """
         lat, lon = [], []
         wkt = kwargs.get("wkt")
-        crs = kwargs.get("crs")
+        crs = self._extra_args.get("crs")
         crs = EdrProvider.interpret_crs(crs)
+        kwargs["format_"] = self.validate_output_format(kwargs["format_"], "position")
 
         if not isinstance(wkt, BaseGeometry):
             msg = "Invalid WKT string provided for the position query."
@@ -266,8 +294,8 @@ class EdrProvider(BaseEDRProvider):
         ----------
         bbox : List[float]
             Bbox geometry (for cube queries)
-        crs : str
-            The requested CRS for the return coordinates and data.
+        format_ : str
+            The requested output format of the data.
 
         Returns
         -------
@@ -277,11 +305,16 @@ class EdrProvider(BaseEDRProvider):
         Raises
         ------
         ProviderInvalidQueryError
+            Raised if an invalid output format is provided.
+        ProviderInvalidQueryError
             Raised if the bounding box is invalid.
         """
         bbox = kwargs.get("bbox")
-        crs = kwargs.get("crs")
+        crs = self._extra_args.get("crs")
         crs = EdrProvider.interpret_crs(crs)
+        kwargs["format_"] = self.validate_output_format(kwargs["format_"], "cube")
+        kwargs["resolution-x"] = self._extra_args.get("resolution-x")
+        kwargs["resolution-y"] = self._extra_args.get("resolution-y")
 
         if not isinstance(bbox, List) or (len(bbox) != 4 and len(bbox) != 6):
             msg = (
@@ -310,8 +343,8 @@ class EdrProvider(BaseEDRProvider):
         ----------
         wkt : shapely.geometry
             WKT geometry
-        crs : str
-            The requested CRS for the return coordinates and data.
+        format_ : str
+            The requested output format of the data.
 
         Returns
         -------
@@ -321,14 +354,19 @@ class EdrProvider(BaseEDRProvider):
         Raises
         ------
         ProviderInvalidQueryError
+            Raised if an invalid output format is provided.
+        ProviderInvalidQueryError
             Raised if the wkt string is not provided.
         ProviderInvalidQueryError
             Raised if the wkt string is an unknown type.
         """
         lat, lon = [], []
         wkt = kwargs.get("wkt")
-        crs = kwargs.get("crs")
+        crs = self._extra_args.get("crs")
         crs = EdrProvider.interpret_crs(crs)
+        kwargs["format_"] = self.validate_output_format(kwargs["format_"], "area")
+        kwargs["resolution-x"] = self._extra_args.get("resolution-x")
+        kwargs["resolution-y"] = self._extra_args.get("resolution-y")
 
         if not isinstance(wkt, BaseGeometry):
             msg = "Invalid WKT string provided for the area query."
@@ -390,7 +428,7 @@ class EdrProvider(BaseEDRProvider):
             }
         return fields
 
-    def validate_output_format(self, output_format: str | None) -> str:
+    def validate_output_format(self, output_format: str | None, query_type: str) -> str:
         """Validate the output format for a query.
 
         If None provided, return the default.
@@ -400,6 +438,8 @@ class EdrProvider(BaseEDRProvider):
         ----------
         output_format : str | None
             The specified output format which needs to be validated.
+        query_type: str
+            The query type to validate output formats against.
 
         Returns
         -------
@@ -412,10 +452,12 @@ class EdrProvider(BaseEDRProvider):
             Raised if the provided output format is invalid.
         """
         if output_format is None:
-            return self.native_format.lower()
+            return settings.EDR_QUERY_DEFAULTS.get(query_type, "")
 
-        if output_format.lower() not in [key.lower() for key in settings.EDR_QUERY_FORMATS]:
-            msg = f"Invalid format provided, expected one of {', '.join(settings.EDR_QUERY_FORMATS)}"
+        if output_format.lower() not in [key.lower() for key in settings.EDR_QUERY_FORMATS.get(query_type, [])]:
+            msg = (
+                f"Invalid format provided, expected one of {', '.join(settings.EDR_QUERY_FORMATS.get(query_type, []))}"
+            )
             raise ProviderInvalidQueryError(msg, user_msg=msg)
 
         return output_format.lower()
@@ -528,8 +570,6 @@ class EdrProvider(BaseEDRProvider):
     def evaluate_layer(requested_coordinates: podpac.Coordinates, layer: pogc.Layer) -> podpac.UnitsDataArray | None:
         """Evaluate a layer using the requested coordinates.
 
-        Temporal coordinates are ignored if the layer does not include them.
-
         Parameters
         ----------
         requested_coordinates : podpac.Coordinates
@@ -542,10 +582,18 @@ class EdrProvider(BaseEDRProvider):
         podpac.UnitsDataArray
             The units data array returned from evaluation or None if the node was not found.
         """
-        coordinates = layer.get_coordinates_list()
+        coordinates = layer.get_coordinates()
         layer_requested_coordinates = requested_coordinates
         units_data_array = None
-        if len(coordinates) > 0 and "time" not in coordinates[0].udims:
+        if coordinates is None:
+            return units_data_array
+
+        layer_has_instances = "forecastOffsetHr" in coordinates.udims
+        request_has_instances = "forecastOffsetHr" in requested_coordinates.udims
+        if layer_has_instances ^ request_has_instances:
+            return units_data_array
+
+        if "time" not in coordinates[0].udims:
             layer_requested_coordinates = layer_requested_coordinates.udrop(
                 ["time", "forecastOffsetHr"], ignore_missing=True
             )
@@ -586,9 +634,9 @@ class EdrProvider(BaseEDRProvider):
 
         available_altitudes = set()
         for layer in layers:
-            coordinates_list = layer.get_coordinates_list()
-            if len(coordinates_list) > 0 and "alt" in coordinates_list[0].udims:
-                available_altitudes.update(coordinates_list[0]["alt"].coordinates)
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and "alt" in coordinates.udims:
+                available_altitudes.update(coordinates["alt"].coordinates)
 
         return list(available_altitudes)
 
@@ -610,25 +658,25 @@ class EdrProvider(BaseEDRProvider):
 
         available_times = set()
         for layer in layers:
-            coordinates_list = layer.get_coordinates_list()
-            if len(coordinates_list) > 0 and "time" in coordinates_list[0].udims:
-                if instance_time in layer.time_instances() and "forecastOffsetHr" in coordinates_list[0].udims:
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and "time" in coordinates.udims:
+                if instance_time in layer.time_instances() and "forecastOffsetHr" in coordinates.udims:
                     # Retrieve available forecastOffSetHr and instance time combinations
                     instance_datetime = np.datetime64(instance_time)
-                    instance_coordinates = coordinates_list[0].select({"time": [instance_datetime, instance_datetime]})
+                    instance_coordinates = coordinates.select({"time": [instance_datetime, instance_datetime]})
                     selected_offset_coordinates = instance_coordinates["forecastOffsetHr"].coordinates
                     available_times.update(
                         [np.datetime64(instance_time) + offset for offset in selected_offset_coordinates]
                     )
-                elif not instance_time and "forecastOffsetHr" not in coordinates_list[0].udims:
+                elif not instance_time and "forecastOffsetHr" not in coordinates.udims:
                     # Retrieve layer times for non-instance requests
-                    available_times.update(coordinates_list[0]["time"].coordinates)
+                    available_times.update(coordinates["time"].coordinates)
 
         return list(available_times)
 
     @staticmethod
     def interpret_crs(crs: str | None) -> str:
-        """Interpret the CRS id string into a valid PyProj CRS format.
+        """Interpret the CRS id string into a valid WKT CRS format.
 
         If None provided, return the default.
         If the provided CRS is invalid, raise an error.
@@ -641,7 +689,7 @@ class EdrProvider(BaseEDRProvider):
         Returns
         -------
         str
-            Pyproj CRS string.
+            WKT CRS string.
 
         Raises
         ------
@@ -649,13 +697,20 @@ class EdrProvider(BaseEDRProvider):
             Raised if the provided CRS string is unknown.
         """
         if crs is None:
-            return settings.crs_84_uri_format  # Pyproj acceptable format
+            return pyproj.CRS(settings.crs_84_uri_format).to_wkt()  # Pyproj acceptable format
 
-        if crs.lower() not in [key.lower() for key in settings.EDR_CRS.keys()]:
-            msg = f"Invalid CRS provided, expected one of {', '.join(settings.EDR_CRS.keys())}"
-            raise ProviderInvalidQueryError(msg, user_msg=msg)
+        try:
+            wkt_crs = pyproj.CRS(crs).to_wkt()
+            wkt_options = [pyproj.CRS(key).to_wkt() for key in settings.EDR_CRS.keys()]
+        except CRSError:
+            wkt_crs = None
+            wkt_options = []
 
-        return crs
+        if wkt_crs is None or wkt_crs not in wkt_options:
+            error_msg = msg = f"Invalid CRS provided, expected one of {', '.join(settings.EDR_CRS.keys())}"
+            raise ProviderInvalidQueryError(msg, user_msg=error_msg)
+
+        return wkt_crs
 
     @staticmethod
     def crs_converter(x: Any, y: Any, crs: str) -> Tuple[Any, Any]:
@@ -675,7 +730,9 @@ class EdrProvider(BaseEDRProvider):
         Tuple[Any, Any]
             The X,Y as Longitude/Latitude data.
         """
-        if crs.lower() == settings.epsg_4326_uri_format.lower():
+        wkt_crs = pyproj.CRS(crs).to_wkt()
+        wkt_epsg_4326 = pyproj.CRS(settings.epsg_4326_uri_format).to_wkt()
+        if wkt_crs == wkt_epsg_4326:
             return (y, x)
 
         return (x, y)
@@ -817,9 +874,11 @@ class EdrProvider(BaseEDRProvider):
 
     @staticmethod
     def to_coverage_json(
-        layers: List[pogc.Layer], dataset: Dict[str, podpac.UnitsDataArray], crs: str
+        layers: List[pogc.Layer], dataset: Dict[str, podpac.UnitsDataArray], collection_id: str, crs: str
     ) -> Dict[str, Any]:
         """Generate a CoverageJSON of the data for the provided parameters.
+
+        The returned object must be serializable, so a temporary file is returned to reference the data.
 
         Parameters
         ----------
@@ -827,13 +886,15 @@ class EdrProvider(BaseEDRProvider):
             Layers which were used in the dataset creation for metadata information.
         dataset : Dict[str, podpac.UnitsDataArray]
             Data in an units data array format with matching parameter key.
+        collection_id : str
+            The collection id of the data used in naming the output file.
         crs : str
             The CRS associated with the requested coordinates and data response.
 
         Returns
         -------
         Dict[str, Any]
-            A dictionary of the CoverageJSON data.
+            A dictionary of the desired output file name and data path.
         """
 
         # Determine the bounding coordinates, assume they all are the same
@@ -843,6 +904,9 @@ class EdrProvider(BaseEDRProvider):
         # Convert numpy array coordinates to a flattened list.
         x_arr = list(x_arr.flatten())
         y_arr = list(y_arr.flatten())
+
+        lon_map_value, lat_map_value = EdrProvider.crs_converter("x", "y", crs)
+        dimension_map = {"time": "t", "alt": "z", "lon": lon_map_value, "lat": lat_map_value}
 
         coverage_json = {
             "type": "Coverage",
@@ -926,19 +990,26 @@ class EdrProvider(BaseEDRProvider):
                     }
                 }
                 coverage_json["domain"]["parameters"].update(parameter_definition)
+
+            data = [x if np.isfinite(x) else None for x in data_array.values.flatten()]
             coverage_json["domain"]["ranges"].update(
                 {
                     param: {
                         "type": "NdArray",
                         "dataType": "float",
-                        "axisNames": list(data_array.coords.keys()),
+                        "axisNames": [dimension_map.get(str(key), str(key)) for key in data_array.coords.keys()],
                         "shape": data_array.shape,
-                        "values": list(data_array.values.flatten()),  # Row Major Order
+                        "values": data,  # Row Major Order
                     }
                 }
             )
 
-        return coverage_json
+        encoder = json.JSONEncoder()
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".json", delete=False) as named_file:
+            for chunk in encoder.iterencode(coverage_json):
+                named_file.write(chunk)
+
+        return {"fp": named_file.name, "fn": f"{collection_id}.json"}
 
     @staticmethod
     def check_query_condition(conditional: bool, message: str):
@@ -963,6 +1034,8 @@ class EdrProvider(BaseEDRProvider):
     def to_geotiff_response(dataset: Dict[str, podpac.UnitsDataArray], collection_id: str) -> Dict[str, Any]:
         """Generate a geotiff of the data for the provided parameters.
 
+        The returned object must be serializable, so a temporary file is returned to reference the data.
+
         Parameters
         ----------
         dataset : Dict[str, podpac.UnitsDataArray]
@@ -973,25 +1046,26 @@ class EdrProvider(BaseEDRProvider):
         Returns
         -------
         Dict[str, Any]
-            A dictionary the file name and data with a Base64 encoding.
+            A dictionary of the desired output file name and data path.
         """
         if len(dataset) == 1:
             units_data_array = next(iter(dataset.values()))
             geotiff_bytes = units_data_array.to_format("geotiff").read()
+            with tempfile.NamedTemporaryFile(mode="wb+", suffix=".tif", delete=False) as named_file:
+                named_file.write(geotiff_bytes)
             return {
-                "fp": base64.b64encode(geotiff_bytes).decode("utf-8"),
+                "fp": named_file.name,
                 "fn": f"{next(iter(dataset.keys()))}.tif",
             }
         else:
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for parameter, data_array in dataset.items():
-                    geotiff_memory_file = data_array.to_format("geotiff")
-                    tiff_filename = f"{parameter}.tif"
-                    zip_file.writestr(tiff_filename, geotiff_memory_file.read())
+            with tempfile.NamedTemporaryFile(mode="wb+", suffix=".zip", delete=False) as named_file:
+                with zipfile.ZipFile(named_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for parameter, data_array in dataset.items():
+                        geotiff_memory_file = data_array.to_format("geotiff")
+                        tiff_filename = f"{parameter}.tif"
+                        zip_file.writestr(tiff_filename, geotiff_memory_file.read())
 
-            zip_buffer.seek(0)
-            return {"fp": base64.b64encode(zip_buffer.read()).decode("utf-8"), "fn": f"{collection_id}.zip"}
+            return {"fp": named_file.name, "fn": f"{collection_id}.zip"}
 
     @staticmethod
     def get_native_coordinates(
@@ -1018,6 +1092,9 @@ class EdrProvider(BaseEDRProvider):
         podpac.Coordinates
             The converted coordinates source coordinates intersecting with the target coordinates.
         """
+        if len(source_coordinates["lat"].coordinates) == 1 and len(source_coordinates["lon"].coordinates) == 1:
+            return source_coordinates
+
         latitudes = (
             target_coordinates["lat"].coordinates
             if resolution_lat == 0
