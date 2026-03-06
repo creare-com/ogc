@@ -878,6 +878,8 @@ class EdrProvider(BaseEDRProvider):
     ) -> Dict[str, Any]:
         """Generate a CoverageJSON of the data for the provided parameters.
 
+        The returned object must be serializable, so a temporary file is returned to reference the data.
+
         Parameters
         ----------
         layers : List[pogc.Layer]
@@ -1031,6 +1033,8 @@ class EdrProvider(BaseEDRProvider):
     @staticmethod
     def to_geotiff_response(dataset: Dict[str, podpac.UnitsDataArray], collection_id: str) -> Dict[str, Any]:
         """Generate a geotiff of the data for the provided parameters.
+
+        The returned object must be serializable, so a temporary file is returned to reference the data.
 
         Parameters
         ----------
