@@ -45,9 +45,9 @@ JSON = "JSON"
 COVERAGE_JSON = "CoverageJSON"
 HTML = "HTML"
 EDR_QUERY_FORMATS = {
-    "cube": [GEOTIFF, COVERAGE_JSON, JSON, HTML],
-    "area": [GEOTIFF, COVERAGE_JSON, JSON, HTML],
-    "position": [COVERAGE_JSON, JSON, HTML],
+    "cube": [GEOTIFF, COVERAGE_JSON],
+    "area": [GEOTIFF, COVERAGE_JSON],
+    "position": [COVERAGE_JSON],
 }
 EDR_QUERY_DEFAULTS = {
     "cube": GEOTIFF,
