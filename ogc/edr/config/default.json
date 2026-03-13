@@ -24,12 +24,9 @@
   },
   "metadata": {
     "identification": {
-      "title": "OGC Server",
-      "description": "An example OGC Server",
-      "keywords": [
-        "geospatial",
-        "podpac"
-      ],
+      "title": "EDR Server",
+      "description": "Environmental Data Retrieval Server",
+      "keywords": ["geospatial", "podpac"],
       "keywords_type": "theme",
       "terms_of_service": "http://www.apache.org/licenses/LICENSE-2.0",
       "url": "https://github.com/creare-com/ogc"
