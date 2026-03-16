@@ -1,9 +1,7 @@
 import os
 import json
 import logging
-import traitlets as tl
-from collections import defaultdict
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Any
 from ogc import podpac as pogc
 from .. import settings
 
@@ -82,14 +80,10 @@ class EdrConfig:
         """
 
         resources = {}
-        groups = defaultdict(list)
-
-        # Organize the data into groups
-        for layer in layers:
-            groups[layer.group].append(layer)
+        groups = {layer.group for layer in layers}
 
         # Generate collection resources based on groups
-        for group_name, group_layers in groups.items():
+        for group_name in groups:
             resource = {
                 group_name: {
                     "type": "collection",
@@ -97,8 +91,12 @@ class EdrConfig:
                     "title": group_name,
                     "description": f"Collection of data related to {group_name}",
                     "keywords": ["podpac"],
-                    "extents": EdrConfig._generate_extents(group_layers),
-                    "height_units": EdrConfig._vertical_units(group_layers),
+                    "extents": {
+                        "spatial": {
+                            "bbox": [-180, -90, 180, 90],  # Placeholder extents
+                            "crs": settings.crs_84_uri_format,
+                        }
+                    },
                     "output_formats": list({item for values in settings.EDR_QUERY_FORMATS.values() for item in values}),
                     "query_formats": EdrConfig.data_query_formats(),
                     "providers": [
@@ -130,121 +128,6 @@ class EdrConfig:
             resources.update(resource)
 
         return resources
-
-    @staticmethod
-    def _generate_extents(layers: List[pogc.Layer]) -> Dict[str, Any]:
-        """Generate the extents dictionary for provided layers.
-
-        Parameters
-        ----------
-        layers : List[pogc.Layer]
-            The layers to create the temporal and spatial extents for.
-
-        Returns
-        -------
-        Dict[str, Any]
-            The extents dictionary for the layers.
-        """
-        llc_lon, llc_lat, urc_lon, urc_lat = None, None, None, None
-        time_range = set()
-        vertical_range = set()
-        # Determine bounding box which holds all layers
-        for layer in layers:
-            llc_lon_tmp, llc_lat_tmp, urc_lon_tmp, urc_lat_tmp = EdrConfig._wgs84_bounding_box(layer)
-            if any(coord is None for coord in [llc_lon, llc_lat, urc_lon, urc_lat]):
-                llc_lon, llc_lat, urc_lon, urc_lat = llc_lon_tmp, llc_lat_tmp, urc_lon_tmp, urc_lat_tmp
-            else:
-                llc_lon = min(llc_lon, llc_lon_tmp)
-                llc_lat = min(llc_lat, llc_lat_tmp)
-                urc_lon = max(urc_lon, urc_lon_tmp)
-                urc_lat = max(urc_lat, urc_lat_tmp)
-
-            coordinates = layer.get_coordinates()
-            if coordinates is not None and "alt" in coordinates.udims:
-                vertical_range.update(coordinates["alt"].coordinates)
-
-            if hasattr(layer, "valid_times") and layer.valid_times is not tl.Undefined and len(layer.valid_times) > 0:
-                time_range.update(layer.valid_times)
-
-        sorted_time_range = sorted(time_range)
-        sorted_vertical_range = sorted(vertical_range)
-
-        return {
-            "spatial": {
-                "bbox": [llc_lon, llc_lat, urc_lon, urc_lat],  # minx, miny, maxx, maxy
-                "crs": settings.crs_84_uri_format,
-            },
-            **(
-                {
-                    "temporal": {
-                        "begin": sorted_time_range[0],  # start datetime in RFC3339
-                        "end": sorted_time_range[-1],  # end datetime in RFC3339
-                        "values": sorted_time_range,
-                        "trs": "http://www.opengis.net/def/uom/ISO-8601/0/Gregorian",
-                    }
-                }
-                if len(sorted_time_range) > 0
-                else {}
-            ),
-            **(
-                {
-                    "vertical": {
-                        "interval": [sorted_vertical_range[0], sorted_vertical_range[-1]],
-                        "values": sorted_vertical_range,
-                        "vrs": "http://www.opengis.net/def/uom/EPSG/0/9001",
-                    }
-                }
-                if len(sorted_vertical_range) > 0
-                else {}
-            ),
-        }
-
-    @staticmethod
-    def _wgs84_bounding_box(layer: pogc.Layer) -> Tuple[float, float, float, float]:
-        """Retrieve the bounding box for the layer with a default fallback.
-
-        Parameters
-        ----------
-        layer : pogc.Layer
-            The layer from which to get the bounding box coordinates.
-
-        Returns
-        -------
-        Tuple[float, float, float, float]
-            Lower-left longitude, lower-left latitude, upper-right longitude, upper-right latitude.
-        """
-        try:
-            return (
-                layer.grid_coordinates.LLC.lon,
-                layer.grid_coordinates.LLC.lat,
-                layer.grid_coordinates.URC.lon,
-                layer.grid_coordinates.URC.lat,
-            )
-        except Exception:
-            crs_extents = settings.EDR_CRS[settings.crs_84_uri_format]
-            return (crs_extents["minx"], crs_extents["miny"], crs_extents["maxx"], crs_extents["maxy"])
-
-    @staticmethod
-    def _vertical_units(layers: List[pogc.Layer]) -> List[str]:
-        """Retrieve the vertical units for the layers.
-
-        Parameters
-        ----------
-        layer : List[pogc.Layer]
-            The layers from which to get the vertical units.
-
-        Returns
-        -------
-        str | None
-            The vertical units available for the layers.
-        """
-        vertical_units = set()
-        for layer in layers:
-            coordinates = layer.get_coordinates()
-            if coordinates is not None and coordinates.alt_units:
-                vertical_units.add(coordinates.alt_units)
-
-        return list(vertical_units)
 
     @staticmethod
     def data_query_formats() -> Dict[str, Any]:

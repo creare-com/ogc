@@ -661,9 +661,7 @@ class EdrProvider(BaseEDRProvider):
                     instance_datetime = np.datetime64(instance_time)
                     instance_coordinates = coordinates.select({"time": [instance_datetime, instance_datetime]})
                     selected_offset_coordinates = instance_coordinates["forecastOffsetHr"].coordinates
-                    available_times.update(
-                        [np.datetime64(instance_time) + offset for offset in selected_offset_coordinates]
-                    )
+                    available_times.update([instance_datetime + offset for offset in selected_offset_coordinates])
                 elif not instance_time and "forecastOffsetHr" not in coordinates.udims:
                     # Retrieve layer times for non-instance requests
                     available_times.update(coordinates["time"].coordinates)
