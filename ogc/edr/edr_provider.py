@@ -202,7 +202,7 @@ class EdrProvider(BaseEDRProvider):
 
         if time_coords is not None:
             self.check_query_condition(
-                len(time_coords["time"].coordinates) > 1 and output_format == settings.GEOTIFF.lower(),
+                any(dimension > 1 for dimension in time_coords.shape) and output_format == settings.GEOTIFF.lower(),
                 "GeoTIFF output currently only supports single time requests.",
             )
             requested_coordinates = podpac.coordinates.merge_dims([time_coords, requested_coordinates])
