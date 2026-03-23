@@ -860,9 +860,7 @@ class EdrProvider(BaseEDRProvider):
 
         if instance_time:
             offsets = [np.timedelta64(time - np.datetime64(instance_time), "h") for time in times]
-            return podpac.Coordinates(
-                [[[instance_time] * len(offsets), offsets]], dims=[["time", "forecastOffsetHr"]], crs=crs
-            )
+            return podpac.Coordinates([[instance_time], offsets], dims=["time", "forecastOffsetHr"], crs=crs)
 
         return podpac.Coordinates([times], dims=["time"], crs=crs)
 
