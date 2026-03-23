@@ -202,7 +202,7 @@ class EdrProvider(BaseEDRProvider):
 
         if time_coords is not None:
             self.check_query_condition(
-                len(time_coords["time"].coordinates) > 1 and output_format == settings.GEOTIFF.lower(),
+                any(dimension > 1 for dimension in time_coords.shape) and output_format == settings.GEOTIFF.lower(),
                 "GeoTIFF output currently only supports single time requests.",
             )
             requested_coordinates = podpac.coordinates.merge_dims([time_coords, requested_coordinates])
@@ -234,11 +234,7 @@ class EdrProvider(BaseEDRProvider):
 
         self.check_query_condition(len(dataset) == 0, "No matching parameters found.")
 
-        if (
-            output_format == settings.COVERAGE_JSON.lower()
-            or output_format == settings.JSON.lower()
-            or output_format == settings.HTML.lower()
-        ):
+        if output_format == settings.COVERAGE_JSON.lower():
             layers = self.get_layers(self.base_url, self.collection_id)
             return self.to_coverage_json(layers, dataset, self.collection_id, crs)
 
@@ -665,9 +661,7 @@ class EdrProvider(BaseEDRProvider):
                     instance_datetime = np.datetime64(instance_time)
                     instance_coordinates = coordinates.select({"time": [instance_datetime, instance_datetime]})
                     selected_offset_coordinates = instance_coordinates["forecastOffsetHr"].coordinates
-                    available_times.update(
-                        [np.datetime64(instance_time) + offset for offset in selected_offset_coordinates]
-                    )
+                    available_times.update([instance_datetime + offset for offset in selected_offset_coordinates])
                 elif not instance_time and "forecastOffsetHr" not in coordinates.udims:
                     # Retrieve layer times for non-instance requests
                     available_times.update(coordinates["time"].coordinates)
@@ -866,9 +860,7 @@ class EdrProvider(BaseEDRProvider):
 
         if instance_time:
             offsets = [np.timedelta64(time - np.datetime64(instance_time), "h") for time in times]
-            return podpac.Coordinates(
-                [[[instance_time] * len(offsets), offsets]], dims=[["time", "forecastOffsetHr"]], crs=crs
-            )
+            return podpac.Coordinates([[instance_time], offsets], dims=["time", "forecastOffsetHr"], crs=crs)
 
         return podpac.Coordinates([times], dims=["time"], crs=crs)
 

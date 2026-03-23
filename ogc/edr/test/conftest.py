@@ -59,7 +59,7 @@ def single_layer_cube_args() -> Dict[str, Any]:
     """
 
     return {
-        "f": "json",
+        "f": "coveragejson",
         "bbox": "-180, -90, 180, 90",
         "datetime": str(time[0]),
         "parameter-name": [layer1.identifier],
@@ -77,7 +77,7 @@ def single_layer_cube_args_internal() -> Dict[str, Any]:
     """
 
     return {
-        "format_": "json",
+        "format_": "coveragejson",
         "instance": str(time[0]),
         "bbox": [-180, -90, 180, 90],
         "datetime_": str(time[0]),

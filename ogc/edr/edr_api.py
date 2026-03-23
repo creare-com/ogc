@@ -1,4 +1,5 @@
 import json
+import pyproj
 import numpy as np
 import pygeoapi.api
 import pygeoapi.api.environmental_data_retrieval as pygeoedr
@@ -11,6 +12,7 @@ from pygeoapi.util import filter_dict_by_key_value, to_json, get_provider_by_typ
 from pygeoapi.api import API, APIRequest
 from pygeoapi.linked_data import jsonldify
 from .edr_provider import EdrProvider
+from .. import settings
 
 
 class EdrAPI:
@@ -142,26 +144,17 @@ class EdrAPI:
             provider = get_provider_by_type(collection_configuration[collection_id]["providers"], "edr")
             provider_plugin = load_plugin("provider", provider)
             provider_parameters = provider_plugin.get_fields()
-
-            extents = collection.get("extent", {})
-            if "vertical" in collection_configuration[collection_id]["extents"]:
-                extents = extents | {"vertical": collection_configuration[collection_id]["extents"]["vertical"]}
-            if "temporal" in collection_configuration[collection_id]["extents"]:
-                times = collection_configuration[collection_id]["extents"]["temporal"].get("values", [])
-                trs = collection_configuration[collection_id]["extents"]["temporal"].get("trs")
-                temporal_extents = EdrAPI._temporal_extents(times, trs)
-                extents = extents | temporal_extents
-            collection["extent"] = extents
-
+            collection_layers = EdrProvider.get_layers(provider["base_url"], collection_id)
+            collection["extent"] = EdrAPI._generate_extents(collection_layers, None)
             collection["output_formats"] = collection_configuration[collection_id].get("output_formats", [])
 
             collection_queryable = EdrProvider.is_collection_queryable(provider["base_url"], collection_id)
+            collection_without_queryables = EdrAPI._remove_query_metadata(collection)
+            collection["links"] = collection_without_queryables["links"]  # Always remove unnecessary query links
             if not collection_queryable:
-                collection_without_queryables = EdrAPI._remove_query_metadata(collection)
-                collection["links"] = collection_without_queryables["links"]
                 collection["data_queries"] = collection_without_queryables["data_queries"]
 
-            height_units = collection_configuration[collection_id].get("height_units", [])
+            height_units = EdrAPI._vertical_units(collection_layers)
             query_formats = collection_configuration[collection_id].get("query_formats", {})
             for query_type in collection["data_queries"]:
                 data_query_additions = {
@@ -216,27 +209,11 @@ class EdrAPI:
         collection_layers = EdrProvider.get_layers(provider["base_url"], dataset)
 
         for instance in instances:
-            extents = instance.get("extent", {})
-            if "vertical" in collection_configuration[dataset]["extents"]:
-                extents = extents | {"vertical": collection_configuration[dataset]["extents"]["vertical"]}
-
-            times = EdrProvider.get_datetimes(collection_layers, instance["id"])
-            if len(times) > 0:
-                trs = collection_configuration[dataset]["extents"]["temporal"].get("trs")
-                temporal_extents = EdrAPI._temporal_extents(times, trs)
-                extents = extents | temporal_extents
-
-            bbox = collection_configuration[dataset]["extents"]["spatial"]["bbox"]
-            if not isinstance(bbox[0], list):
-                bbox = [bbox]
-            crs = collection_configuration[dataset]["extents"]["spatial"].get("crs")
-            spatial_extents = EdrAPI._spatial_extents(bbox, crs)
-            extents = extents | spatial_extents
-            instance["extent"] = extents
-
+            instance_id = instance["id"]
+            instance["extent"] = EdrAPI._generate_extents(collection_layers, instance_id)
             instance["output_formats"] = collection_configuration[dataset].get("output_formats", [])
 
-            height_units = collection_configuration[dataset].get("height_units")
+            height_units = EdrAPI._vertical_units(collection_layers)
             query_formats = collection_configuration[dataset].get("query_formats", {})
             for query_type in instance["data_queries"]:
                 data_query_additions = {
@@ -300,7 +277,7 @@ class EdrAPI:
         Returns
         -------
         Dict[str, Any]
-            The temporal extent object.
+            The temporal extent object or an empty dictionary..
         """
         iso_times = []
         for time in sorted(times):
@@ -311,13 +288,45 @@ class EdrAPI:
                 time_utc = dt.astimezone(timezone.utc)
             iso_times.append(time_utc.isoformat().replace("+00:00", "Z"))
 
-        return {
-            "temporal": {
-                "interval": [iso_times[0], iso_times[-1]] if len(iso_times) > 0 else [],
-                "values": iso_times,
-                "trs": trs,
+        return (
+            {
+                "temporal": {
+                    "interval": [iso_times[0], iso_times[-1]],
+                    "values": iso_times,
+                    "trs": trs,
+                }
             }
-        }
+            if len(iso_times) > 0
+            else {}
+        )
+
+    @staticmethod
+    def _vertical_extents(vertical_levels: List[float], vrs: str | None) -> Dict[str, Any]:
+        """Get the vertical extents for the provided levels and reference system.
+
+        Parameters
+        ----------
+        vertical_levels : List[float]
+            Vertical levels used to create the vertical extent.
+        vrs : str | None
+            The reference system for the vertical levels.
+
+        Returns
+        -------
+        Dict[str, Any]
+            The vertical extent object or an empty dictionary.
+        """
+        return (
+            {
+                "vertical": {
+                    "interval": [vertical_levels[0], vertical_levels[-1]],
+                    "values": vertical_levels,
+                    "vrs": vrs,
+                }
+            }
+            if len(vertical_levels) > 0
+            else {}
+        )
 
     @staticmethod
     def _spatial_extents(bbox: List[float], crs: str | None) -> Dict[str, Any]:
@@ -340,6 +349,109 @@ class EdrAPI:
                 "bbox": bbox,
                 **({"crs": crs} if crs is not None else {}),
             }
+        }
+
+    @staticmethod
+    def _vertical_units(layers: List[pogc.Layer]) -> List[str]:
+        """Retrieve the vertical units for the layers.
+
+        Parameters
+        ----------
+        layer : List[pogc.Layer]
+            The layers from which to get the vertical units.
+
+        Returns
+        -------
+        List[str]
+            The vertical units available for the layers.
+        """
+        vertical_units = set()
+        for layer in layers:
+            coordinates = layer.get_coordinates()
+            if coordinates is not None and coordinates.alt_units:
+                vertical_units.add(coordinates.alt_units)
+
+        return list(vertical_units)
+
+    @staticmethod
+    def _crs84_bounding_box(layer: pogc.Layer) -> Tuple[float, float, float, float]:
+        """Retrieve the bounding box for the layer with a default fallback.
+
+        Parameters
+        ----------
+        layer : pogc.Layer
+            The layer from which to get the bounding box coordinates.
+
+        Returns
+        -------
+        Tuple[float, float, float, float]
+            Lower-left longitude, lower-left latitude, upper-right longitude, upper-right latitude.
+        """
+        try:
+            return (
+                layer.grid_coordinates.LLC.lon,
+                layer.grid_coordinates.LLC.lat,
+                layer.grid_coordinates.URC.lon,
+                layer.grid_coordinates.URC.lat,
+            )
+        except Exception:
+            crs_extents = settings.EDR_CRS[settings.crs_84_uri_format]
+            return (crs_extents["minx"], crs_extents["miny"], crs_extents["maxx"], crs_extents["maxy"])
+
+    @staticmethod
+    def _generate_extents(layers: List[pogc.Layer], instance: str | None) -> Dict[str, Any]:
+        """Generate the extents for the provided layers.
+
+        Parameters
+        ----------
+        layers : List[pogc.Layer]
+            The layers for temporal and spatial extent generation.
+        instance : str | None
+            The instance for extent generation or None for collection extents.
+
+        Returns
+        -------
+        Dict[str, Any]
+            The extents dictionary for the provided layers.
+        """
+        bbox = []
+        crs = pyproj.CRS(settings.crs_84_uri_format).to_wkt()
+
+        time_range = set()
+        vertical_range = set()
+
+        for layer in layers:
+            coordinates = layer.get_coordinates()
+            if coordinates is not None:
+                llc_lon_tmp, llc_lat_tmp, urc_lon_tmp, urc_lat_tmp = EdrAPI._crs84_bounding_box(layer)
+                if len(bbox) != 4:
+                    bbox = [llc_lon_tmp, llc_lat_tmp, urc_lon_tmp, urc_lat_tmp]
+                else:
+                    llc_lon = min(bbox[0], llc_lon_tmp)
+                    llc_lat = min(bbox[1], llc_lat_tmp)
+                    urc_lon = max(bbox[2], urc_lon_tmp)
+                    urc_lat = max(bbox[3], urc_lat_tmp)
+                    bbox = [llc_lon, llc_lat, urc_lon, urc_lat]
+
+                if "alt" in coordinates.udims:
+                    vertical_range.update(coordinates["alt"].coordinates)
+
+                if "time" in coordinates.udims:
+                    if instance in layer.time_instances() and "forecastOffsetHr" in coordinates.udims:
+                        instance_datetime = np.datetime64(instance)
+                        instance_coordinates = coordinates.select({"time": [instance_datetime, instance_datetime]})
+                        selected_offset_coordinates = instance_coordinates["forecastOffsetHr"].coordinates
+                        time_range.update([instance_datetime + offset for offset in selected_offset_coordinates])
+                    elif not instance and "forecastOffsetHr" not in coordinates.udims:
+                        time_range.update(coordinates["time"].coordinates)
+
+        sorted_time_range = sorted(time_range)
+        sorted_vertical_range = sorted(vertical_range)
+
+        return {
+            **(EdrAPI._spatial_extents(bbox, crs)),
+            **(EdrAPI._temporal_extents(sorted_time_range, "https://www.opengis.net/def/uom/ISO-8601/0/Gregorian")),
+            **(EdrAPI._vertical_extents(sorted_vertical_range, "https://www.opengis.net/def/uom/EPSG/0/9001")),
         }
 
     @staticmethod
