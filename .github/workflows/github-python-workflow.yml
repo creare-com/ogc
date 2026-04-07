@@ -76,7 +76,7 @@ jobs:
           -m pytest --continue-on-collection-errors || \
           { echo "WARNING: Some tests have failed. (Temporarily ignored)"; true; }
           coverage xml --data-file=coverage.bin -o coverage.xml
-
+          sed -i 's,<source>.*/ogc</source>,<source>ogc</source>,' coverage.xml
       - name: Artifact coverage document
         uses: actions/upload-artifact@v4
         with:

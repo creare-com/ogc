@@ -78,6 +78,6 @@ testpaths = ["ogc"]
 line-length = 120
 
 [tool.coverage.run]
-relative_files = true
+relative_files = false
 source = ["ogc/"]
 branch = true
