@@ -13,7 +13,6 @@ from . import wcs_request_1_0_0
 from . import wms_request_1_3_0
 from . import wcs_response_1_0_0
 from . import wms_response_1_3_0
-from . import ogc_common
 from .edr import EdrRoutes
 
 from ogc.ogc_common import WCSException
@@ -115,8 +114,6 @@ class OGC(tl.HasTraits):
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
         coverage = self.get_coverage_from_id(get_coverage.identifier.value)
-
-        from dateutil.parser import parse
 
         if get_coverage.width == 0:
             raise WCSException(

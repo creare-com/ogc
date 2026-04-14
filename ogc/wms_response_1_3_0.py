@@ -1,6 +1,5 @@
 import logging
 
-import lxml, lxml.etree
 import traitlets as tl
 import numpy as np
 

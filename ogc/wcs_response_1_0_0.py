@@ -1,7 +1,6 @@
 import logging
 import datetime
 
-import lxml, lxml.etree
 import traitlets as tl
 from ogc import GridCoordinates
 

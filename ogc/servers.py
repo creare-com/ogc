@@ -9,7 +9,6 @@ Note: this should probably be seperated into sub-modules for each web
 import re
 from flask import Flask, request, Response, make_response, send_file
 import six
-import traceback
 import logging
 from typing import Callable
 from werkzeug.datastructures import ImmutableMultiDict

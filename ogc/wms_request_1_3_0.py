@@ -1,7 +1,5 @@
 import logging
 
-import lxml, lxml.etree
-import dateutil.parser
 import traitlets as tl
 
 from . import ogc_common
