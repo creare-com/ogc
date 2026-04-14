@@ -55,6 +55,9 @@ EDR_QUERY_DEFAULTS = {
     "position": COVERAGE_JSON,
 }
 
+# The dimension associated with time instances of a collection
+EDR_TIME_INSTANCE_DIMENSION = "referenceTime"
+
 # WMS Capabilities timestamp format
 USE_TIMES_LIST = False
 PAST_DAYS_INCLUDED = 7

@@ -4,16 +4,17 @@ import datetime
 import podpac
 from ogc import podpac as pogc
 from typing import Dict, List, Any
+from ogc.settings import EDR_TIME_INSTANCE_DIMENSION
 
 # Setup new dimension
-podpac.core.coordinates.utils.add_valid_dimension("forecastOffsetHr")
+podpac.core.coordinates.utils.add_valid_dimension(EDR_TIME_INSTANCE_DIMENSION)
 
 lat = np.linspace(90, -90, 11)
 lon = np.linspace(-180, 180, 21)
 time = np.array(["2025-10-24T12:00:00"], dtype="datetime64")
-offsets = [np.timedelta64(0, "h")]
+instance = np.array(["2025-10-24T00:00:00"], dtype="datetime64")
 data = np.random.default_rng(1).random((11, 21, 1, 1))
-coords = podpac.Coordinates([lat, lon, time, offsets], dims=["lat", "lon", "time", "forecastOffsetHr"])
+coords = podpac.Coordinates([lat, lon, time, instance], dims=["lat", "lon", "time", EDR_TIME_INSTANCE_DIMENSION])
 
 # Define test layers using sample data and coordinates
 node1 = podpac.data.Array(source=data, coordinates=coords)
@@ -78,7 +79,7 @@ def single_layer_cube_args_internal() -> Dict[str, Any]:
 
     return {
         "format_": "coveragejson",
-        "instance": str(time[0]),
+        "instance": str(instance[0]),
         "bbox": [-180, -90, 180, 90],
         "datetime_": str(time[0]),
         "select_properties": [layer1.identifier],

@@ -15,6 +15,7 @@ import json
 import textwrap
 import re
 from datetime import datetime
+from ogc.settings import EDR_TIME_INSTANCE_DIMENSION
 
 
 def _uppercase_for_dict_keys(lower_dict):
@@ -65,10 +66,10 @@ class Layer(ogc.Layer):
         time_instances = set()
         coordinates = self.get_coordinates()
 
-        # Time instances are created if a node has both time and offsets.
-        if coordinates is not None and "time" in coordinates.udims and "forecastOffsetHr" in coordinates.udims:
+        # Time instances are created if a node has a time instance dimension.
+        if coordinates is not None and EDR_TIME_INSTANCE_DIMENSION in coordinates.udims:
             time_instances.update(
-                [time.astype("datetime64[ms]").astype(datetime).isoformat() for time in coordinates["time"].coordinates]
+                [time.astype(datetime).isoformat() for time in coordinates[EDR_TIME_INSTANCE_DIMENSION].coordinates]
             )
 
         return list(time_instances)
