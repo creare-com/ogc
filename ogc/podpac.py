@@ -69,7 +69,10 @@ class Layer(ogc.Layer):
         # Time instances are created if a node has a time instance dimension.
         if coordinates is not None and EDR_TIME_INSTANCE_DIMENSION in coordinates.udims:
             time_instances.update(
-                [time.astype(datetime).isoformat() for time in coordinates[EDR_TIME_INSTANCE_DIMENSION].coordinates]
+                [
+                    time.astype("datetime64[ms]").astype(datetime).isoformat()
+                    for time in coordinates[EDR_TIME_INSTANCE_DIMENSION].coordinates
+                ]
             )
 
         return list(time_instances)
