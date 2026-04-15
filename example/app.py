@@ -2,7 +2,6 @@
 Demo Flask app using PODPAC Node backed layers.
 """
 
-from flask import Flask
 from datetime import datetime
 import re
 

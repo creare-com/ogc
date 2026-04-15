@@ -10,9 +10,7 @@ from typing import List
 from matplotlib import pyplot as plt
 import matplotlib as mpl
 import io
-from PIL import Image
 import numpy as np
-import xarray as xr
 import json
 import textwrap
 import re
