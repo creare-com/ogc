@@ -154,6 +154,29 @@ def test_edr_routes_describe_collection(layers: List[pogc.Layer]):
     assert list(response["data_queries"].keys()) == ["instances"]
 
 
+def test_edr_routes_describe_collection_without_instance(layers_no_instance: List[pogc.Layer]):
+    """Test the EDR collection description for a response without instances.
+    The instance data query should still be available so it can return empty.
+
+    Parameters
+    ----------
+    layers_no_instance : List[pogc.Layer]
+        Layers provided by a test fixture.
+    """
+    request = mock_request({"f": "json"})
+    edr_routes = EdrRoutes(layers=layers_no_instance)
+    collection_id = layers_no_instance[0].group
+    collection_layers = [layer for layer in layers_no_instance if layer.group == collection_id]
+
+    _, status, content = edr_routes.describe_collections(request, collection_id=collection_id)
+    response = json.loads(content)
+
+    assert status == HTTPStatus.OK
+    assert response["id"] == collection_id
+    assert list(response["parameter_names"].keys()) == [layer.identifier for layer in collection_layers]
+    assert set(response["data_queries"].keys()) == {"position", "cube", "area", "instances"}
+
+
 def test_edr_routes_describe_instances(layers: List[pogc.Layer]):
     """Test the EDR instances description for a response.
 
@@ -178,6 +201,25 @@ def test_edr_routes_describe_instances(layers: List[pogc.Layer]):
 
     response_time_instances_ids = [instance["id"] for instance in response["instances"]]
     assert response_time_instances_ids == list(time_instances)
+
+
+def test_edr_routes_describe_instances_without_instances(layers_no_instance: List[pogc.Layer]):
+    """Test the EDR instances description for a response when no instances are available.
+
+    Parameters
+    ----------
+    layers_no_instance : List[pogc.Layer]
+        Layers provided by a test fixture.
+    """
+    request = mock_request({"f": "json"})
+    edr_routes = EdrRoutes(layers=layers_no_instance)
+    collection_id = layers_no_instance[0].group
+
+    _, status, content = edr_routes.describe_instances(request, collection_id=collection_id, instance_id=None)
+    response = json.loads(content)
+
+    assert status == HTTPStatus.OK
+    assert len(response["instances"]) == 0
 
 
 def test_edr_routes_describe_instance(layers: List[pogc.Layer]):

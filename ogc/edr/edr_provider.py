@@ -595,6 +595,7 @@ class EdrProvider(BaseEDRProvider):
             units_data_array = layer.node.eval(layer_requested_coordinates)
             units_data_array = units_data_array.unstack()
             if settings.EDR_TIME_INSTANCE_DIMENSION in units_data_array.dims:
+                # Use scalar selection to drop the extra dimension
                 units_data_array = units_data_array.sel(
                     {
                         settings.EDR_TIME_INSTANCE_DIMENSION: layer_requested_coordinates[

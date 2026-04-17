@@ -15,6 +15,8 @@ time = np.array(["2025-10-24T12:00:00"], dtype="datetime64")
 instance = np.array(["2025-10-24T00:00:00"], dtype="datetime64")
 data = np.random.default_rng(1).random((11, 21, 1, 1))
 coords = podpac.Coordinates([lat, lon, time, instance], dims=["lat", "lon", "time", EDR_TIME_INSTANCE_DIMENSION])
+data_without_instance = np.random.default_rng(1).random((11, 21, 1))
+coords_without_instance = podpac.Coordinates([lat, lon, time], dims=["lat", "lon", "time"])
 
 # Define test layers using sample data and coordinates
 node1 = podpac.data.Array(source=data, coordinates=coords)
@@ -35,6 +37,15 @@ layer2 = pogc.Layer(
     group="Layers",
     valid_times=[dt.astype(datetime.datetime) for dt in time],
 )
+node3 = podpac.data.Array(source=data_without_instance, coordinates=coords_without_instance)
+layer3 = pogc.Layer(
+    node=node3,
+    identifier="layer3",
+    title="Layer 3",
+    abstract="Layer3 Data (No instance)",
+    group="Layers",
+    valid_times=[dt.astype(datetime.datetime) for dt in time],
+)
 
 
 @pytest.fixture()
@@ -47,6 +58,18 @@ def layers() -> List[pogc.Layer]:
         The test layers.
     """
     return [layer1, layer2]
+
+
+@pytest.fixture()
+def layers_no_instance() -> List[pogc.Layer]:
+    """List of test layers without instances.
+
+    Returns
+    -------
+    List[pogc.Layer]
+        The test layers.
+    """
+    return [layer3]
 
 
 @pytest.fixture()
@@ -83,4 +106,22 @@ def single_layer_cube_args_internal() -> Dict[str, Any]:
         "bbox": [-180, -90, 180, 90],
         "datetime_": str(time[0]),
         "select_properties": [layer1.identifier],
+    }
+
+
+@pytest.fixture()
+def single_layer_cube_args_no_instance_internal() -> Dict[str, Any]:
+    """Dictionary of valid arguments that align to a single non-instance test layer request with internal pygeoapi keys.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Valid internal cube arguments for a single non-instance test layer.
+    """
+
+    return {
+        "format_": "coveragejson",
+        "bbox": [-180, -90, 180, 90],
+        "datetime_": str(time[0]),
+        "select_properties": [layer3.identifier],
     }
