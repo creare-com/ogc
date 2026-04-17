@@ -62,7 +62,11 @@ class OGC(tl.HasTraits):
             service_abstract=self.service_abstract,
             service_group_title=self.service_group_title,
         )
-        self.edr_routes = EdrRoutes(base_url=f"{self.server_address}{self.endpoint}/edr", layers=layers)
+        self.edr_routes = (
+            EdrRoutes(base_url=f"{self.server_address}{self.endpoint}/edr", layers=layers)
+            if settings.EDR_ENABLED
+            else None
+        )
 
     def get_coverage_from_id(self, identifier):
         for coverage in self.wcs_capabilities.coverages:

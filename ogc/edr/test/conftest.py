@@ -1,3 +1,4 @@
+import os
 import pytest
 import numpy as np
 import datetime
@@ -34,6 +35,11 @@ layer2 = pogc.Layer(
     group="Layers",
     valid_times=[dt.astype(datetime.datetime) for dt in time],
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def set_env_vars():
+    os.environ["OGC_SUPPORTED_FORMATS"] = "edr"
 
 
 @pytest.fixture()

@@ -87,3 +87,9 @@ try:
     EDR_CONFIGURATION_PATH = os.environ["EDR_CONFIGURATION_PATH"]
 except Exception:
     EDR_CONFIGURATION_PATH = None
+
+# get supported formats
+OGC_SUPPORTED_FORMATS = os.environ.get("OGC_SUPPORTED_FORMATS", "wms,wcs")
+WMS_ENABLED = "wms" in OGC_SUPPORTED_FORMATS.lower()
+WCS_ENABLED = "wcs" in OGC_SUPPORTED_FORMATS.lower()
+EDR_ENABLED = "edr" in OGC_SUPPORTED_FORMATS.lower()
