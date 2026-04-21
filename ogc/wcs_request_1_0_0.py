@@ -161,7 +161,7 @@ class GetCoverage(ogc_common.XMLNode):
             self.domain_subset_bbox.lower_corner[1],
             self.domain_subset_bbox.upper_corner[1],
         ]
-        if any([abs(lon) > 361.000 for lon in lons]) or any([abs(lat) > 91.000 for lat in lats]):
+        if any(abs(lon) > 361.000 for lon in lons) or any(abs(lat) > 91.000 for lat in lats):
             raise ogc_common.WCSException(
                 exception_code="InvalidParameterValue",
                 locator="BBOX",
