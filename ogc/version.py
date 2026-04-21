@@ -12,13 +12,13 @@ import subprocess
 import os
 from collections import OrderedDict
 
-#########################
-## UPDATE VERSION HERE ##
-#########################
+#######################
+# UPDATE VERSION HERE #
+#######################
 MAJOR = 0
 MINOR = 4
 HOTFIX = 2
-#########################
+#######################
 
 
 VERSION_INFO = OrderedDict([("MAJOR", MAJOR), ("MINOR", MINOR), ("HOTFIX", HOTFIX)])
