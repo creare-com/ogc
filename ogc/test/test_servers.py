@@ -1,10 +1,38 @@
 from ogc import servers
 from ogc import core
 from ogc import podpac as pogc
+from ogc import settings
+from unittest.mock import patch
+from typing import Callable
 
+import importlib
 import podpac
 import pytest
 import numpy as np
+
+
+@pytest.fixture
+def supported_formats() -> Callable[[str], None]:
+    """Fixture used to patch OGC supported formats.
+
+    Returns
+    -------
+    Callable[[str], None]
+        A function which patches the OGC supported formats based on input string.
+    """
+
+    def _supported_formats(formats: str):
+        """Patch the supported formats setting.
+
+        Parameters
+        ----------
+        formats : str
+            The formats which should be supported by the server as a string.
+        """
+        with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": formats}):
+            importlib.reload(settings)
+
+    return _supported_formats
 
 
 @pytest.fixture
@@ -96,3 +124,49 @@ def test_server_ogc_render_invalid_request(client):
     """
     response = client.get("/ogc?service=WCS&request=InvalidRequest")
     assert response.status_code == 400
+
+
+def test_server_with_default_supported_services(client):
+    """
+    Test the server with the default supported services.
+    """
+    response = client.get("/ogc?service=WMS&request=GetCapabilities")
+    assert response.status_code == 200
+
+    response = client.get("/ogc?service=WCS&request=GetCapabilities")
+    assert response.status_code == 200
+
+    response = client.get("/ogc/edr")
+    assert response.status_code == 404
+
+
+def test_server_without_wcs_supported_service(supported_formats, client):
+    """
+    Test the WCS service is unavailable when WCS is not a supported format.
+    """
+    supported_formats("wms")
+
+    response = client.get("/ogc?service=WMS&request=GetCapabilities")
+    assert response.status_code == 200
+
+    response = client.get("/ogc?service=WCS&request=GetCapabilities")
+    assert response.status_code == 400
+
+    response = client.get("/ogc/edr")
+    assert response.status_code == 404
+
+
+def test_server_without_wms_supported_service(supported_formats, client):
+    """
+    Test the WMS service is unavailable when WMS is not a supported format.
+    """
+    supported_formats("wcs")
+
+    response = client.get("/ogc?service=WCS&request=GetCapabilities")
+    assert response.status_code == 200
+
+    response = client.get("/ogc?service=WMS&request=GetCapabilities")
+    assert response.status_code == 400
+
+    response = client.get("/ogc/edr")
+    assert response.status_code == 404

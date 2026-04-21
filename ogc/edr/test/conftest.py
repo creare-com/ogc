@@ -39,6 +39,7 @@ layer2 = pogc.Layer(
 
 @pytest.fixture(scope="session", autouse=True)
 def set_env_vars():
+    """Setup the environmental variables for the session to support EDR."""
     os.environ["OGC_SUPPORTED_FORMATS"] = "edr"
 
 
