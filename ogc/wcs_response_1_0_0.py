@@ -122,9 +122,7 @@ class CoverageDescription(ogc_common.XMLNode):
             xml += """            <wcs:lonLatEnvelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">
             <gml:pos>{coverage.wgs84_bounding_box_lower_corner_lat_lon[1]} {coverage.wgs84_bounding_box_lower_corner_lat_lon[0]}</gml:pos>
             <gml:pos>{coverage.wgs84_bounding_box_upper_corner_lat_lon[1]} {coverage.wgs84_bounding_box_upper_corner_lat_lon[0]}</gml:pos>
-        </wcs:lonLatEnvelope>""".format(
-                coverage=coverage
-            )
+        </wcs:lonLatEnvelope>""".format(coverage=coverage)
 
         xml += """\
     <wcs:domainSet>
@@ -235,9 +233,7 @@ class Capabilities(ogc_common.XMLNode):
         <wcs:fees>UNAVAILABLE</wcs:fees>
         <wcs:accessConstraints>{constraints}</wcs:accessConstraints>
     </wcs:Service>
-""".format(
-            self=self, constraints=settings.CONSTRAINTS
-        )
+""".format(self=self, constraints=settings.CONSTRAINTS)
 
     base_url = tl.Unicode(default_value=None, allow_none=True)  # e.g., http://hostname:port/path?
 
@@ -277,9 +273,7 @@ class Capabilities(ogc_common.XMLNode):
       <wcs:Format>application/vnd.ogc.se_xml</wcs:Format>
     </wcs:Exception>
   </wcs:Capability>
-  """.format(
-            self=self
-        )
+  """.format(self=self)
 
     coverages = tl.List(tl.Instance(klass=Coverage))  # is populated via Traits in constructor
 
@@ -316,9 +310,7 @@ class Capabilities(ogc_common.XMLNode):
                 <gml:pos>{coverage.wgs84_bounding_box_lower_corner_lat_lon[1]} {coverage.wgs84_bounding_box_lower_corner_lat_lon[0]}</gml:pos>
                 <gml:pos>{coverage.wgs84_bounding_box_upper_corner_lat_lon[1]} {coverage.wgs84_bounding_box_upper_corner_lat_lon[0]}</gml:pos>
             </wcs:lonLatEnvelope>
-""".format(
-                    coverage=coverage
-                )
+""".format(coverage=coverage)
             xml += "        </wcs:CoverageOfferingBrief>\n"
         xml += "    </wcs:ContentMetadata>\n"
 

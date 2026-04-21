@@ -64,14 +64,8 @@ def version():
             except Exception:
                 return version_full
 
-        version_full = (
-            subprocess.check_output([git, "describe", "--always"], cwd=CWD)
-            .strip()
-            .decode("ascii")
-        )
-        version_full = version_full.replace("-", "+", 1).replace(
-            "-", "."
-        )  # Make this consistent with PEP440
+        version_full = subprocess.check_output([git, "describe", "--always"], cwd=CWD).strip().decode("ascii")
+        version_full = version_full.replace("-", "+", 1).replace("-", ".")  # Make this consistent with PEP440
 
     except Exception as e:
         print("Could not determine Project version from git repo.\n" + str(e))

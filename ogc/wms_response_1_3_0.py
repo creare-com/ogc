@@ -86,9 +86,7 @@ class Capabilities(ogc_common.XMLNode):
         </DCPType>
       </GetMap>
     </Request>
-  """.format(
-            self=self
-        )
+  """.format(self=self)
 
     def exception(self):
         return """\

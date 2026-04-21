@@ -123,7 +123,5 @@ class WCSException(Exception):
         {exception_text}
     </ExceptionText>
 </ExceptionReport>
-""".format(
-            self=self, exception_text=exception_text
-        )
+""".format(self=self, exception_text=exception_text)
         return xml
