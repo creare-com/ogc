@@ -258,13 +258,13 @@ class FlaskServer(Flask):
             ee = WCSException()
             return respond_xml(ee.to_xml(), status=500)
 
-    def edr_render(self, callable: Callable) -> Callable:
+    def edr_render(self, request_handler: Callable) -> Callable:
         """Function which returns a wrapper for the provided callable.
         Filters arguments and handles any necessary exceptions.
 
         Parameters
         ----------
-        callable : Callable
+        request_handler : Callable
             The callable request handler to be wrapped.
         Returns
         -------
@@ -315,7 +315,7 @@ class FlaskServer(Flask):
                 request.args = ImmutableMultiDict(filtered_args)
                 pygeoapi_request = APIRequest.from_flask(request, ["en"])
                 # Build the flask response
-                headers, status, content = callable(pygeoapi_request, *args, **kwargs)
+                headers, status, content = request_handler(pygeoapi_request, *args, **kwargs)
                 response = make_response(content, status)
                 if headers:
                     response.headers = headers
