@@ -103,7 +103,7 @@ class WCSException(Exception):
         """
         exception_code: 'NoApplicableCode', 'InvalidFormat', 'CoverageNotDefined', 'MissingParameterValue', 'InvalidParameterValue'
         """
-        super(WCSException, self).__init__(exception_text)
+        super().__init__(exception_text, exception_code, locator)
 
         self.exception_text = exception_text
         self.exception_code = exception_code
