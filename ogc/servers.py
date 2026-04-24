@@ -98,15 +98,16 @@ class FlaskServer(Flask):
             ogcs = []
 
         self.ogcs = ogcs
+
+        def make_method(idx):
+            def method():
+                return self.ogc_render(idx)
+
+            return method
+
         for idx, ogc in enumerate(ogcs):
             endpoint = ogc.endpoint  # should be a string, e.g. "/ogc"
             method_name = "render" + endpoint.replace("/", "_")  # e.g. "render_ogc"
-
-            def make_method(idx):
-                def method():
-                    return self.ogc_render(idx)
-
-                return method
 
             method = make_method(idx)
             setattr(self, method_name, method)
