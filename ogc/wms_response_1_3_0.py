@@ -1,4 +1,5 @@
 import logging
+from xml.sax.saxutils import escape
 
 import lxml, lxml.etree
 import traitlets as tl
@@ -47,7 +48,7 @@ class Capabilities(ogc_common.XMLNode):
         return """\
     <Service>
         <Name>WMS</Name>
-        <Title>{self.service_title}</Title>
+        <Title>{esc_title}</Title>
         <OnlineResource xlink:href="{self.base_url}"/>
         <AccessConstraints>{constraints}</AccessConstraints>
         <LayerLimit>1</LayerLimit>
@@ -58,7 +59,8 @@ class Capabilities(ogc_common.XMLNode):
             self=self,
             constraints=settings.CONSTRAINTS,
             maxWidthWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE)),
-            maxHeightWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE))
+            maxHeightWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE)),
+            esc_title=escape(self.service_title or "")
         )
 
     base_url = tl.Unicode(
@@ -115,7 +117,7 @@ class Capabilities(ogc_common.XMLNode):
 
     def layers(self):
         xml = "    <Layer>\n"
-        xml += "        <Title>{}</Title>\n".format(self.service_group_title)
+        xml += "        <Title>{}</Title>\n".format(escape(self.service_group_title or ""))
         xml += self._get_CRS_and_BoundingBox(depth=2)
 
         # If configured, trim layers list to layers specified in settings
@@ -129,18 +131,18 @@ class Capabilities(ogc_common.XMLNode):
         for coverage in self.coverages:
             xml += """       <Layer queryable="0" opaque="0" cascaded="1">\n"""
             if coverage.identifier:
-                xml += "            <Name>{coverage.identifier}</Name>\n".format(
-                    coverage=coverage
+                xml += "            <Name>{}</Name>\n".format(
+                    escape(coverage.identifier)
                 )
             if coverage.title:
-                xml += "            <Title>{coverage.title}</Title>\n".format(
-                    coverage=coverage, self=self
+                xml += "            <Title>{}</Title>\n".format(
+                    escape(coverage.title)
                 )
             else:
                 logger.info("Invalid layer. Missing title.")
             if coverage.abstract:
-                xml += "            <Abstract>{coverage.abstract}</Abstract>\n".format(
-                    coverage=coverage, self=self
+                xml += "            <Abstract>{}</Abstract>\n".format(
+                    escape(coverage.abstract)
                 )
 
             xml += self._get_CRS_and_BoundingBox()
@@ -215,8 +217,8 @@ class Capabilities(ogc_common.XMLNode):
 
             # Write the style section
             xml += """            <Style>\n"""
-            xml += """                <Name>{}</Name>\n""".format(coverage.identifier)
-            xml += """                <Title>{}</Title>\n""".format(coverage.title)
+            xml += """                <Name>{}</Name>\n""".format(escape(coverage.identifier or ""))
+            xml += """                <Title>{}</Title>\n""".format(escape(coverage.title or ""))
             xml += """                <LegendURL width="{width}" height="{height}">\n""".format(
                 height=legend_graphic_height, width=legend_graphic_width
             )

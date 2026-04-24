@@ -1,5 +1,6 @@
 import logging
 import datetime
+from xml.sax.saxutils import escape
 
 import lxml, lxml.etree
 import traitlets as tl
@@ -107,16 +108,16 @@ version="1.0.0">
         for coverage in self.coverages:
             xml += """    <wcs:CoverageOffering>"""
             if coverage.identifier:
-                xml += "        <wcs:name>{coverage.identifier}</wcs:name>\n".format(
-                    coverage=coverage
+                xml += "        <wcs:name>{}</wcs:name>\n".format(
+                    escape(coverage.identifier)
                 )
             if coverage.title:
-                xml += "        <wcs:label>{coverage.title}</wcs:label>\n".format(
-                    coverage=coverage
+                xml += "        <wcs:label>{}</wcs:label>\n".format(
+                    escape(coverage.title)
                 )
             if coverage.abstract:
-                xml += "        <wcs:description>{coverage.abstract}</wcs:description>\n".format(
-                    coverage=coverage
+                xml += "        <wcs:description>{}</wcs:description>\n".format(
+                    escape(coverage.abstract)
                 )
             temporal_domain = ""
             if hasattr(coverage.layer, "valid_times"):
@@ -185,8 +186,8 @@ version="1.0.0">
         </wcs:domainSet>
         <wcs:rangeSet>
           <wcs:RangeSet>
-            <wcs:name>{coverage.identifier}</wcs:name>
-            <wcs:label>{coverage.title}</wcs:label>
+            <wcs:name>{esc_id}</wcs:name>
+            <wcs:label>{esc_title}</wcs:label>
             <wcs:axisDescription>
               <wcs:AxisDescription>
                 <wcs:name>Band</wcs:name>
@@ -203,6 +204,8 @@ version="1.0.0">
                 coverage=coverage,
                 temporal_domain=temporal_domain,
                 epsg=NATIVE_PROJECTION.upper(),
+                esc_id=escape(coverage.identifier or ""),
+                esc_title=escape(coverage.title or ""),
             )
             xml += "\n".join(
                 [
@@ -249,13 +252,14 @@ class Capabilities(ogc_common.XMLNode):
     def service(self):
         return """\
     <wcs:Service>
-        <wcs:name>{self.service_title}</wcs:name>
-        <wcs:label>{self.service_title}</wcs:label>
+        <wcs:name>{esc_title}</wcs:name>
+        <wcs:label>{esc_title}</wcs:label>
         <wcs:fees>UNAVAILABLE</wcs:fees>
         <wcs:accessConstraints>{constraints}</wcs:accessConstraints>
     </wcs:Service>
 """.format(
-            self=self, constraints=settings.CONSTRAINTS
+            self=self, constraints=settings.CONSTRAINTS,
+            esc_title=escape(self.service_title or "")
         )
 
     base_url = tl.Unicode(
@@ -329,20 +333,20 @@ class Capabilities(ogc_common.XMLNode):
         for coverage in self.coverages:
             xml += "        <wcs:CoverageOfferingBrief>\n"
             if coverage.abstract:
-                xml += "            <wcs:description>{coverage.abstract}</wcs:description>\n".format(
-                    coverage=coverage
+                xml += "            <wcs:description>{}</wcs:description>\n".format(
+                    escape(coverage.abstract)
                 )
             if coverage.identifier:  # required
                 xml += (
-                    "            <wcs:name>{coverage.identifier}</wcs:name>\n".format(
-                        coverage=coverage
+                    "            <wcs:name>{}</wcs:name>\n".format(
+                        escape(coverage.identifier)
                     )
                 )
             else:
                 logger.info("Invalid layer. Missing name.")
             if coverage.title:  # required
-                xml += "            <wcs:label>{coverage.title}</wcs:label>\n".format(
-                    coverage=coverage
+                xml += "            <wcs:label>{}</wcs:label>\n".format(
+                    escape(coverage.title)
                 )
             else:
                 logger.info("Invalid layer. Missing label.")

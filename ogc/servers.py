@@ -16,6 +16,8 @@ from ogc.ogc_common import WCSException
 
 logger = logging.getLogger(__name__)
 
+_MAX_QUERY_STRING_BYTES = 8192
+
 
 def respond_xml(doc, status=200):
     # First, validate that XML can be parsed.
@@ -112,6 +114,13 @@ class FlaskServer(Flask):
         if not request.args:
             return self.home_func(ogc.endpoint)
         try:
+            raw_qs = request.query_string
+            if len(raw_qs) > _MAX_QUERY_STRING_BYTES:
+                raise WCSException("Request query string exceeds maximum allowed length.")
+            try:
+                raw_qs.decode("utf-8")
+            except UnicodeDecodeError:
+                raise WCSException("Request contains invalid UTF-8 encoding.")
             # We'll filter out any characters from URl parameter values that
             # are not in the allowlist.
             # Note the parameter with key "params" has a serialized JSON value,
