@@ -30,10 +30,10 @@ jobs:
       - name: Run flake8 lint checks
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F --show-source --statistics --max-line-length=120 --output-file=flake8-report.txt
+          flake8 . --count --ignore=E,W,D,I,N806,N815,N818,Q000,Q001,Q002,S001,B008,B028 --show-source --statistics --max-line-length=120 --output-file=flake8-report.txt
 
       - name: Run black format checks
-        run: black --check --diff ogc example > black-report.txt
+        run: black --check --diff -l 120 ogc example > black-report.txt
 
       - name: Artifact flake8 report
         uses: actions/upload-artifact@v4
