@@ -38,8 +38,9 @@ class OGC(tl.HasTraits):
     def base_url(self):
         return "{}{}?".format(self.server_address, self.endpoint)
 
-    def __init__(self, layers=[], **kwargs):
+    def __init__(self, layers=None, **kwargs):
         super().__init__(**kwargs)
+        layers = layers if layers is not None else []
         coverages = [
             wcs_response_1_0_0.Coverage(
                 layer=layer,

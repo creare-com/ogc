@@ -115,7 +115,7 @@ def check_layers(layer):
 
     if match_object:
         clean_layer = match_object.group(0)
-        if clean_layer in [l.identifier for l in all_layers]:
+        if clean_layer in [available_layer.identifier for available_layer in all_layers]:
             return "{} is an available layer id".format(clean_layer)
         else:
             return "No layer available with that id"

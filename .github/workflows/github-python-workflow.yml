@@ -3,9 +3,9 @@ name: Python Workflow
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [ opened, synchronize, reopened ]
 
 jobs:
   lint:
@@ -30,12 +30,10 @@ jobs:
       - name: Run flake8 lint checks
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --output-file=flake8-report.txt
-          # exit-zero treats all errors as warnings
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics --output-file=flake8-report.txt
+          flake8 . --count --ignore=E,W,D,I,N806,N815,N818,Q000,Q001,Q002,S001,B008,B028 --show-source --statistics --max-line-length=120 --output-file=flake8-report.txt
 
       - name: Run black format checks
-        run: black --check --diff ogc example > black-report.txt  || true # For now pass even if files need formatting
+        run: black --check --diff -l 120 ogc example > black-report.txt
 
       - name: Artifact flake8 report
         uses: actions/upload-artifact@v4
@@ -86,7 +84,7 @@ jobs:
 
   sonarqube_scan:
     name: SonarQube Scan
-    needs: [unit_testing]
+    needs: [ unit_testing ]
     runs-on: ubuntu-latest
 
     steps:

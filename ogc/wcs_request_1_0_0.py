@@ -1,6 +1,7 @@
 import logging
 
-import lxml, lxml.etree
+import lxml
+import lxml.etree
 import dateutil.parser
 import traitlets as tl
 
@@ -149,7 +150,7 @@ class GetCoverage(ogc_common.XMLNode):
 
         assert self.identifier, "WCS Request validation error: no coverage specified"
         assert self.domain_subset_bbox, "WCS Request validation error: no bounding box specified"
-        self.output_format.validate(), "WCS Request validation error: output format"
+        self.output_format.validate()  # WCS Request validation error: output format
         assert self.height, "WCS Request validation error: no height specified"
         assert self.width, "WCS Request validation error: no width specified"
         lons = [
@@ -160,7 +161,7 @@ class GetCoverage(ogc_common.XMLNode):
             self.domain_subset_bbox.lower_corner[1],
             self.domain_subset_bbox.upper_corner[1],
         ]
-        if any([abs(l) > 361.000 for l in lons]) or any([abs(l) > 91.000 for l in lats]):
+        if any(abs(lon) > 361.000 for lon in lons) or any(abs(lat) > 91.000 for lat in lats):
             raise ogc_common.WCSException(
                 exception_code="InvalidParameterValue",
                 locator="BBOX",

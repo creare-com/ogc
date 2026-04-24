@@ -17,13 +17,13 @@ class BaseEdrFormatter(BaseFormatter):
         super().__init__(formatter_def)
         self.mimetype = formatter_def["mimetype"]
 
-    def write(self, options: dict = {}, data: dict | None = None) -> str:
+    def write(self, options: dict | None = None, data: dict | None = None) -> str:
         """Generate data in the specified format.
 
         Parameters
         ----------
         options : dict, optional
-            Formatting options, by default {}.
+            Formatting options, by default None.
         data : dict | None, optional
             Dictionary representation of the data, by default None.
 

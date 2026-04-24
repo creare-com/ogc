@@ -86,9 +86,7 @@ class Capabilities(ogc_common.XMLNode):
         </DCPType>
       </GetMap>
     </Request>
-  """.format(
-            self=self
-        )
+  """.format(self=self)
 
     def exception(self):
         return """\
@@ -241,11 +239,11 @@ version="{capabilities.version}">
         )
 
     @staticmethod
-    def _format_number(input, float_decimals=9):
-        if isinstance(input, float):
-            return "{number:.{decimals}f}".format(number=input, decimals=float_decimals)
+    def _format_number(input_number, float_decimals=9):
+        if isinstance(input_number, float):
+            return "{number:.{decimals}f}".format(number=input_number, decimals=float_decimals)
         else:
-            return "{}".format(input)
+            return "{}".format(input_number)
 
     def _get_CRS_and_BoundingBox(self, depth=3):
         indent = "    "
