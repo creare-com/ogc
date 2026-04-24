@@ -150,7 +150,7 @@ class GetCoverage(ogc_common.XMLNode):
 
         assert self.identifier, "WCS Request validation error: no coverage specified"
         assert self.domain_subset_bbox, "WCS Request validation error: no bounding box specified"
-        self.output_format.validate(), "WCS Request validation error: output format"
+        self.output_format.validate()  # WCS Request validation error: output format
         assert self.height, "WCS Request validation error: no height specified"
         assert self.width, "WCS Request validation error: no width specified"
         lons = [
