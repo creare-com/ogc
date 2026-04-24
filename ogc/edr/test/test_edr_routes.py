@@ -12,20 +12,21 @@ from ogc import podpac as pogc
 from ogc.edr.edr_routes import EdrRoutes
 
 
-def mock_request(request_args: Dict[str, Any] = {}) -> APIRequest:
+def mock_request(request_args: Dict[str, Any] | None = None) -> APIRequest:
     """Creates a mock request for EDR routes to use.
 
 
     Parameters
     ----------
-    request_args: Dict[str, Any], optional
-        The dictionary for query string arguments.
+    request_args: Dict[str, Any] | None, optional
+        The dictionary for query string arguments, by default None.
 
     Returns
     -------
     APIRequest
         Mock API request for route testing.
     """
+    request_args = request_args if request_args is not None else {}
     environ = create_environ(base_url="http://127.0.0.1:5000/ogc/edr")
     request = Request(environ)
     request.args = ImmutableMultiDict(request_args.items())

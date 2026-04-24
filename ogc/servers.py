@@ -343,6 +343,6 @@ class FastAPI(object):
     https://mangum.io/asgi-frameworks/
     """
 
-    def __init__(self, *args, ogcs=[]):
+    def __init__(self, *args, ogcs):
         super().__init__(*args)
         raise NotImplementedError
