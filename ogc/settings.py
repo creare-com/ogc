@@ -62,6 +62,9 @@ PAST_DAYS_INCLUDED = 7
 # Max WCS/WMS response size
 MAX_GRID_COORDS_REQUEST_SIZE = 1024 * 1024
 
+# HTTP input size limits
+MAX_QUERY_STRING_BYTES = 8192
+
 # WMS Capabilities limit layers
 WMS_LIMIT_LAYERS = False
 

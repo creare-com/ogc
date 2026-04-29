@@ -1,4 +1,5 @@
 import logging
+from xml.sax.saxutils import escape
 
 import traitlets as tl
 import numpy as np
@@ -43,10 +44,11 @@ class Capabilities(ogc_common.XMLNode):
     version = tl.Unicode(default_value=SERVICE_VERSION)
 
     def service(self):
+        title = escape(self.service_title) if self.service_title else ""
         return """\
     <Service>
         <Name>WMS</Name>
-        <Title>{self.service_title}</Title>
+        <Title>{title}</Title>
         <OnlineResource xlink:href="{self.base_url}"/>
         <AccessConstraints>{constraints}</AccessConstraints>
         <LayerLimit>1</LayerLimit>
@@ -54,6 +56,7 @@ class Capabilities(ogc_common.XMLNode):
         <MaxHeight>{maxHeightWMS}</MaxHeight>
     </Service>
 """.format(
+            title=title,
             self=self,
             constraints=settings.CONSTRAINTS,
             maxWidthWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE)),
@@ -121,13 +124,13 @@ class Capabilities(ogc_common.XMLNode):
     def coverage_layer(self, coverage):
         xml = """       <Layer queryable="0" opaque="0" cascaded="1">\n"""
         if coverage.identifier:
-            xml += f"            <Name>{coverage.identifier}</Name>\n"
+            xml += f"            <Name>{escape(coverage.identifier)}</Name>\n"
         if coverage.title:
-            xml += f"            <Title>{coverage.title}</Title>\n"
+            xml += f"            <Title>{escape(coverage.title)}</Title>\n"
         else:
             logger.info("Invalid layer. Missing title.")
         if coverage.abstract:
-            xml += f"            <Abstract>{coverage.abstract}</Abstract>\n"
+            xml += f"            <Abstract>{escape(coverage.abstract)}</Abstract>\n"
 
         xml += self._get_CRS_and_BoundingBox()
 
@@ -199,7 +202,7 @@ class Capabilities(ogc_common.XMLNode):
 
     def layers(self):
         xml = "    <Layer>\n"
-        xml += "        <Title>{}</Title>\n".format(self.service_group_title)
+        xml += "        <Title>{}</Title>\n".format(escape(self.service_group_title) if self.service_group_title else "")
         xml += self._get_CRS_and_BoundingBox(depth=2)
 
         # If configured, trim layers list to layers specified in settings
