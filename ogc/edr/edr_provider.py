@@ -88,7 +88,7 @@ class EdrProvider(BaseEDRProvider):
         layers = cls.get_layers(base_url, group)
         for layer in layers:
             coordinates = layer.get_coordinates()
-            if coordinates is not None and "forecastOffsetHr" not in coordinates.udims:
+            if coordinates is not None and settings.EDR_TIME_INSTANCE_DIMENSION not in coordinates.udims:
                 return True
         return False
 
@@ -584,25 +584,26 @@ class EdrProvider(BaseEDRProvider):
         if coordinates is None:
             return units_data_array
 
-        layer_has_instances = "forecastOffsetHr" in coordinates.udims
-        request_has_instances = "forecastOffsetHr" in requested_coordinates.udims
+        layer_has_instances = settings.EDR_TIME_INSTANCE_DIMENSION in coordinates.udims
+        request_has_instances = settings.EDR_TIME_INSTANCE_DIMENSION in requested_coordinates.udims
         if layer_has_instances ^ request_has_instances:
             return units_data_array
 
-        if "time" not in coordinates[0].udims:
-            layer_requested_coordinates = layer_requested_coordinates.udrop(
-                ["time", "forecastOffsetHr"], ignore_missing=True
-            )
+        if "time" not in coordinates.udims:
+            layer_requested_coordinates = layer_requested_coordinates.udrop(["time"], ignore_missing=True)
         if layer.node is not None:
             units_data_array = layer.node.eval(layer_requested_coordinates)
-            if "forecastOffsetHr" in units_data_array.dims or "time_forecastOffsetHr" in units_data_array.dims:
-                if "time_forecastOffsetHr" not in units_data_array.dims:
-                    units_data_array = units_data_array.stack(time_forecastOffsetHr=("time", "forecastOffsetHr"))
-                forecast_offsets = units_data_array.forecastOffsetHr.data.copy()
-                time_data = units_data_array.time.data.copy()
-                units_data_array = units_data_array.drop_vars({"time", "time_forecastOffsetHr", "forecastOffsetHr"})
-                units_data_array = units_data_array.rename(time_forecastOffsetHr="time")
-                units_data_array = units_data_array.assign_coords(time=time_data + forecast_offsets)
+            units_data_array = units_data_array.unstack()
+            if settings.EDR_TIME_INSTANCE_DIMENSION in units_data_array.dims:
+                # Use scalar selection to drop the extra dimension
+                units_data_array = units_data_array.sel(
+                    {
+                        settings.EDR_TIME_INSTANCE_DIMENSION: layer_requested_coordinates[
+                            settings.EDR_TIME_INSTANCE_DIMENSION
+                        ].coordinates[0]
+                    }
+                )
+                units_data_array = units_data_array.drop_vars({settings.EDR_TIME_INSTANCE_DIMENSION})
                 if units_data_array.attrs.get("bounds", None):
                     filtered_bounds = {
                         coord: bnd
@@ -645,7 +646,7 @@ class EdrProvider(BaseEDRProvider):
         layers : List[pogc.Layer]
             The list of layers to determine datetimes for.
         instance_time: str | None
-            The optional instance time which forecast datetimes are being requested for.
+            The optional instance time to get datetimes for, if not provided collection datetimes are returned.
         Returns
         -------
         List[np.datetime64]
@@ -656,14 +657,17 @@ class EdrProvider(BaseEDRProvider):
         for layer in layers:
             coordinates = layer.get_coordinates()
             if coordinates is not None and "time" in coordinates.udims:
-                if instance_time in layer.time_instances() and "forecastOffsetHr" in coordinates.udims:
-                    # Retrieve available forecastOffSetHr and instance time combinations
+                if (
+                    instance_time in layer.time_instances()
+                    and settings.EDR_TIME_INSTANCE_DIMENSION in coordinates.udims
+                ):
                     instance_datetime = np.datetime64(instance_time)
-                    instance_coordinates = coordinates.select({"time": [instance_datetime, instance_datetime]})
-                    selected_offset_coordinates = instance_coordinates["forecastOffsetHr"].coordinates
-                    available_times.update([instance_datetime + offset for offset in selected_offset_coordinates])
-                elif not instance_time and "forecastOffsetHr" not in coordinates.udims:
-                    # Retrieve layer times for non-instance requests
+                    instance_coordinates = coordinates.select(
+                        {settings.EDR_TIME_INSTANCE_DIMENSION: [instance_datetime, instance_datetime]}
+                    )
+                    selected_time_coordinates = instance_coordinates["time"].coordinates
+                    available_times.update(selected_time_coordinates)
+                elif not instance_time and settings.EDR_TIME_INSTANCE_DIMENSION not in coordinates.udims:
                     available_times.update(coordinates["time"].coordinates)
 
         return list(available_times)
@@ -859,8 +863,9 @@ class EdrProvider(BaseEDRProvider):
             raise ProviderInvalidQueryError(msg, user_msg=msg)
 
         if instance_time:
-            offsets = [np.timedelta64(time - np.datetime64(instance_time), "h") for time in times]
-            return podpac.Coordinates([[instance_time], offsets], dims=["time", "forecastOffsetHr"], crs=crs)
+            return podpac.Coordinates(
+                [times, [instance_time]], dims=["time", settings.EDR_TIME_INSTANCE_DIMENSION], crs=crs
+            )
 
         return podpac.Coordinates([times], dims=["time"], crs=crs)
 

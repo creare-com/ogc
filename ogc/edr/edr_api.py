@@ -437,12 +437,14 @@ class EdrAPI:
                     vertical_range.update(coordinates["alt"].coordinates)
 
                 if "time" in coordinates.udims:
-                    if instance in layer.time_instances() and "forecastOffsetHr" in coordinates.udims:
+                    if instance in layer.time_instances() and settings.EDR_TIME_INSTANCE_DIMENSION in coordinates.udims:
                         instance_datetime = np.datetime64(instance)
-                        instance_coordinates = coordinates.select({"time": [instance_datetime, instance_datetime]})
-                        selected_offset_coordinates = instance_coordinates["forecastOffsetHr"].coordinates
-                        time_range.update([instance_datetime + offset for offset in selected_offset_coordinates])
-                    elif not instance and "forecastOffsetHr" not in coordinates.udims:
+                        instance_coordinates = coordinates.select(
+                            {settings.EDR_TIME_INSTANCE_DIMENSION: [instance_datetime, instance_datetime]}
+                        )
+                        selected_time_coordinates = instance_coordinates["time"].coordinates
+                        time_range.update(selected_time_coordinates)
+                    elif not instance and settings.EDR_TIME_INSTANCE_DIMENSION not in coordinates.udims:
                         time_range.update(coordinates["time"].coordinates)
 
         sorted_time_range = sorted(time_range)

@@ -8,12 +8,13 @@ import re
 from ogc import servers
 from ogc import core
 from ogc import podpac as pogc
+from ogc.settings import EDR_TIME_INSTANCE_DIMENSION
 
 import podpac
 import numpy as np
 
 # Setup new dimension
-podpac.core.coordinates.utils.add_valid_dimension("forecastOffsetHr")
+podpac.core.coordinates.utils.add_valid_dimension(EDR_TIME_INSTANCE_DIMENSION)
 
 # create some podpac nodes
 data = np.random.default_rng(1).random((11, 21))
@@ -26,8 +27,8 @@ data2 = np.random.default_rng(1).random((11, 21))
 node2 = podpac.data.Array(source=data2, coordinates=coords)
 
 time = np.array(["2025-10-24T12:00:00"], dtype="datetime64")
-offsets = [np.timedelta64(0, "h")]
-coords = podpac.Coordinates([lat, lon, time, offsets], dims=["lat", "lon", "time", "forecastOffsetHr"])
+instance = np.array(["2025-10-24T00:00:00"], dtype="datetime64")
+coords = podpac.Coordinates([lat, lon, time, instance], dims=["lat", "lon", "time", EDR_TIME_INSTANCE_DIMENSION])
 data3 = np.random.default_rng(1).random((11, 21, 1, 1))
 node3 = podpac.data.Array(source=data3, coordinates=coords)
 

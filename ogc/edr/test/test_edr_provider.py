@@ -401,6 +401,34 @@ def test_edr_provider_cube_request_invalid_bbox(
         provider.cube(**args)
 
 
+def test_edr_provider_cube_request_without_instance(
+    layers_no_instance: List[pogc.Layer], single_layer_cube_args_no_instance_internal: Dict[str, Any]
+):
+    """Test the cube method of the EDR Provider class with a valid layer without an instance.
+
+    Parameters
+    ----------
+    layers_no_instance : List[pogc.Layer]
+        Layers provided by a test fixture.
+
+    single_layer_cube_args_no_instance_internal : Dict[str, Any]
+        Single layer arguments with internal pygeoapi keys provided by a test fixture.
+    """
+    base_url = "/"
+    args = single_layer_cube_args_no_instance_internal
+    parameter_name = single_layer_cube_args_no_instance_internal["select_properties"][0]
+    provider = EdrProvider(provider_def=get_provider_definition(base_url))
+    provider.set_layers(base_url, layers_no_instance)
+
+    response = provider.cube(**args)
+    response = get_json_with_cleanup(response["fp"])
+
+    assert set(response["domain"]["ranges"][parameter_name]["axisNames"]) == {"x", "y", "t"}
+    assert np.prod(np.array(response["domain"]["ranges"][parameter_name]["shape"])) == len(
+        response["domain"]["ranges"][parameter_name]["values"]
+    )
+
+
 def test_edr_provider_cube_request_invalid_instance(
     layers: List[pogc.Layer], single_layer_cube_args_internal: Dict[str, Any]
 ):
