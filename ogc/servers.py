@@ -7,6 +7,7 @@ Note: this should probably be seperated into sub-modules for each web
 """
 
 import re
+import xml.sax.saxutils
 from flask import Flask, request, Response, make_response, send_file
 import six
 import logging
@@ -19,6 +20,16 @@ from pygeoapi.util import get_api_rules
 from . import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _check_query_string(raw_qs: bytes) -> None:
+    """Raise WCSException if the raw query string exceeds the maximum allowed length or contains invalid UTF-8."""
+    if len(raw_qs) > settings.MAX_QUERY_STRING_BYTES:
+        raise WCSException("Request query string exceeds maximum allowed length.")
+    try:
+        raw_qs.decode("utf-8")
+    except UnicodeDecodeError:
+        raise WCSException("Request contains invalid UTF-8 encoding.")
 
 
 def respond_xml(doc, status=200):
@@ -231,6 +242,12 @@ class FlaskServer(Flask):
             return respond_xml("<p>Only GET supported</p>", status=405)
 
         ogc = self.ogcs[ogc_idx]
+
+        try:
+            _check_query_string(request.query_string)
+        except WCSException as e:
+            return respond_xml(e.to_xml(), status=400)
+
         if not request.args:
             return self.home_func(ogc.endpoint)
         try:
@@ -253,7 +270,7 @@ class FlaskServer(Flask):
             }
 
             if request.base_url:
-                args["base_url"] = request.base_url + "?"
+                args["base_url"] = xml.sax.saxutils.escape(request.base_url, {'"': "&quot;"}) + "?"
             else:
                 args["base_url"] = None
             ogc_response = None
@@ -310,6 +327,12 @@ class FlaskServer(Flask):
             logger.info("OGC server.edr_render")
             if request.method != "GET":
                 return respond_xml("<p>Only GET supported</p>", status=405)
+
+            try:
+                _check_query_string(request.query_string)
+            except WCSException as e:
+                return respond_xml(e.to_xml(), status=400)
+
             try:
                 # We'll filter out any characters from URl parameter values that
                 # are not in the allowlist.
@@ -336,7 +359,9 @@ class FlaskServer(Flask):
                 if format_argument is not None:
                     filtered_args["f"] = format_argument.lower()
 
-                filtered_args["base_url"] = request.base_url
+                filtered_args["base_url"] = (
+                    xml.sax.saxutils.escape(request.base_url, {'"': "&quot;"}) if request.base_url else None
+                )
 
                 # Replace the arguments with the filtered option
                 request.args = ImmutableMultiDict(filtered_args)
@@ -347,6 +372,9 @@ class FlaskServer(Flask):
                 if headers:
                     response.headers = headers
                 return response
+            except WCSException as e:
+                logger.error("OGC: server.edr_render WCSException: %s", str(e), exc_info=True)
+                return respond_xml(e.to_xml(), status=400)
             except Exception as e:
                 logger.error("OGC: server.edr_render Exception: %s", str(e), exc_info=True)
                 ee = WCSException()

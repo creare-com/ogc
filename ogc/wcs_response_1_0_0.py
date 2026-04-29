@@ -1,5 +1,6 @@
 import logging
 import datetime
+from xml.sax.saxutils import escape
 
 import traitlets as tl
 from ogc import GridCoordinates
@@ -89,11 +90,11 @@ class CoverageDescription(ogc_common.XMLNode):
     def coverage_offering(self, coverage):
         xml = """    <wcs:CoverageOffering>"""
         if coverage.identifier:
-            xml += "        <wcs:name>{coverage.identifier}</wcs:name>\n".format(coverage=coverage)
+            xml += "        <wcs:name>{}</wcs:name>\n".format(escape(coverage.identifier))
         if coverage.title:
-            xml += "        <wcs:label>{coverage.title}</wcs:label>\n".format(coverage=coverage)
+            xml += "        <wcs:label>{}</wcs:label>\n".format(escape(coverage.title))
         if coverage.abstract:
-            xml += "        <wcs:description>{coverage.abstract}</wcs:description>\n".format(coverage=coverage)
+            xml += "        <wcs:description>{}</wcs:description>\n".format(escape(coverage.abstract))
         temporal_domain = ""
         if hasattr(coverage.layer, "valid_times"):
             if coverage.layer.all_times_valid:
@@ -226,14 +227,15 @@ class Capabilities(ogc_common.XMLNode):
     version = tl.Unicode(default_value=SERVICE_VERSION)
 
     def service(self):
+        title = escape(self.service_title) if self.service_title else ""
         return """\
     <wcs:Service>
-        <wcs:name>{self.service_title}</wcs:name>
-        <wcs:label>{self.service_title}</wcs:label>
+        <wcs:name>{title}</wcs:name>
+        <wcs:label>{title}</wcs:label>
         <wcs:fees>UNAVAILABLE</wcs:fees>
         <wcs:accessConstraints>{constraints}</wcs:accessConstraints>
     </wcs:Service>
-""".format(self=self, constraints=settings.CONSTRAINTS)
+""".format(title=title, constraints=settings.CONSTRAINTS)
 
     base_url = tl.Unicode(default_value=None, allow_none=True)  # e.g., http://hostname:port/path?
 
@@ -296,13 +298,13 @@ class Capabilities(ogc_common.XMLNode):
         for coverage in self.coverages:
             xml += "        <wcs:CoverageOfferingBrief>\n"
             if coverage.abstract:
-                xml += "            <wcs:description>{coverage.abstract}</wcs:description>\n".format(coverage=coverage)
+                xml += "            <wcs:description>{}</wcs:description>\n".format(escape(coverage.abstract))
             if coverage.identifier:  # required
-                xml += "            <wcs:name>{coverage.identifier}</wcs:name>\n".format(coverage=coverage)
+                xml += "            <wcs:name>{}</wcs:name>\n".format(escape(coverage.identifier))
             else:
                 logger.info("Invalid layer. Missing name.")
             if coverage.title:  # required
-                xml += "            <wcs:label>{coverage.title}</wcs:label>\n".format(coverage=coverage)
+                xml += "            <wcs:label>{}</wcs:label>\n".format(escape(coverage.title))
             else:
                 logger.info("Invalid layer. Missing label.")
             if coverage.wgs84_bounding_box_lower_corner_lat_lon or coverage.wgs84_bounding_box_upper_corner_lat_lon:
