@@ -270,7 +270,7 @@ class FlaskServer(Flask):
             }
 
             if request.base_url:
-                args["base_url"] = xml.sax.saxutils.escape(request.base_url, {'"': '&quot;'}) + "?"
+                args["base_url"] = xml.sax.saxutils.escape(request.base_url, {'"': "&quot;"}) + "?"
             else:
                 args["base_url"] = None
             ogc_response = None
@@ -359,7 +359,9 @@ class FlaskServer(Flask):
                 if format_argument is not None:
                     filtered_args["f"] = format_argument.lower()
 
-                filtered_args["base_url"] = xml.sax.saxutils.escape(request.base_url, {'"': '&quot;'}) if request.base_url else None
+                filtered_args["base_url"] = (
+                    xml.sax.saxutils.escape(request.base_url, {'"': "&quot;"}) if request.base_url else None
+                )
 
                 # Replace the arguments with the filtered option
                 request.args = ImmutableMultiDict(filtered_args)

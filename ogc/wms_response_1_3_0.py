@@ -202,7 +202,9 @@ class Capabilities(ogc_common.XMLNode):
 
     def layers(self):
         xml = "    <Layer>\n"
-        xml += "        <Title>{}</Title>\n".format(escape(self.service_group_title) if self.service_group_title else "")
+        xml += "        <Title>{}</Title>\n".format(
+            escape(self.service_group_title) if self.service_group_title else ""
+        )
         xml += self._get_CRS_and_BoundingBox(depth=2)
 
         # If configured, trim layers list to layers specified in settings
