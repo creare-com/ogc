@@ -7,21 +7,36 @@ Note: this should probably be seperated into sub-modules for each web
 """
 
 import re
+import xml.sax.saxutils
 from flask import Flask, request, Response, make_response, send_file
 import six
-import traceback
 import logging
+from typing import Callable
+from werkzeug.datastructures import ImmutableMultiDict
 
 from ogc.ogc_common import WCSException
+from pygeoapi.api import APIRequest
+from pygeoapi.util import get_api_rules
+from . import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _check_query_string(raw_qs: bytes) -> None:
+    """Raise WCSException if the raw query string exceeds the maximum allowed length or contains invalid UTF-8."""
+    if len(raw_qs) > settings.MAX_QUERY_STRING_BYTES:
+        raise WCSException("Request query string exceeds maximum allowed length.")
+    try:
+        raw_qs.decode("utf-8")
+    except UnicodeDecodeError:
+        raise WCSException("Request contains invalid UTF-8 encoding.")
 
 
 def respond_xml(doc, status=200):
     # First, validate that XML can be parsed.
     from lxml import etree
 
-    root = etree.fromstring(doc.encode("ascii"))
+    etree.fromstring(doc.encode("ascii"))
     # Then, return w/ proper content type
     return Response(doc, mimetype="text/xml", status=status)
 
@@ -30,10 +45,9 @@ def home(endpoint):
     """Example API home page. Developers should make their own page similar to this one."""
     test_layer = "testLayerName"
     test_layer_time = "12:59:59"  # HH:MM:SS
-    return f"""<h2> OGC Server API </h2>
-    <p>This is the API endpoint served at {endpoint}. Add example usage here for your users.</p>
 
-    <ul>
+    wcs_list_item = (
+        f"""
         <li> WCS: Open Geospatial Consortium (OGC) Web Coverage Service (WCS) <i>(v1.0.0)</i>
         <ul>
             <li><a href="?SERVICE=WCS&REQUEST=GetCapabilities&VERSION=1.0.0">WCS GetCapabilities (XML)</a> <i>(v1.0.0)</i></li>
@@ -42,6 +56,13 @@ def home(endpoint):
             <li><a href="?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage&FORMAT=GeoTIFF&COVERAGE={test_layer_time}&BBOX=34.3952751159668,38.26394082159894,34.398660063743584,38.26779045113519&CRS=EPSG:4326&RESPONSE_CRS=EPSG:4326&WIDTH=631&HEIGHT=914&TIME=2021-03-01T12:00:00.000Z">WCS GetCoverage Example (GeoTIFF)</a> dynamic layer <i>(v1.0.0)</i></li>
         </ul>
         </li>
+    """
+        if settings.WCS_ENABLED
+        else ""
+    )
+
+    wms_list_item = (
+        f"""
         <li> WMS: Open Geospatial Consortium (OGC) Web Map Service (WMS) <i>(v1.3.0)</i>
         <ul>
             <li><a href="?SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0">WMS GetCapabilities (XML)</a> <i>(v1.3.0)</i></li>
@@ -50,6 +71,32 @@ def home(endpoint):
             <li><a href="?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&LAYER={test_layer}&STYLE=default&FORMAT=image/png">WMS GetLegend Example (PNG)</a> <i>(v1.3.0)</i></li>
         </ul>
         </li>
+    """
+        if settings.WMS_ENABLED
+        else ""
+    )
+
+    edr_list_item = (
+        f"""
+        <li> EDR: Open Geospatial Consortium (OGC) Environmental Data Retrieval (EDR) <i>(v1.0.1)</i>
+        <ul>
+            <li><a href="{endpoint}/edr?f=html">EDR Landing Page (HTML)</a> <i>(v1.0.1)</i></li>
+            <li><a href="{endpoint}/edr/conformance?f=json">EDR Conformance (JSON)</a> <i>(v1.0.1)</i></li>
+            <li><a href="{endpoint}/edr/collections?f=json">EDR Collections (JSON)</a> <i>(v1.0.1)</i></li>
+        </ul>
+        </li>
+    """
+        if settings.EDR_ENABLED
+        else ""
+    )
+
+    return f"""<h2> OGC Server API </h2>
+    <p>This is the API endpoint served at {endpoint}. Add example usage here for your users.</p>
+
+    <ul>
+        {wcs_list_item}
+        {wms_list_item}
+        {edr_list_item}
     </ul>
     """
 
@@ -63,7 +110,7 @@ class FlaskServer(Flask):
 
     home_func = None
 
-    def __init__(self, *args, ogcs=[], home_func=None):
+    def __init__(self, *args, ogcs=None, home_func=None):
         """
         Parameters
         -----------
@@ -81,27 +128,113 @@ class FlaskServer(Flask):
         if self.home_func is None:
             self.home_func = home
 
+        # Can't put an empty list as a default argument, since that would
+        # share the same list among all instances.
+        if ogcs is None:
+            ogcs = []
+
         self.ogcs = ogcs
+
+        def make_method(idx):
+            def method():
+                return self.ogc_render(idx)
+
+            return method
+
         for idx, ogc in enumerate(ogcs):
             endpoint = ogc.endpoint  # should be a string, e.g. "/ogc"
             method_name = "render" + endpoint.replace("/", "_")  # e.g. "render_ogc"
-
-            def make_method(idx):
-                def method():
-                    return self.ogc_render(idx)
-
-                return method
 
             method = make_method(idx)
             setattr(self, method_name, method)
             method = getattr(self, method_name)
             method.__name__ = method_name
-            self.add_url_rule(
-                endpoint, view_func=method, methods=["GET", "POST"]
-            )  # add render method as flask route
-            setattr(
-                self, method_name, method
-            )  # bind route function call to instance method
+            self.add_url_rule(endpoint, view_func=method, methods=["GET", "POST"])  # add render method as flask route
+            setattr(self, method_name, method)  # bind route function call to instance method
+
+            # Set up the EDR endpoints for the server if routes are available
+            if settings.EDR_ENABLED:
+                strict_slashes = get_api_rules(ogc.edr_routes.api.config).strict_slashes
+                self.add_url_rule(
+                    f"/{endpoint}/edr",
+                    endpoint=f"{endpoint}_landing_page",
+                    view_func=self.edr_render(ogc.edr_routes.landing_page),
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/static/<path:file_path>",
+                    endpoint=f"{endpoint}_static_files",
+                    view_func=self.edr_render(ogc.edr_routes.static_files),
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/api",
+                    endpoint=f"{endpoint}_api",
+                    view_func=self.edr_render(ogc.edr_routes.openapi),
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/openapi",
+                    endpoint=f"{endpoint}_openapi",
+                    view_func=self.edr_render(ogc.edr_routes.openapi),
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/conformance",
+                    endpoint=f"{endpoint}_conformance",
+                    view_func=self.edr_render(ogc.edr_routes.conformance),
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/collections",
+                    endpoint=f"{endpoint}_collections",
+                    view_func=self.edr_render(ogc.edr_routes.describe_collections),
+                    defaults={"collection_id": None},
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/collections/<path:collection_id>",
+                    endpoint=f"{endpoint}_collection",
+                    view_func=self.edr_render(ogc.edr_routes.describe_collections),
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/collections/<path:collection_id>/instances",
+                    endpoint=f"{endpoint}_instances",
+                    view_func=self.edr_render(ogc.edr_routes.describe_instances),
+                    defaults={"instance_id": None},
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>",
+                    endpoint=f"{endpoint}_instance",
+                    view_func=self.edr_render(ogc.edr_routes.describe_instances),
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/collections/<path:collection_id>/<path:query_type>",
+                    endpoint=f"{endpoint}_collection_query",
+                    view_func=self.edr_render(ogc.edr_routes.collection_query),
+                    defaults={"instance_id": None},
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
+                self.add_url_rule(
+                    f"/{endpoint}/edr/collections/<path:collection_id>/instances/<path:instance_id>/<path:query_type>",
+                    endpoint=f"{endpoint}_instance_query",
+                    view_func=self.edr_render(ogc.edr_routes.collection_query),
+                    methods=["GET"],
+                    strict_slashes=strict_slashes,
+                )
 
     def ogc_render(self, ogc_idx):
         logger.info("OGC server.ogc_render %i", ogc_idx)
@@ -109,6 +242,12 @@ class FlaskServer(Flask):
             return respond_xml("<p>Only GET supported</p>", status=405)
 
         ogc = self.ogcs[ogc_idx]
+
+        try:
+            _check_query_string(request.query_string)
+        except WCSException as e:
+            return respond_xml(e.to_xml(), status=400)
+
         if not request.args:
             return self.home_func(ogc.endpoint)
         try:
@@ -131,13 +270,13 @@ class FlaskServer(Flask):
             }
 
             if request.base_url:
-                args["base_url"] = request.base_url + "?"
+                args["base_url"] = xml.sax.saxutils.escape(request.base_url, {'"': "&quot;"}) + "?"
             else:
                 args["base_url"] = None
             ogc_response = None
-            if args["service"].lower() == "wcs":
+            if args["service"].lower() == "wcs" and settings.WCS_ENABLED:
                 ogc_response = ogc.handle_wcs_kv(args)
-            elif args["service"].lower() == "wms":
+            elif args["service"].lower() == "wms" and settings.WMS_ENABLED:
                 ogc_response = ogc.handle_wms_kv(args)
             if ogc_response is not None:
                 if isinstance(ogc_response, six.string_types):
@@ -148,15 +287,11 @@ class FlaskServer(Flask):
                     as_attach = True if fn.endswith("tif") else False
                     return send_file(fp, as_attachment=as_attach, download_name=fn)
 
-            logger.warning(
-                "Could not handle this combination of arguments: %r", dict(request.args)
-            )
+            logger.warning("Could not handle this combination of arguments: %r", dict(request.args))
             raise WCSException("No response for this combination of arguments.")
 
         except WCSException as e:
-            logger.error(
-                "OGC: server.ogc_render WCSException: %s", str(e), exc_info=True
-            )
+            logger.error("OGC: server.ogc_render WCSException: %s", str(e), exc_info=True)
             # WCSException is raised when the client sends an invalid set of parameters.
             # Therefore it should result in a client error, in the 400 range.
             # Security scans have flagged a security concern when returning a 500 error,
@@ -166,6 +301,86 @@ class FlaskServer(Flask):
             logger.error("OGC: server.ogc_render Exception: %s", str(e), exc_info=True)
             ee = WCSException()
             return respond_xml(ee.to_xml(), status=500)
+
+    def edr_render(self, request_handler: Callable) -> Callable:
+        """Function which returns a wrapper for the provided callable.
+        Filters arguments and handles any necessary exceptions.
+
+        Parameters
+        ----------
+        request_handler : Callable
+            The callable request handler to be wrapped.
+        Returns
+        -------
+        Callable
+            Wrapped callable with exception handling and argument filtering.
+        """
+
+        def wrapper(*args, **kwargs) -> Response:
+            """Wrapper for the request handler.
+
+            Returns
+            -------
+            Response
+                The response to the request from the callable or a 500 response on error.
+            """
+            logger.info("OGC server.edr_render")
+            if request.method != "GET":
+                return respond_xml("<p>Only GET supported</p>", status=405)
+
+            try:
+                _check_query_string(request.query_string)
+            except WCSException as e:
+                return respond_xml(e.to_xml(), status=400)
+
+            try:
+                # We'll filter out any characters from URl parameter values that
+                # are not in the allowlist.
+                # Note the parameter with key "params" has a serialized JSON value,
+                # so we allow braces, brackets, and quotes.
+                # Allowed chars are:
+                #   -, A through Z, a through z, 0 through 9, spaces
+                #   and the characters + . , _ / : * { } ( ) [ ] "
+                allowed_chars = r'-A-Za-z0-9 +.,_/:*\{\}\(\)\[\]"'
+                match_one_unallowed_char = "[^%s]" % allowed_chars
+                filtered_args = {
+                    # Convert keys to lower-case.
+                    # Find every unallowed char in the value and replace it
+                    #    with nothing (remove it).
+                    k.lower(): re.sub(match_one_unallowed_char, "", str(v))
+                    for (k, v) in request.args.items()
+                }
+                # Replace format with its lowercase version to match pygeoapi expectations
+                query_type = kwargs.get("query_type")
+                default_format = settings.JSON
+                if query_type is not None:
+                    default_format = settings.EDR_QUERY_DEFAULTS.get(query_type, default_format)
+                format_argument = filtered_args.get("f", default_format)
+                if format_argument is not None:
+                    filtered_args["f"] = format_argument.lower()
+
+                filtered_args["base_url"] = (
+                    xml.sax.saxutils.escape(request.base_url, {'"': "&quot;"}) if request.base_url else None
+                )
+
+                # Replace the arguments with the filtered option
+                request.args = ImmutableMultiDict(filtered_args)
+                pygeoapi_request = APIRequest.from_flask(request, ["en"])
+                # Build the flask response
+                headers, status, content = request_handler(pygeoapi_request, *args, **kwargs)
+                response = make_response(content, status)
+                if headers:
+                    response.headers = headers
+                return response
+            except WCSException as e:
+                logger.error("OGC: server.edr_render WCSException: %s", str(e), exc_info=True)
+                return respond_xml(e.to_xml(), status=400)
+            except Exception as e:
+                logger.error("OGC: server.edr_render Exception: %s", str(e), exc_info=True)
+                ee = WCSException()
+                return respond_xml(ee.to_xml(), status=500)
+
+        return wrapper
 
 
 class FastAPI(object):
@@ -183,6 +398,6 @@ class FastAPI(object):
     https://mangum.io/asgi-frameworks/
     """
 
-    def __init__(self, *args, ogcs=[]):
+    def __init__(self, *args, ogcs):
         super().__init__(*args)
         raise NotImplementedError

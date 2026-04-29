@@ -12,13 +12,13 @@ import subprocess
 import os
 from collections import OrderedDict
 
-#########################
-## UPDATE VERSION HERE ##
-#########################
+#######################
+# UPDATE VERSION HERE #
+#######################
 MAJOR = 0
-MINOR = 4
-HOTFIX = 2
-#########################
+MINOR = 5
+HOTFIX = 0
+#######################
 
 
 VERSION_INFO = OrderedDict([("MAJOR", MAJOR), ("MINOR", MINOR), ("HOTFIX", HOTFIX)])
@@ -61,17 +61,11 @@ def version():
             git = "/usr/bin/git"
             try:
                 subprocess.check_output([git, "--version"])
-            except Exception as e:
+            except Exception:
                 return version_full
 
-        version_full = (
-            subprocess.check_output([git, "describe", "--always"], cwd=CWD)
-            .strip()
-            .decode("ascii")
-        )
-        version_full = version_full.replace("-", "+", 1).replace(
-            "-", "."
-        )  # Make this consistent with PEP440
+        version_full = subprocess.check_output([git, "describe", "--always"], cwd=CWD).strip().decode("ascii")
+        version_full = version_full.replace("-", "+", 1).replace("-", ".")  # Make this consistent with PEP440
 
     except Exception as e:
         print("Could not determine Project version from git repo.\n" + str(e))

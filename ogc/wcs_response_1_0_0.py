@@ -1,7 +1,7 @@
 import logging
 import datetime
+from xml.sax.saxutils import escape
 
-import lxml, lxml.etree
 import traitlets as tl
 from ogc import GridCoordinates
 
@@ -49,17 +49,13 @@ class Coverage(ogc_common.XMLNode):
 
     def _title_default(self):
         if self.layer:
-            return "({}) {}".format(
-                self.constraints_abbreviated, repr(self.layer._style)
-            )
+            return "({}) {}".format(self.constraints_abbreviated, repr(self.layer._style))
 
     abstract = tl.Unicode(default_value=None, allow_none=True)
 
     def _abstract_default(self):
         if self.layer:
-            abstract = "({}) OGC Layer: {}".format(
-                self.constraints_abbreviated, repr(self.layer._style)
-            )
+            abstract = "({}) OGC Layer: {}".format(self.constraints_abbreviated, repr(self.layer._style))
             if self.layer._style.is_enumerated:
                 abstract += " Layer represents an enumerated (i.e., categorical/non-scalar) quantity."
             return abstract
@@ -73,7 +69,7 @@ class Coverage(ogc_common.XMLNode):
                 self.layer.grid_coordinates.LLC.lat,
                 self.layer.grid_coordinates.LLC.lon,
             )
-        except:
+        except Exception:
             return (self.crs_extents["minx"], self.crs_extents["miny"])
 
     wgs84_bounding_box_upper_corner_lat_lon = tl.Tuple(tl.Float(), tl.Float())
@@ -84,12 +80,114 @@ class Coverage(ogc_common.XMLNode):
                 self.layer.grid_coordinates.URC.lat,
                 self.layer.grid_coordinates.URC.lon,
             )
-        except:
+        except Exception:
             return (self.crs_extents["maxx"], self.crs_extents["maxy"])
 
 
 class CoverageDescription(ogc_common.XMLNode):
     coverages = tl.List(trait=tl.Instance(klass=Coverage))
+
+    def coverage_offering(self, coverage):
+        xml = """    <wcs:CoverageOffering>"""
+        if coverage.identifier:
+            xml += "        <wcs:name>{}</wcs:name>\n".format(escape(coverage.identifier))
+        if coverage.title:
+            xml += "        <wcs:label>{}</wcs:label>\n".format(escape(coverage.title))
+        if coverage.abstract:
+            xml += "        <wcs:description>{}</wcs:description>\n".format(escape(coverage.abstract))
+        temporal_domain = ""
+        if hasattr(coverage.layer, "valid_times"):
+            if coverage.layer.all_times_valid:
+                temporal_domain += "            <wcs:temporalDomain>\n"
+                temporal_domain += "                <gml:timePeriod>\n"
+                temporal_domain += "                    <gml:beginPosition>{}</gml:beginPosition>".format(
+                    datetime.datetime.min
+                )
+                temporal_domain += "                    <gml:endPosition>{}</gml:endPosition>".format(
+                    datetime.datetime.max
+                )
+                temporal_domain += "                </gml:timePeriod>\n"
+                temporal_domain += "            </wcs:temporalDomain>\n"
+
+            elif coverage.layer.valid_times and coverage.layer.valid_times is not tl.Undefined:
+                temporal_domain += "            <wcs:temporalDomain>\n"
+                temporal_domain += "".join(
+                    [
+                        "                <gml:timePosition>{}</gml:timePosition>\n".format(dt.isoformat())
+                        for dt in coverage.layer.valid_times
+                    ]
+                )
+                temporal_domain += "            </wcs:temporalDomain>\n"
+
+        if coverage.wgs84_bounding_box_lower_corner_lat_lon or coverage.wgs84_bounding_box_upper_corner_lat_lon:
+            xml += """            <wcs:lonLatEnvelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">
+            <gml:pos>{coverage.wgs84_bounding_box_lower_corner_lat_lon[1]} {coverage.wgs84_bounding_box_lower_corner_lat_lon[0]}</gml:pos>
+            <gml:pos>{coverage.wgs84_bounding_box_upper_corner_lat_lon[1]} {coverage.wgs84_bounding_box_upper_corner_lat_lon[0]}</gml:pos>
+        </wcs:lonLatEnvelope>""".format(coverage=coverage)
+
+        xml += """\
+    <wcs:domainSet>
+        <wcs:spatialDomain>
+            <gml:Envelope srsName="{epsg}">
+                <gml:pos>{coverage.wgs84_bounding_box_lower_corner_lat_lon[1]} {coverage.wgs84_bounding_box_lower_corner_lat_lon[0]}</gml:pos>
+        <gml:pos>{coverage.wgs84_bounding_box_upper_corner_lat_lon[1]} {coverage.wgs84_bounding_box_upper_corner_lat_lon[0]}</gml:pos>
+            </gml:Envelope>
+            <gml:RectifiedGrid dimension="2" srsName="{epsg}">
+                <gml:limits>
+                <gml:GridEnvelope>
+                    <gml:low>0 0</gml:low>
+                    <gml:high>{coverage.grid_coordinates.x_size} {coverage.grid_coordinates.y_size}</gml:high>
+                </gml:GridEnvelope>
+                </gml:limits>
+                <gml:axisName>x</gml:axisName>
+                <gml:axisName>y</gml:axisName>
+                <gml:origin>
+                <gml:pos>{coverage.grid_coordinates.geotransform[0]} {coverage.grid_coordinates.geotransform[3]}</gml:pos>
+                </gml:origin>
+                <gml:offsetVector>{coverage.grid_coordinates.geotransform[1]} {coverage.grid_coordinates.geotransform[2]}</gml:offsetVector>
+                <gml:offsetVector>{coverage.grid_coordinates.geotransform[4]} {coverage.grid_coordinates.geotransform[5]}</gml:offsetVector>
+            </gml:RectifiedGrid>
+        </wcs:spatialDomain>
+        {temporal_domain}
+    </wcs:domainSet>
+    <wcs:rangeSet>
+        <wcs:RangeSet>
+        <wcs:name>{coverage.identifier}</wcs:name>
+        <wcs:label>{coverage.title}</wcs:label>
+        <wcs:axisDescription>
+            <wcs:AxisDescription>
+            <wcs:name>Band</wcs:name>
+            <wcs:label>Band</wcs:label>
+            <wcs:values>
+                <wcs:singleValue>1</wcs:singleValue>
+            </wcs:values>
+            </wcs:AxisDescription>
+        </wcs:axisDescription>
+        </wcs:RangeSet>
+    </wcs:rangeSet>
+    <wcs:supportedCRSs>
+""".format(
+            coverage=coverage,
+            temporal_domain=temporal_domain,
+            epsg=NATIVE_PROJECTION.upper(),
+        )
+        xml += "\n".join(
+            [
+                "            <wcs:requestResponseCRSs>{epsg}</wcs:requestResponseCRSs>".format(epsg=epsg.upper())
+                for epsg in list(settings.WCS_CRS.keys())
+            ]
+        )
+        xml += """
+    </wcs:supportedCRSs>
+
+"""
+        xml += """\
+    <wcs:supportedFormats nativeFormat="GeoTIFF">
+        <wcs:formats>GeoTIFF</wcs:formats>
+    </wcs:supportedFormats>
+</wcs:CoverageOffering>
+"""
+        return xml
 
     def to_xml(self):
         xml = """\
@@ -105,125 +203,7 @@ version="1.0.0">
 """
 
         for coverage in self.coverages:
-            xml += """    <wcs:CoverageOffering>"""
-            if coverage.identifier:
-                xml += "        <wcs:name>{coverage.identifier}</wcs:name>\n".format(
-                    coverage=coverage
-                )
-            if coverage.title:
-                xml += "        <wcs:label>{coverage.title}</wcs:label>\n".format(
-                    coverage=coverage
-                )
-            if coverage.abstract:
-                xml += "        <wcs:description>{coverage.abstract}</wcs:description>\n".format(
-                    coverage=coverage
-                )
-            temporal_domain = ""
-            if hasattr(coverage.layer, "valid_times"):
-                if coverage.layer.all_times_valid:
-                    temporal_domain += "            <wcs:temporalDomain>\n"
-                    temporal_domain += "                <gml:timePeriod>\n"
-                    temporal_domain += "                    <gml:beginPosition>{}</gml:beginPosition>".format(
-                        datetime.datetime.min
-                    )
-                    temporal_domain += "                    <gml:endPosition>{}</gml:endPosition>".format(
-                        datetime.datetime.max
-                    )
-                    temporal_domain += "                </gml:timePeriod>\n"
-                    temporal_domain += "            </wcs:temporalDomain>\n"
-
-                elif (
-                    coverage.layer.valid_times
-                    and coverage.layer.valid_times is not tl.Undefined
-                ):
-                    temporal_domain += "            <wcs:temporalDomain>\n"
-                    temporal_domain += "".join(
-                        [
-                            "                <gml:timePosition>{}</gml:timePosition>\n".format(
-                                dt.isoformat()
-                            )
-                            for dt in coverage.layer.valid_times
-                        ]
-                    )
-                    temporal_domain += "            </wcs:temporalDomain>\n"
-
-            if (
-                coverage.wgs84_bounding_box_lower_corner_lat_lon
-                or coverage.wgs84_bounding_box_upper_corner_lat_lon
-            ):
-                xml += """            <wcs:lonLatEnvelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">
-                <gml:pos>{coverage.wgs84_bounding_box_lower_corner_lat_lon[1]} {coverage.wgs84_bounding_box_lower_corner_lat_lon[0]}</gml:pos>
-                <gml:pos>{coverage.wgs84_bounding_box_upper_corner_lat_lon[1]} {coverage.wgs84_bounding_box_upper_corner_lat_lon[0]}</gml:pos>
-            </wcs:lonLatEnvelope>""".format(
-                    coverage=coverage
-                )
-
-            xml += """\
-        <wcs:domainSet>
-            <wcs:spatialDomain>
-                <gml:Envelope srsName="{epsg}">
-                    <gml:pos>{coverage.wgs84_bounding_box_lower_corner_lat_lon[1]} {coverage.wgs84_bounding_box_lower_corner_lat_lon[0]}</gml:pos>
-            <gml:pos>{coverage.wgs84_bounding_box_upper_corner_lat_lon[1]} {coverage.wgs84_bounding_box_upper_corner_lat_lon[0]}</gml:pos>
-                </gml:Envelope>
-                <gml:RectifiedGrid dimension="2" srsName="{epsg}">
-                  <gml:limits>
-                    <gml:GridEnvelope>
-                      <gml:low>0 0</gml:low>
-                      <gml:high>{coverage.grid_coordinates.x_size} {coverage.grid_coordinates.y_size}</gml:high>
-                    </gml:GridEnvelope>
-                  </gml:limits>
-                  <gml:axisName>x</gml:axisName>
-                  <gml:axisName>y</gml:axisName>
-                  <gml:origin>
-                    <gml:pos>{coverage.grid_coordinates.geotransform[0]} {coverage.grid_coordinates.geotransform[3]}</gml:pos>
-                  </gml:origin>
-                  <gml:offsetVector>{coverage.grid_coordinates.geotransform[1]} {coverage.grid_coordinates.geotransform[2]}</gml:offsetVector>
-                  <gml:offsetVector>{coverage.grid_coordinates.geotransform[4]} {coverage.grid_coordinates.geotransform[5]}</gml:offsetVector>
-                </gml:RectifiedGrid>
-            </wcs:spatialDomain>
-            {temporal_domain}
-        </wcs:domainSet>
-        <wcs:rangeSet>
-          <wcs:RangeSet>
-            <wcs:name>{coverage.identifier}</wcs:name>
-            <wcs:label>{coverage.title}</wcs:label>
-            <wcs:axisDescription>
-              <wcs:AxisDescription>
-                <wcs:name>Band</wcs:name>
-                <wcs:label>Band</wcs:label>
-                <wcs:values>
-                  <wcs:singleValue>1</wcs:singleValue>
-                </wcs:values>
-              </wcs:AxisDescription>
-            </wcs:axisDescription>
-          </wcs:RangeSet>
-        </wcs:rangeSet>
-        <wcs:supportedCRSs>
-""".format(
-                coverage=coverage,
-                temporal_domain=temporal_domain,
-                epsg=NATIVE_PROJECTION.upper(),
-            )
-            xml += "\n".join(
-                [
-                    "            <wcs:requestResponseCRSs>{epsg}</wcs:requestResponseCRSs>".format(
-                        epsg=epsg.upper()
-                    )
-                    for epsg in list(settings.WCS_CRS.keys())
-                ]
-            )
-            xml += """
-        </wcs:supportedCRSs>
-
-""".format(
-                coverage=coverage, temporal_domain=temporal_domain
-            )  #
-            xml += """\
-        <wcs:supportedFormats nativeFormat="GeoTIFF">
-          <wcs:formats>GeoTIFF</wcs:formats>
-        </wcs:supportedFormats>
-  </wcs:CoverageOffering>
-"""
+            xml += self.coverage_offering(coverage)
         xml += """\
 </wcs:CoverageDescription>
 """
@@ -247,20 +227,17 @@ class Capabilities(ogc_common.XMLNode):
     version = tl.Unicode(default_value=SERVICE_VERSION)
 
     def service(self):
+        title = escape(self.service_title) if self.service_title else ""
         return """\
     <wcs:Service>
-        <wcs:name>{self.service_title}</wcs:name>
-        <wcs:label>{self.service_title}</wcs:label>
+        <wcs:name>{title}</wcs:name>
+        <wcs:label>{title}</wcs:label>
         <wcs:fees>UNAVAILABLE</wcs:fees>
         <wcs:accessConstraints>{constraints}</wcs:accessConstraints>
     </wcs:Service>
-""".format(
-            self=self, constraints=settings.CONSTRAINTS
-        )
+""".format(title=title, constraints=settings.CONSTRAINTS)
 
-    base_url = tl.Unicode(
-        default_value=None, allow_none=True
-    )  # e.g., http://hostname:port/path?
+    base_url = tl.Unicode(default_value=None, allow_none=True)  # e.g., http://hostname:port/path?
 
     def capability(self):
         return """\
@@ -298,13 +275,9 @@ class Capabilities(ogc_common.XMLNode):
       <wcs:Format>application/vnd.ogc.se_xml</wcs:Format>
     </wcs:Exception>
   </wcs:Capability>
-  """.format(
-            self=self
-        )
+  """.format(self=self)
 
-    coverages = tl.List(
-        tl.Instance(klass=Coverage)
-    )  # is populated via Traits in constructor
+    coverages = tl.List(tl.Instance(klass=Coverage))  # is populated via Traits in constructor
 
     # Check if list of layers available should be trimmed
     layer_subset = []
@@ -320,43 +293,26 @@ class Capabilities(ogc_common.XMLNode):
 
         # If configured, trim layers list to layers specified in settings
         if self.limit_layers:
-            self.coverages = [
-                layer
-                for layer in self.coverages
-                if layer.identifier in self.layer_subset
-            ]
+            self.coverages = [layer for layer in self.coverages if layer.identifier in self.layer_subset]
 
         for coverage in self.coverages:
             xml += "        <wcs:CoverageOfferingBrief>\n"
             if coverage.abstract:
-                xml += "            <wcs:description>{coverage.abstract}</wcs:description>\n".format(
-                    coverage=coverage
-                )
+                xml += "            <wcs:description>{}</wcs:description>\n".format(escape(coverage.abstract))
             if coverage.identifier:  # required
-                xml += (
-                    "            <wcs:name>{coverage.identifier}</wcs:name>\n".format(
-                        coverage=coverage
-                    )
-                )
+                xml += "            <wcs:name>{}</wcs:name>\n".format(escape(coverage.identifier))
             else:
                 logger.info("Invalid layer. Missing name.")
             if coverage.title:  # required
-                xml += "            <wcs:label>{coverage.title}</wcs:label>\n".format(
-                    coverage=coverage
-                )
+                xml += "            <wcs:label>{}</wcs:label>\n".format(escape(coverage.title))
             else:
                 logger.info("Invalid layer. Missing label.")
-            if (
-                coverage.wgs84_bounding_box_lower_corner_lat_lon
-                or coverage.wgs84_bounding_box_upper_corner_lat_lon
-            ):
+            if coverage.wgs84_bounding_box_lower_corner_lat_lon or coverage.wgs84_bounding_box_upper_corner_lat_lon:
                 xml += """            <wcs:lonLatEnvelope srsName="urn:ogc:def:crs:OGC:1.3:CRS84">
                 <gml:pos>{coverage.wgs84_bounding_box_lower_corner_lat_lon[1]} {coverage.wgs84_bounding_box_lower_corner_lat_lon[0]}</gml:pos>
                 <gml:pos>{coverage.wgs84_bounding_box_upper_corner_lat_lon[1]} {coverage.wgs84_bounding_box_upper_corner_lat_lon[0]}</gml:pos>
             </wcs:lonLatEnvelope>
-""".format(
-                    coverage=coverage
-                )
+""".format(coverage=coverage)
             xml += "        </wcs:CoverageOfferingBrief>\n"
         xml += "    </wcs:ContentMetadata>\n"
 

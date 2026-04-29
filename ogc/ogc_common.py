@@ -1,6 +1,7 @@
 import logging
 
-import lxml, lxml.etree
+import lxml
+import lxml.etree
 import numpy as np
 import traitlets as tl
 
@@ -27,9 +28,8 @@ class XMLNode(tl.HasTraits):
         raise NotImplementedError("XML Serialization not implemented.")
 
     def _load_xml_doc(self, xml_doc):
-        """ Override this method with code that unpacks contents of XML into the traits object."""
+        """Override this method with code that unpacks contents of XML into the traits object."""
         raise NotImplementedError("XML Parsing not implemented.")
-        return self
 
     def load_from_kv(self, args):
         self._load_from_kv(args)
@@ -72,7 +72,6 @@ class BoundingBox(XMLNode):
 
     def to_xml(self):
         raise NotImplementedError()
-        return "<OutputFormat>%s</OutputFormat>" % self.value
 
 
 class TemporalSubset(XMLNode):
@@ -89,17 +88,9 @@ class TemporalSubset(XMLNode):
 
     def validate(self):
         raise NotImplementedError()
-        for val in (
-            self.lower_corner[0],
-            self.lower_corner[1],
-            self.upper_corner[0],
-            self.upper_corner[1],
-        ):
-            assert np.isfinite(val), "error: time values must be finite"
 
     def to_xml(self):
         raise NotImplementedError()
-        return "<OutputFormat>%s</OutputFormat>" % self.value
 
 
 class WCSException(Exception):
@@ -112,7 +103,7 @@ class WCSException(Exception):
         """
         exception_code: 'NoApplicableCode', 'InvalidFormat', 'CoverageNotDefined', 'MissingParameterValue', 'InvalidParameterValue'
         """
-        super(WCSException, self).__init__(exception_text)
+        super().__init__(exception_text, exception_code, locator)
 
         self.exception_text = exception_text
         self.exception_code = exception_code
@@ -133,7 +124,5 @@ class WCSException(Exception):
         {exception_text}
     </ExceptionText>
 </ExceptionReport>
-""".format(
-            self=self, exception_text=exception_text
-        )
+""".format(self=self, exception_text=exception_text)
         return xml

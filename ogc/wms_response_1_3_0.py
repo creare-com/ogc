@@ -1,6 +1,6 @@
 import logging
+from xml.sax.saxutils import escape
 
-import lxml, lxml.etree
 import traitlets as tl
 import numpy as np
 
@@ -44,10 +44,11 @@ class Capabilities(ogc_common.XMLNode):
     version = tl.Unicode(default_value=SERVICE_VERSION)
 
     def service(self):
+        title = escape(self.service_title) if self.service_title else ""
         return """\
     <Service>
         <Name>WMS</Name>
-        <Title>{self.service_title}</Title>
+        <Title>{title}</Title>
         <OnlineResource xlink:href="{self.base_url}"/>
         <AccessConstraints>{constraints}</AccessConstraints>
         <LayerLimit>1</LayerLimit>
@@ -55,15 +56,14 @@ class Capabilities(ogc_common.XMLNode):
         <MaxHeight>{maxHeightWMS}</MaxHeight>
     </Service>
 """.format(
+            title=title,
             self=self,
             constraints=settings.CONSTRAINTS,
             maxWidthWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE)),
-            maxHeightWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE))
+            maxHeightWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE)),
         )
 
-    base_url = tl.Unicode(
-        default_value=None, allow_none=True
-    )  # e.g., http://hostname:port/path?
+    base_url = tl.Unicode(default_value=None, allow_none=True)  # e.g., http://hostname:port/path?
 
     def request(self):
         return """\
@@ -89,9 +89,7 @@ class Capabilities(ogc_common.XMLNode):
         </DCPType>
       </GetMap>
     </Request>
-  """.format(
-            self=self
-        )
+  """.format(self=self)
 
     def exception(self):
         return """\
@@ -100,9 +98,7 @@ class Capabilities(ogc_common.XMLNode):
     </Exception>
   """
 
-    coverages = tl.List(
-        trait=tl.Instance(klass=Coverage)
-    )  # is populated via Traits in constructor
+    coverages = tl.List(trait=tl.Instance(klass=Coverage))  # is populated via Traits in constructor
 
     # Check if list of layers available should be trimmed
     layer_subset = []
@@ -113,120 +109,111 @@ class Capabilities(ogc_common.XMLNode):
     except Exception as e:
         logger.info("Layer limiting settings not enabled: {}".format(e))
 
+    def coverage_times_list(self, coverage, default_time):
+        # Build list of times to display
+        display_times = []
+        for time in reversed(coverage.layer.valid_times):
+            if (default_time - time).days < settings.PAST_DAYS_INCLUDED:
+                display_times.append(time)
+            else:
+                # Stop looking once the list has reached too far in the past
+                break
+
+        return display_times
+
+    def coverage_layer(self, coverage):
+        xml = """       <Layer queryable="0" opaque="0" cascaded="1">\n"""
+        if coverage.identifier:
+            xml += f"            <Name>{escape(coverage.identifier)}</Name>\n"
+        if coverage.title:
+            xml += f"            <Title>{escape(coverage.title)}</Title>\n"
+        else:
+            logger.info("Invalid layer. Missing title.")
+        if coverage.abstract:
+            xml += f"            <Abstract>{escape(coverage.abstract)}</Abstract>\n"
+
+        xml += self._get_CRS_and_BoundingBox()
+
+        if (
+            hasattr(coverage.layer, "valid_times")
+            and coverage.layer.valid_times is not tl.Undefined
+            and len(coverage.layer.valid_times) > 0
+        ):
+            min_time = coverage.layer.valid_times[0]
+            max_time = coverage.layer.valid_times[-1]
+            time_dimension_str = (
+                """            <Dimension name="TIME" units="ISO8601" default="{default_time}">{times}</Dimension>\n"""
+            )
+
+            # Find last time with seconds == 0
+            try:
+                latest_lis_time = next(
+                    (t for t in reversed(coverage.layer.valid_times) if t.second == 0),
+                    None,
+                )
+            except AttributeError:
+                latest_lis_time = next((t for t in reversed(coverage.layer.valid_times)), None)
+
+            if latest_lis_time is not None:
+                # default to latest LIS time, if available
+                default_time = latest_lis_time
+            else:
+                # otherwise default to first available time
+                default_time = min_time
+
+            if settings.USE_TIMES_LIST:
+                display_times = self.coverage_times_list(coverage, default_time)
+                times_available_str = ",".join([time.isoformat() + "Z" for time in reversed(display_times)])
+            else:
+                times_available_str = "{min_time}/{max_time}/P3H".format(
+                    min_time=min_time.isoformat() + "Z",
+                    max_time=max_time.isoformat() + "Z",
+                )
+
+            xml += time_dimension_str.format(
+                times=times_available_str,
+                default_time=default_time.isoformat() + "Z",
+            )
+
+        legend_graphic_width = coverage.layer.legend_graphic_width
+        legend_graphic_height = coverage.layer.legend_graphic_height
+
+        legend_link = "{base}SERVICE={service}&amp;VERSION={version}&amp;REQUEST=GetLegendGraphic&amp;LAYER={layer}&amp;STYLE=default&amp;FORMAT=image/png; mode=8bit".format(
+            base=self.base_url if self.base_url.endswith("?") else self.base_url + "?",
+            service=self.service_type,
+            version=self.version,
+            layer=coverage.identifier,
+        )
+
+        # Write the style section
+        xml += """            <Style>\n"""
+        xml += """                <Name>{}</Name>\n""".format(coverage.identifier)
+        xml += """                <Title>{}</Title>\n""".format(coverage.title)
+        xml += """                <LegendURL width="{width}" height="{height}">\n""".format(
+            height=legend_graphic_height, width=legend_graphic_width
+        )
+        xml += """                    <Format>image/png</Format>\n"""
+        xml += """                    <OnlineResource xlink:type="simple" xlink:href="{}"/>\n""".format(legend_link)
+        xml += """                </LegendURL>\n"""
+        xml += """            </Style>\n"""
+        xml += """        </Layer>\n"""
+
+        return xml
+
     def layers(self):
         xml = "    <Layer>\n"
-        xml += "        <Title>{}</Title>\n".format(self.service_group_title)
+        xml += "        <Title>{}</Title>\n".format(
+            escape(self.service_group_title) if self.service_group_title else ""
+        )
         xml += self._get_CRS_and_BoundingBox(depth=2)
 
         # If configured, trim layers list to layers specified in settings
         if self.limit_layers:
-            self.coverages = [
-                layer
-                for layer in self.coverages
-                if layer.identifier in self.layer_subset
-            ]
+            self.coverages = [layer for layer in self.coverages if layer.identifier in self.layer_subset]
 
         for coverage in self.coverages:
-            xml += """       <Layer queryable="0" opaque="0" cascaded="1">\n"""
-            if coverage.identifier:
-                xml += "            <Name>{coverage.identifier}</Name>\n".format(
-                    coverage=coverage
-                )
-            if coverage.title:
-                xml += "            <Title>{coverage.title}</Title>\n".format(
-                    coverage=coverage, self=self
-                )
-            else:
-                logger.info("Invalid layer. Missing title.")
-            if coverage.abstract:
-                xml += "            <Abstract>{coverage.abstract}</Abstract>\n".format(
-                    coverage=coverage, self=self
-                )
+            xml += self.coverage_layer(coverage)
 
-            xml += self._get_CRS_and_BoundingBox()
-
-            if (
-                hasattr(coverage.layer, "valid_times")
-                and coverage.layer.valid_times is not tl.Undefined
-                and len(coverage.layer.valid_times) > 0
-            ):
-                min_time = coverage.layer.valid_times[0]
-                max_time = coverage.layer.valid_times[-1]
-                time_dimension_str = """            <Dimension name="TIME" units="ISO8601" default="{default_time}">{times}</Dimension>\n"""
-
-                # Find last time with seconds == 0
-                try:
-                    latest_LIS_time = next(
-                        (
-                            t
-                            for t in reversed(coverage.layer.valid_times)
-                            if t.second == 0
-                        ),
-                        None,
-                    )
-                except AttributeError:
-                    latest_LIS_time = next(
-                        (t for t in reversed(coverage.layer.valid_times)), None
-                    )
-
-                if latest_LIS_time is not None:
-                    # default to latest LIS time, if available
-                    default_time = latest_LIS_time
-                else:
-                    # otherwise default to first available time
-                    default_time = min_time
-
-                if settings.USE_TIMES_LIST:
-                    # Build list of times to display
-                    display_times = []
-                    for time in reversed(coverage.layer.valid_times):
-                        if (default_time - time).days < settings.PAST_DAYS_INCLUDED:
-                            display_times.append(time)
-                        else:
-                            # Stop looking once the list has reached too far in the past
-                            break
-
-                    times_available_str = ",".join(
-                        [time.isoformat() + "Z" for time in reversed(display_times)]
-                    )
-
-                else:
-                    times_available_str = "{min_time}/{max_time}/P3H".format(
-                        min_time=min_time.isoformat() + "Z",
-                        max_time=max_time.isoformat() + "Z",
-                    )
-
-                xml += time_dimension_str.format(
-                    times=times_available_str,
-                    default_time=default_time.isoformat() + "Z",
-                )
-
-            legend_graphic_width = coverage.layer.legend_graphic_width
-            legend_graphic_height = coverage.layer.legend_graphic_height
-
-            legend_link = "{base}SERVICE={service}&amp;VERSION={version}&amp;REQUEST=GetLegendGraphic&amp;LAYER={layer}&amp;STYLE=default&amp;FORMAT=image/png; mode=8bit".format(
-                base=self.base_url
-                if self.base_url.endswith("?")
-                else self.base_url + "?",
-                service=self.service_type,
-                version=self.version,
-                layer=coverage.identifier,
-            )
-
-            # Write the style section
-            xml += """            <Style>\n"""
-            xml += """                <Name>{}</Name>\n""".format(coverage.identifier)
-            xml += """                <Title>{}</Title>\n""".format(coverage.title)
-            xml += """                <LegendURL width="{width}" height="{height}">\n""".format(
-                height=legend_graphic_height, width=legend_graphic_width
-            )
-            xml += """                    <Format>image/png</Format>\n"""
-            xml += """                    <OnlineResource xlink:type="simple" xlink:href="{}"/>\n""".format(
-                legend_link
-            )
-            xml += """                </LegendURL>\n"""
-            xml += """            </Style>\n"""
-            xml += """        </Layer>\n"""
         # end layers list
         xml += """    </Layer>"""
 
@@ -257,11 +244,11 @@ version="{capabilities.version}">
         )
 
     @staticmethod
-    def _format_number(input, float_decimals=9):
-        if type(input) == float:
-            return "{number:.{decimals}f}".format(number=input, decimals=float_decimals)
+    def _format_number(input_number, float_decimals=9):
+        if isinstance(input_number, float):
+            return "{number:.{decimals}f}".format(number=input_number, decimals=float_decimals)
         else:
-            return "{}".format(input)
+            return "{}".format(input_number)
 
     def _get_CRS_and_BoundingBox(self, depth=3):
         indent = "    "

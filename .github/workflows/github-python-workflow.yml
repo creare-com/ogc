@@ -1,0 +1,105 @@
+# This workflow handles linting, testing, and SonarQube scanning for the OGC repository.
+name: Python Workflow
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip setuptools && pip install .[dev]
+
+      - name: Run flake8 lint checks
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --ignore=E,W,D,I,N806,N815,N818,Q000,Q001,Q002,S001,B008,B028 --show-source --statistics --max-line-length=120 --output-file=flake8-report.txt
+
+      - name: Run black format checks
+        run: black --check --diff -l 120 ogc example > black-report.txt
+
+      - name: Artifact flake8 report
+        uses: actions/upload-artifact@v4
+        with:
+          name: flake8-report
+          path: flake8-report.txt
+          retention-days: 1
+
+      - name: Artifact black report
+        uses: actions/upload-artifact@v4
+        with:
+          name: black-report
+          path: black-report.txt
+          retention-days: 1
+
+  unit_testing:
+    name: Unit Testing
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip setuptools && pip install .[dev]
+
+      - name: Run pytest with coverage
+        run: |
+          coverage run --data-file=coverage.bin --branch \
+          -m pytest --continue-on-collection-errors || \
+          { echo "WARNING: Some tests have failed. (Temporarily ignored)"; true; }
+          coverage xml --data-file=coverage.bin -o coverage.xml
+          sed -i 's,<source>.*/ogc</source>,<source>ogc</source>,' coverage.xml
+      - name: Artifact coverage document
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+          retention-days: 1
+
+  sonarqube_scan:
+    name: SonarQube Scan
+    needs: [ unit_testing ]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: .
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

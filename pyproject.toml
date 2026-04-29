@@ -1,0 +1,85 @@
+# Open Geospatial Consortium (OGC) WCS and WMS Python server.
+# Currently Supports:
+# * WCS v1.0.0
+# * WMS v1.3.0
+# * PODPAC data sources
+# * FLASK web server
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "OGC"
+dynamic = ["version"]
+description = "OGC WCS and WMS server"
+authors = [{ name = "Creare" }]
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    # How mature is this project? Common values are
+    # 3 - Alpha
+    # 4 - Beta
+    # 5 - Production/Stable
+    "Development Status :: 3 - Alpha",
+    # Indicate who your project is intended for
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: GIS",
+    # Specify the Python versions you support here. In particular, ensure
+    # that you indicate whether you support Python 2, Python 3 or both.
+    "Programming Language :: Python 3",
+]
+requires-python = ">= 3.10"
+dependencies = [
+    'podpac[datatype]',
+    'flask',
+    'lxml',
+    'webob',
+    'traitlets',
+    'pygeoapi==0.22.0',
+    'shapely',
+    'numpy',
+    'traitlets',
+    'werkzeug',
+]
+
+[project.optional-dependencies]
+dev = [
+    # IDE
+    "pylint>=1.0", # Dependencies can be tagged to a version, but we recommend >= versioning
+    # DOCUMENTATION
+    "sphinx>=3.2",
+    "sphinx-rtd-theme",
+    "sphinx-autobuild",
+    # TESTING
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-html",
+    "pytest-remotedata",
+    "recommonmark",
+    "coverage",
+    # FORMATTING
+    "pre_commit",
+    "black",
+    "flake8",
+    "flake8-bugbear",
+    "flake8-builtins",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+ogc = ["edr/static/**/*", "edr/template/static/**/*", "edr/config/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["ogc"]
+
+[tool.black]
+line-length = 120
+
+[tool.coverage.run]
+relative_files = false # For reasoning, see https://github.com/creare-com/ogc/pull/18
+source = ["ogc/"]
+branch = true

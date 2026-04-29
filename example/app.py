@@ -2,26 +2,35 @@
 Demo Flask app using PODPAC Node backed layers.
 """
 
-from flask import Flask
 from datetime import datetime
 import re
 
 from ogc import servers
 from ogc import core
 from ogc import podpac as pogc
+from ogc.settings import EDR_TIME_INSTANCE_DIMENSION
 
 import podpac
 import numpy as np
 
+# Setup new dimension
+podpac.core.coordinates.utils.add_valid_dimension(EDR_TIME_INSTANCE_DIMENSION)
+
 # create some podpac nodes
-data = np.random.rand(11, 21)
+data = np.random.default_rng(1).random((11, 21))
 lat = np.linspace(90, -90, 11)
 lon = np.linspace(-180, 180, 21)
 coords = podpac.Coordinates([lat, lon], dims=["lat", "lon"])
 node1 = podpac.data.Array(source=data, coordinates=coords)
 
-data2 = np.random.rand(11, 21)
+data2 = np.random.default_rng(1).random((11, 21))
 node2 = podpac.data.Array(source=data2, coordinates=coords)
+
+time = np.array(["2025-10-24T12:00:00"], dtype="datetime64")
+instance = np.array(["2025-10-24T00:00:00"], dtype="datetime64")
+coords = podpac.Coordinates([lat, lon, time, instance], dims=["lat", "lon", "time", EDR_TIME_INSTANCE_DIMENSION])
+data3 = np.random.default_rng(1).random((11, 21, 1, 1))
+node3 = podpac.data.Array(source=data3, coordinates=coords)
 
 # use podpac nodes to create some OGC layers
 layer1 = pogc.Layer(
@@ -29,6 +38,7 @@ layer1 = pogc.Layer(
     identifier="layer1",
     title="OGC/POPAC layer containing random data",
     abstract="This layer contains some random data",
+    group="Layers",
 )
 
 layer2 = pogc.Layer(
@@ -37,9 +47,19 @@ layer2 = pogc.Layer(
     title="FOUO: Another OGC/POPAC layer containing random data",
     abstract="Marked as FOUO. This layer contains some random data. Same coordinates as layer1, but different values.",
     is_fouo=True,
+    group="Layers",
 )
 
-all_layers = [layer1, layer2]
+layer3 = pogc.Layer(
+    node=node3,
+    identifier="layer3",
+    title="OGC/POPAC layer containing random data with time instances available.",
+    abstract="This layer contains some random data with time instances available.",
+    group="Layers",
+    valid_times=[dt.astype(datetime) for dt in time],
+)
+
+all_layers = [layer1, layer2, layer3]
 non_fouo_layers = [layer for layer in all_layers if not layer.is_fouo]
 
 # create a couple of different ogc endpoints
@@ -69,16 +89,25 @@ def api_home(endpoint):
             <li><a href="?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&LAYER={test_layer}&STYLE=default&FORMAT=image/png">WMS GetLegend Example (PNG)</a> <i>(v1.3.0)</i></li>
         </ul>
         </li>
+        <li> EDR: Open Geospatial Consortium (OGC) Environmental Data Retrieval (EDR) <i>(v1.0.1)</i>
+        <ul>
+            <li><a href="{endpoint}/edr?f=html">EDR Landing Page (HTML)</a> <i>(v1.0.1)</i></li>
+            <li><a href="{endpoint}/edr/conformance?f=json">EDR Conformance (JSON)</a> <i>(v1.0.1)</i></li>
+            <li><a href="{endpoint}/edr/collections?f=json">EDR Collections (JSON)</a> <i>(v1.0.1)</i></li>
+        </ul>
+        </li>
     </ul>
     """
 
 
 app = servers.FlaskServer(__name__, ogcs=[NonFouoOGC, FouoOGC], home_func=api_home)
 
+
 # add in some other endpoints.
 @app.route("/")
 def home():
-    return f'This is an example OGC flask app. See <a href="/ogc_full"> FULL </a> and <a href="/ogc"> PARTIAL </a> endpoints.'
+    return """This is an example OGC flask app.
+    See <a href="/ogc_full"> FULL </a> and <a href="/ogc"> PARTIAL </a> endpoints."""
 
 
 @app.route("/layers/<layer>")
@@ -87,7 +116,7 @@ def check_layers(layer):
 
     if match_object:
         clean_layer = match_object.group(0)
-        if clean_layer in [l.identifier for l in all_layers]:
+        if clean_layer in [available_layer.identifier for available_layer in all_layers]:
             return "{} is an available layer id".format(clean_layer)
         else:
             return "No layer available with that id"
