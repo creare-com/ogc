@@ -86,7 +86,7 @@ try:
     else:
         WMS_FRONT_END_ADDRESS = FRONT_END_ADDRESS + "/services/GEOWCS"
         WCS_FRONT_END_ADDRESS = FRONT_END_ADDRESS + "/services/GEOWCS"
-except Exception:
+except KeyError:
     WMS_FRONT_END_ADDRESS = None
     WCS_FRONT_END_ADDRESS = None
 
@@ -94,11 +94,8 @@ CLASSIFICATION = "NONE"  # not used any more seemingly
 PUBLIC_CONSTRAINT_STRING = "PUBLIC"
 CONSTRAINTS = PUBLIC_CONSTRAINT_STRING
 
-# get EDR configuration file path
-try:
-    EDR_CONFIGURATION_PATH = os.environ["EDR_CONFIGURATION_PATH"]
-except Exception:
-    EDR_CONFIGURATION_PATH = None
+# get EDR configuration file path (will be None if unspecified)
+EDR_CONFIGURATION_PATH = os.environ.get("EDR_CONFIGURATION_PATH")
 
 # get supported formats
 OGC_SUPPORTED_FORMATS = os.environ.get("OGC_SUPPORTED_FORMATS", "wms,wcs")

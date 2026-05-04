@@ -69,7 +69,7 @@ class Coverage(ogc_common.XMLNode):
                 self.layer.grid_coordinates.LLC.lat,
                 self.layer.grid_coordinates.LLC.lon,
             )
-        except Exception:
+        except (AttributeError, tl.TraitError):
             return (self.crs_extents["minx"], self.crs_extents["miny"])
 
     wgs84_bounding_box_upper_corner_lat_lon = tl.Tuple(tl.Float(), tl.Float())
@@ -80,7 +80,7 @@ class Coverage(ogc_common.XMLNode):
                 self.layer.grid_coordinates.URC.lat,
                 self.layer.grid_coordinates.URC.lon,
             )
-        except Exception:
+        except (AttributeError, tl.TraitError):
             return (self.crs_extents["maxx"], self.crs_extents["maxy"])
 
 
@@ -285,7 +285,7 @@ class Capabilities(ogc_common.XMLNode):
     try:
         limit_layers = settings.WMS_LIMIT_LAYERS
         layer_subset = settings.WMS_LAYERS
-    except Exception as e:
+    except (AttributeError, tl.TraitError) as e:
         logger.info("Layer limiting settings not enabled: {}".format(e))
 
     def contents(self):

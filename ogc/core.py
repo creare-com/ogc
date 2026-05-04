@@ -97,7 +97,7 @@ class OGC(tl.HasTraits):
         try:
             get_capabilities.load_from_kv(args)
             get_capabilities.validate()
-        except Exception:
+        except Exception:  # noqa: B902
             logger.error(LOAD_FAILURE, exc_info=True)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
@@ -113,7 +113,7 @@ class OGC(tl.HasTraits):
         try:
             describe_coverage.load_from_kv(args)
             describe_coverage.validate()
-        except Exception:
+        except Exception:  # noqa: B902
             logger.error(LOAD_FAILURE, exc_info=True)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
@@ -127,7 +127,7 @@ class OGC(tl.HasTraits):
         try:
             get_coverage.load_from_kv(args)
             get_coverage.validate()
-        except Exception:
+        except Exception:  # noqa: B902
             logger.error(LOAD_FAILURE, exc_info=True)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
@@ -191,7 +191,7 @@ class OGC(tl.HasTraits):
         try:
             get_capabilities.load_from_kv(args)
             get_capabilities.validate()
-        except Exception:
+        except Exception:  # noqa: B902
             logger.error(LOAD_FAILURE, exc_info=True)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
@@ -206,7 +206,7 @@ class OGC(tl.HasTraits):
         try:
             get_legend_graphic.load_from_kv(args)
             get_legend_graphic.validate()
-        except Exception:
+        except Exception:  # noqa: B902
             logger.error(LOAD_FAILURE, exc_info=True)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
@@ -224,7 +224,7 @@ class OGC(tl.HasTraits):
         try:
             get_map.load_from_kv(args)
             get_map.validate()
-        except Exception:
+        except Exception:  # noqa: B902
             logger.error(LOAD_FAILURE, exc_info=True)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
@@ -253,7 +253,7 @@ class OGC(tl.HasTraits):
 
         try:
             fp = coverage.layer.get_map(args)
-        except Exception:
+        except Exception:  # noqa: B902
             logger.error("Failed to get_map from layer: ", exc_info=True)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 

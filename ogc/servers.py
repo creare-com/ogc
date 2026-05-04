@@ -313,7 +313,7 @@ class FlaskServer(Flask):
             # Security scans have flagged a security concern when returning a 500 error,
             # since it might imply successful command injection.
             return respond_xml(e.to_xml(), status=400)
-        except Exception as e:
+        except Exception as e:  # noqa: B902
             logger.error("OGC: server.ogc_render Exception: %s", str(e), exc_info=True)
             ee = WCSException()
             return respond_xml(ee.to_xml(), status=500)
@@ -391,7 +391,7 @@ class FlaskServer(Flask):
             except WCSException as e:
                 logger.error("OGC: server.edr_render WCSException: %s", str(e), exc_info=True)
                 return respond_xml(e.to_xml(), status=400)
-            except Exception as e:
+            except Exception as e:  # noqa: B902
                 logger.error("OGC: server.edr_render Exception: %s", str(e), exc_info=True)
                 ee = WCSException()
                 return respond_xml(ee.to_xml(), status=500)

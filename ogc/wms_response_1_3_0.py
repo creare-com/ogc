@@ -106,7 +106,7 @@ class Capabilities(ogc_common.XMLNode):
     try:
         limit_layers = settings.WMS_LIMIT_LAYERS
         layer_subset = settings.WMS_LAYERS
-    except Exception as e:
+    except (AttributeError, tl.TraitError) as e:
         logger.info("Layer limiting settings not enabled: {}".format(e))
 
     def coverage_times_list(self, coverage, default_time):
