@@ -89,6 +89,12 @@ def api_home(endpoint):
             <li><a href="?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&LAYER={test_layer}&STYLE=default&FORMAT=image/png">WMS GetLegend Example (PNG)</a> <i>(v1.3.0)</i></li>
         </ul>
         </li>
+        <li> WMTS: Open Geospatial Consortium (OGC) Web Map Tile Service (WMTS) <i>(v1.0.0)</i>
+        <ul>
+            <li><a href="?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0">WMTS GetCapabilities (XML)</a> <i>(v1.0.0)</i></li>
+            <li><a href="?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER={test_layer}&STYLES=&FORMAT=image%2Fpng&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=0&TILEROW=0&TILECOL=0">WMTS GetTile Example (PNG)</a> <i>(v1.0.0)</i></li>
+        </ul>
+        </li>
         <li> EDR: Open Geospatial Consortium (OGC) Environmental Data Retrieval (EDR) <i>(v1.0.1)</i>
         <ul>
             <li><a href="{endpoint}/edr?f=html">EDR Landing Page (HTML)</a> <i>(v1.0.1)</i></li>

@@ -1,8 +1,10 @@
-import os
 import pytest
 import numpy as np
 import datetime
+import importlib
 import podpac
+from unittest.mock import patch
+from ogc import settings
 from ogc import podpac as pogc
 from typing import Dict, List, Any
 from ogc.settings import EDR_TIME_INSTANCE_DIMENSION
@@ -49,10 +51,15 @@ layer3 = pogc.Layer(
 )
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def set_env_vars():
-    """Setup the environmental variables for the session to support EDR."""
-    os.environ["OGC_SUPPORTED_FORMATS"] = "edr"
+    """Setup the environmental variables for the module to support EDR."""
+    with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": "edr"}):
+        importlib.reload(settings)
+        yield
+
+    # Fix imports after patching for test
+    importlib.reload(settings)
 
 
 @pytest.fixture()
