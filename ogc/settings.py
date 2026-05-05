@@ -42,7 +42,6 @@ EDR_CRS = {
 # WMTS tiling parameters
 WMTS_TILE_SIZE = 256  # pixels
 WMTS_PIXEL_SIZE_METERS = 0.00028  # meters/pixel screen equivalent
-WMTS_DPI = 96  # dots per inch
 WMTS_INITIAL_RESOLUTION = 40075016.686 / WMTS_TILE_SIZE  # meters/pixel for the crs bounds (global)
 
 # EDR query output formats
