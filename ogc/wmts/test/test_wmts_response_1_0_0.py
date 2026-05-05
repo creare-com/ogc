@@ -68,27 +68,6 @@ def test_operations_metadata_contains_supported_requests():
     assert not contains_text(xml, '<ows:Operation name="GetFeatureInfo">')
 
 
-@pytest.mark.parametrize(
-    "input_number,expected",
-    [
-        (1.234567891234, "1.234567891"),
-        (10, "10"),
-    ],
-)
-def test_format_number(input_number: float | int, expected: str):
-    """Validate number formatting logic.
-
-    Parameters
-    ----------
-    input_number : float | int
-        Input number to format.
-    expected : str
-        Expected string output.
-    """
-    result = Capabilities._format_number(input_number)
-    assert result == expected
-
-
 def test_bounding_box_tile_matrix_set():
     """Validate tile matrix set bounding box generation."""
     capabilities = make_capabilities()

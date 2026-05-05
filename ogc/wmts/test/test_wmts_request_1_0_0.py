@@ -113,7 +113,7 @@ def test_format_number(input_number: float | int, expected: str):
     expected : str
         Expected string output.
     """
-    result = WebMercatorQuad()._format_number(input_number)
+    result = TileMatrixSet().format_number(input_number)
     assert result == expected
 
 

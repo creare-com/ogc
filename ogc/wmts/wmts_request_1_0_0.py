@@ -89,8 +89,8 @@ class TileMatrixSet(ogc_common.XMLNode):
             The top left corner as a string or None if the CRS is not valid for WMTS.
         """
         if self.bounds is not None:
-            x_min = TileMatrixSet._format_number(self.bounds["minx"])
-            y_max = TileMatrixSet._format_number(self.bounds["maxy"])
+            x_min = self.format_number(self.bounds["minx"])
+            y_max = self.format_number(self.bounds["maxy"])
             return "{} {}".format(x_min, y_max)
 
         return None
@@ -108,13 +108,13 @@ class TileMatrixSet(ogc_common.XMLNode):
             xml += self.indent * (self.depth + 1) + """<ows:BoundingBox>\n"""
             xml += self.indent * (self.depth + 2) + escape_format(
                 """<ows:LowerCorner>{x} {y}</ows:LowerCorner>\n""",
-                x=self._format_number(self.bounds["minx"]),
-                y=self._format_number(self.bounds["miny"]),
+                x=self.format_number(self.bounds["minx"]),
+                y=self.format_number(self.bounds["miny"]),
             )
             xml += self.indent * (self.depth + 2) + escape_format(
                 """<ows:UpperCorner>{x} {y}</ows:UpperCorner>\n""",
-                x=self._format_number(self.bounds["maxx"]),
-                y=self._format_number(self.bounds["maxy"]),
+                x=self.format_number(self.bounds["maxx"]),
+                y=self.format_number(self.bounds["maxy"]),
             )
             xml += self.indent * (self.depth + 1) + """</ows:BoundingBox>\n"""
 
@@ -131,7 +131,7 @@ class TileMatrixSet(ogc_common.XMLNode):
         raise NotImplementedError
 
     @staticmethod
-    def _format_number(input_number: float | int, float_decimals: int = 9) -> str:
+    def format_number(input_number: float | int, float_decimals: int = 9) -> str:
         """Format a number into a string with specified decimal count.
 
         Parameters
@@ -219,7 +219,7 @@ class WebMercatorQuad(TileMatrixSet):
         """
         resolution = settings.WMTS_INITIAL_RESOLUTION / (2 ** (matrix_level))
         scale_denominator = resolution / settings.WMTS_PIXEL_SIZE_METERS
-        return TileMatrixSet._format_number(scale_denominator)
+        return TileMatrixSet.format_number(scale_denominator)
 
     @staticmethod
     def calculate_matrix_sizes(matrix_level: int) -> Tuple[str, str]:
@@ -237,7 +237,7 @@ class WebMercatorQuad(TileMatrixSet):
         """
         matrix_width = 2**matrix_level
         matrix_height = 2**matrix_level
-        return TileMatrixSet._format_number(matrix_width), TileMatrixSet._format_number(matrix_height)
+        return TileMatrixSet.format_number(matrix_width), TileMatrixSet.format_number(matrix_height)
 
 
 class WorldCRS84Quad(TileMatrixSet):
@@ -303,7 +303,7 @@ class WorldCRS84Quad(TileMatrixSet):
         """
         resolution = settings.WMTS_INITIAL_RESOLUTION / (2 ** (matrix_level + 1))
         scale_denominator = resolution / settings.WMTS_PIXEL_SIZE_METERS
-        return TileMatrixSet._format_number(scale_denominator)
+        return TileMatrixSet.format_number(scale_denominator)
 
     @staticmethod
     def calculate_matrix_sizes(matrix_level: int) -> Tuple[str, str]:
@@ -321,7 +321,7 @@ class WorldCRS84Quad(TileMatrixSet):
         """
         matrix_width = 2 ** (matrix_level + 1)
         matrix_height = 2**matrix_level
-        return TileMatrixSet._format_number(matrix_width), TileMatrixSet._format_number(matrix_height)
+        return TileMatrixSet.format_number(matrix_width), TileMatrixSet.format_number(matrix_height)
 
 
 class GetCapabilities(ogc_common.XMLNode):

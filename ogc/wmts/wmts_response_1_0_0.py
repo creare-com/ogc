@@ -6,7 +6,7 @@ from xml.sax.saxutils import escape
 from ogc import ogc_common
 from ogc import settings
 from ogc.wcs_response_1_0_0 import Coverage
-from .wmts_request_1_0_0 import WebMercatorQuad, WorldCRS84Quad
+from .wmts_request_1_0_0 import WebMercatorQuad, WorldCRS84Quad, TileMatrixSet
 
 logger = logging.getLogger(__name__)
 escape_format = ogc_common.EscapeFormatter().format
@@ -304,38 +304,17 @@ version="{version}">
         xml += self.indent * (depth) + """<ows:WGS84BoundingBox>\n"""
         xml += self.indent * (depth + 1) + escape_format(
             """<ows:LowerCorner>{x} {y}</ows:LowerCorner>\n""",
-            x=self._format_number(coverage.wgs84_bounding_box_lower_corner_lat_lon[1]),
-            y=self._format_number(coverage.wgs84_bounding_box_lower_corner_lat_lon[0]),
+            x=TileMatrixSet.format_number(coverage.wgs84_bounding_box_lower_corner_lat_lon[1]),
+            y=TileMatrixSet.format_number(coverage.wgs84_bounding_box_lower_corner_lat_lon[0]),
         )
         xml += self.indent * (depth + 1) + escape_format(
             """<ows:UpperCorner>{x} {y}</ows:UpperCorner>\n""",
-            x=self._format_number(coverage.wgs84_bounding_box_upper_corner_lat_lon[1]),
-            y=self._format_number(coverage.wgs84_bounding_box_upper_corner_lat_lon[0]),
+            x=TileMatrixSet.format_number(coverage.wgs84_bounding_box_upper_corner_lat_lon[1]),
+            y=TileMatrixSet.format_number(coverage.wgs84_bounding_box_upper_corner_lat_lon[0]),
         )
         xml += self.indent * (depth) + """</ows:WGS84BoundingBox>\n"""
 
         return xml
-
-    @staticmethod
-    def _format_number(input_number: float | int, float_decimals: int = 9) -> str:
-        """Format a number into a string with specified decimal count.
-
-        Parameters
-        ----------
-        input_number : float | int
-            The number to convert to a string.
-        float_decimals : int, optional
-            The decimals to display in the string, by default 9.
-
-        Returns
-        -------
-        str
-            The number formatted as a string.
-        """
-        if isinstance(input_number, float):
-            return "{number:.{decimals}f}".format(number=input_number, decimals=float_decimals)
-        else:
-            return "{}".format(input_number)
 
     @staticmethod
     def _is_iso_datetime(datetime_string: str) -> bool:
