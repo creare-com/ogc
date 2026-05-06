@@ -40,9 +40,10 @@ EDR_CRS = {
 }
 
 # WMTS tiling parameters
+EARTH_CIRCUMFERENCE_METERS = 40075016.686
 WMTS_TILE_SIZE = 256  # pixels
 WMTS_PIXEL_SIZE_METERS = 0.00028  # meters/pixel screen equivalent
-WMTS_INITIAL_RESOLUTION = 40075016.686 / WMTS_TILE_SIZE  # meters/pixel for the crs bounds (global)
+WMTS_INITIAL_RESOLUTION = EARTH_CIRCUMFERENCE_METERS / WMTS_TILE_SIZE  # meters/pixel for the crs bounds (global)
 
 # EDR query output formats
 GEOTIFF = "GeoTIFF"
