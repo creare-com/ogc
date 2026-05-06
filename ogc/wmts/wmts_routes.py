@@ -24,17 +24,6 @@ class WmtsRoutes(tl.HasTraits):
     service_abstract = tl.Unicode(default_value=None, allow_none=True)
     service_group_title = tl.Unicode(default_value=None, allow_none=True)
 
-    def __init__(self, **kwargs):
-        """Initialize the capabilities for the WMTS endpoints."""
-        super().__init__(**kwargs)
-        self.capabilities = wmts_response_1_0_0.Capabilities(
-            coverages=self.coverages,
-            base_url=self.base_url,
-            service_title=self.service_title,
-            service_abstract=self.service_abstract,
-            service_group_title=self.service_group_title,
-        )
-
     def handle_kv(self, args: Dict[str, Any]) -> Dict[str, Any] | str:
         """Handle WMTS key value requests.
 
@@ -67,17 +56,8 @@ class WmtsRoutes(tl.HasTraits):
                 exception_text="Unsupported request",
             )
 
-        if "version" in args and args["version"] == "1.0.0":
-            wmts_request = wmts_request_1_0_0
-        else:
-            raise WMTSException(
-                exception_code="InvalidParameterValue",
-                locator="VERSION",
-                exception_text="Unsupported version: %s" % (args["version"] if "version" in args else "None"),
-            )
-
         if args["request"].lower() == "gettile":
-            return self.get_tile(args, wmts_request)
+            return self.get_tile(args)
 
         raise WMTSException(exception_text="KV Request not handled properly: " + str(args))
 
@@ -124,9 +104,30 @@ class WmtsRoutes(tl.HasTraits):
         Raises
         ------
         WMTSException
+            Exception for invalid specified version.
+        WMTSException
             Exception for invalid arguments found during validation.
         """
-        get_capabilities = wmts_request_1_0_0.GetCapabilities()
+        if args["base_url"]:
+            self.base_url = args["base_url"]
+
+        # Version is optional, use 1.0.0 as default
+        if "version" not in args or args["version"] == "1.0.0":
+            get_capabilities = wmts_request_1_0_0.GetCapabilities()
+            capabilities = wmts_response_1_0_0.Capabilities(
+                coverages=self.coverages,
+                base_url=self.base_url,
+                service_title=self.service_title,
+                service_abstract=self.service_abstract,
+                service_group_title=self.service_group_title,
+            )
+        else:
+            raise WMTSException(
+                exception_code="InvalidParameterValue",
+                locator="VERSION",
+                exception_text="Unsupported version: %s" % (args["version"]),
+            )
+
         try:
             get_capabilities.load_from_kv(args)
             get_capabilities.validate()
@@ -134,21 +135,15 @@ class WmtsRoutes(tl.HasTraits):
             logger.error(LOAD_FAILURE, exc_info=True)
             raise WMTSException(exception_text=INVALID_ARGUMENTS)
 
-        if args["base_url"]:
-            self.base_url = args["base_url"]
-            self.capabilities.base_url = args["base_url"]
+        return capabilities.to_xml()
 
-        return self.capabilities.to_xml()
-
-    def get_tile(self, args: Dict[str, Any], wmts_request: Any) -> Dict[str, Any]:
+    def get_tile(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Retrieve a tile using the requested arguments.
 
         Parameters
         ----------
         args : Dict[str, Any]
             The filtered request arguments.
-        wmts_request : Any
-            The request module used to retrieve the tile for a specific WMTS version.
 
         Returns
         -------
@@ -158,11 +153,21 @@ class WmtsRoutes(tl.HasTraits):
         Raises
         ------
         WMTSException
+            Exception for invalid specified version or missing version.
+        WMTSException
             Exception for invalid arguments found during validation.
         WMTSException
             Exception for errors found during the layer evaluation.
         """
-        get_tile = wmts_request.GetTile()
+        if "version" in args and args["version"] == "1.0.0":
+            get_tile = wmts_request_1_0_0.GetTile()
+        else:
+            raise WMTSException(
+                exception_code="InvalidParameterValue",
+                locator="VERSION",
+                exception_text="Unsupported version: %s" % (args["version"] if "version" in args else "None"),
+            )
+
         try:
             get_tile.load_from_kv(args)
             get_tile.validate()

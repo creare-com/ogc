@@ -3,7 +3,7 @@ import struct
 from typing import List, Dict, Any
 from ogc import core
 from ogc import podpac as pogc
-from ogc.wmts.wmts_routes_1_0_0 import WmtsRoutes
+from ogc.wmts.wmts_routes import WmtsRoutes
 from ogc.wms_response_1_3_0 import Coverage
 
 

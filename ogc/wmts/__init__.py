@@ -1,3 +1,3 @@
-from .wmts_routes_1_0_0 import WmtsRoutes
+from .wmts_routes import WmtsRoutes
 
 __all__ = ["WmtsRoutes"]
