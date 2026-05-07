@@ -7,6 +7,7 @@ Currently holds some definitions for interface classes.
 import gc
 import logging
 import traitlets as tl
+from typing import Dict, Any
 
 from . import settings
 from . import wcs_request_1_0_0
@@ -14,8 +15,9 @@ from . import wms_request_1_3_0
 from . import wcs_response_1_0_0
 from . import wms_response_1_3_0
 from .edr import EdrRoutes
+from .wmts import WmtsRoutes
 
-from ogc.ogc_common import WCSException
+from ogc.ogc_common import WCSException, WMTSException
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +68,17 @@ class OGC(tl.HasTraits):
         self.edr_routes = (
             EdrRoutes(base_url=f"{self.server_address}{self.endpoint}/edr", layers=layers)
             if settings.EDR_ENABLED
+            else None
+        )
+        self.wmts_routes = (
+            WmtsRoutes(
+                coverages=coverages,
+                base_url=self.base_url,
+                service_title=self.service_title,
+                service_abstract=self.service_abstract,
+                service_group_title=self.service_group_title,
+            )
+            if settings.WMTS_ENABLED
             else None
         )
 
@@ -280,3 +293,30 @@ class OGC(tl.HasTraits):
             return self.get_map(args, wms_request)
 
         raise WCSException(exception_text="KV Request not handled properly: " + str(args))
+
+    def handle_wmts_kv(self, args: Dict[str, Any]) -> Dict[str, Any] | str:
+        """Handle WMTS key value server requests if support is enabled.
+
+        Parameters
+        ----------
+        args : Dict[str, Any]
+            The filtered request arguments.
+
+        Returns
+        -------
+        Dict[str, Any] | str
+            A dictionary containing the tile response or a string of service metadata.
+
+        Raises
+        ------
+        WMTSException
+            Exception for errors related to WMTS operations.
+        """
+        if self.wmts_routes is None:
+            raise WMTSException(
+                exception_code="OperationNotSupported",
+                locator="REQUEST",
+                exception_text="Unsupported request",
+            )
+
+        return self.wmts_routes.handle_kv(args)

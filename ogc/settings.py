@@ -39,6 +39,12 @@ EDR_CRS = {
     crs_84h_uri_format: {"minx": -180.0, "miny": -90.0, "maxx": 180.0, "maxy": 90.0},
 }
 
+# WMTS tiling parameters
+EARTH_CIRCUMFERENCE_METERS = 40075016.686
+WMTS_TILE_SIZE = 256  # pixels
+WMTS_PIXEL_SIZE_METERS = 0.00028  # meters/pixel screen equivalent
+WMTS_INITIAL_RESOLUTION = EARTH_CIRCUMFERENCE_METERS / WMTS_TILE_SIZE  # meters/pixel for the crs bounds (global)
+
 # EDR query output formats
 GEOTIFF = "GeoTIFF"
 JSON = "JSON"
@@ -98,4 +104,5 @@ except Exception:
 OGC_SUPPORTED_FORMATS = os.environ.get("OGC_SUPPORTED_FORMATS", "wms,wcs")
 WMS_ENABLED = "wms" in OGC_SUPPORTED_FORMATS.lower()
 WCS_ENABLED = "wcs" in OGC_SUPPORTED_FORMATS.lower()
+WMTS_ENABLED = "wmts" in OGC_SUPPORTED_FORMATS.lower()
 EDR_ENABLED = "edr" in OGC_SUPPORTED_FORMATS.lower()

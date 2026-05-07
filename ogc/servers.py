@@ -76,6 +76,19 @@ def home(endpoint):
         else ""
     )
 
+    wmts_list_item = (
+        f"""
+        <li> WMTS: Open Geospatial Consortium (OGC) Web Map Tile Service (WMTS) <i>(v1.0.0)</i>
+        <ul>
+            <li><a href="?SERVICE=WMTS&REQUEST=GetCapabilities&VERSION=1.0.0">WMTS GetCapabilities (XML)</a> <i>(v1.0.0)</i></li>
+            <li><a href="?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER={test_layer}&STYLES=&FORMAT=image%2Fpng&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=0&TILEROW=0&TILECOL=0">WMTS GetTile Example (PNG)</a> <i>(v1.0.0)</i></li>
+        </ul>
+        </li>
+    """
+        if settings.WMTS_ENABLED
+        else ""
+    )
+
     edr_list_item = (
         f"""
         <li> EDR: Open Geospatial Consortium (OGC) Environmental Data Retrieval (EDR) <i>(v1.0.1)</i>
@@ -96,6 +109,7 @@ def home(endpoint):
     <ul>
         {wcs_list_item}
         {wms_list_item}
+        {wmts_list_item}
         {edr_list_item}
     </ul>
     """
@@ -278,6 +292,8 @@ class FlaskServer(Flask):
                 ogc_response = ogc.handle_wcs_kv(args)
             elif args["service"].lower() == "wms" and settings.WMS_ENABLED:
                 ogc_response = ogc.handle_wms_kv(args)
+            elif args["service"].lower() == "wmts" and settings.WMTS_ENABLED:
+                ogc_response = ogc.handle_wmts_kv(args)
             if ogc_response is not None:
                 if isinstance(ogc_response, six.string_types):
                     return respond_xml(ogc_response, status=200)

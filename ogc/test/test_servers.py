@@ -3,7 +3,7 @@ from ogc import core
 from ogc import podpac as pogc
 from ogc import settings
 from unittest.mock import patch
-from typing import Callable
+from typing import Callable, Generator
 
 import importlib
 import podpac
@@ -12,13 +12,13 @@ import numpy as np
 
 
 @pytest.fixture
-def supported_formats() -> Callable[[str], None]:
+def supported_formats() -> Generator[Callable[[str], None], None, None]:
     """Fixture used to patch OGC supported formats.
 
     Returns
     -------
-    Callable[[str], None]
-        A function which patches the OGC supported formats based on input string.
+    Generator[Callable[[str], None], None, None]
+        A generator which yields a function which patches the OGC supported formats based on input string.
     """
 
     def _supported_formats(formats: str):
@@ -32,7 +32,10 @@ def supported_formats() -> Callable[[str], None]:
         with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": formats}):
             importlib.reload(settings)
 
-    return _supported_formats
+    yield _supported_formats
+
+    # Fix imports after patching for test
+    importlib.reload(settings)
 
 
 @pytest.fixture
@@ -136,6 +139,9 @@ def test_server_with_default_supported_services(client):
     response = client.get("/ogc?service=WCS&request=GetCapabilities")
     assert response.status_code == 200
 
+    response = client.get("/ogc?service=WMTS&request=GetCapabilities")
+    assert response.status_code == 400
+
     response = client.get("/ogc/edr")
     assert response.status_code == 404
 
@@ -152,6 +158,9 @@ def test_server_without_wcs_supported_service(supported_formats, client):
     response = client.get("/ogc?service=WCS&request=GetCapabilities")
     assert response.status_code == 400
 
+    response = client.get("/ogc?service=WMTS&request=GetCapabilities")
+    assert response.status_code == 400
+
     response = client.get("/ogc/edr")
     assert response.status_code == 404
 
@@ -166,6 +175,9 @@ def test_server_without_wms_supported_service(supported_formats, client):
     assert response.status_code == 200
 
     response = client.get("/ogc?service=WMS&request=GetCapabilities")
+    assert response.status_code == 400
+
+    response = client.get("/ogc?service=WMTS&request=GetCapabilities")
     assert response.status_code == 400
 
     response = client.get("/ogc/edr")
