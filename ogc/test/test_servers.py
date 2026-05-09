@@ -2,6 +2,8 @@ from ogc import servers
 from ogc import core
 from ogc import podpac as pogc
 from ogc import settings
+from ogc.ogc_common import WCSException
+from pygeoapi.api import APIRequest
 from unittest.mock import patch
 from typing import Callable, Generator
 
@@ -182,3 +184,124 @@ def test_server_without_wms_supported_service(supported_formats, client):
 
     response = client.get("/ogc/edr")
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# edr_render tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def client_edr():
+    """Test client for FlaskServer with EDR enabled."""
+    with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": "edr"}):
+        importlib.reload(settings)
+        lat = np.linspace(90, -90, 11)
+        lon = np.linspace(-180, 180, 21)
+        data = np.random.default_rng(1).random((11, 21))
+        coords = podpac.Coordinates([lat, lon], dims=["lat", "lon"])
+        node = podpac.data.Array(source=data, coordinates=coords)
+        layer = pogc.Layer(
+            node=node,
+            identifier="layer1",
+            title="Layer 1",
+            abstract="Layer 1 Data",
+            group="Layers",
+        )
+        ogc = core.OGC(layers=[layer])
+        app = servers.FlaskServer(__name__, ogcs=[ogc])
+        app.config.update({"TESTING": True})
+        yield app.test_client()
+    importlib.reload(settings)
+
+
+def test_edr_render_get_landing_page(client_edr):
+    response = client_edr.get("/ogc/edr?f=json")
+    assert response.status_code == 200
+
+
+def test_edr_render_get_conformance(client_edr):
+    response = client_edr.get("/ogc/edr/conformance?f=json")
+    assert response.status_code == 200
+
+
+def test_edr_render_get_collections(client_edr):
+    response = client_edr.get("/ogc/edr/collections?f=json")
+    assert response.status_code == 200
+
+
+def test_edr_render_post_returns_405(client_edr):
+    response = client_edr.post("/ogc/edr")
+    assert response.status_code == 405
+
+
+def test_edr_render_query_string_too_long_returns_400(client_edr):
+    oversized = "f=json&" + "A=" + "B" * settings.MAX_QUERY_STRING_BYTES
+    response = client_edr.get("/ogc/edr", environ_overrides={"QUERY_STRING": oversized})
+    assert response.status_code == 400
+
+
+def test_edr_render_query_string_invalid_utf8_returns_400(client_edr):
+    response = client_edr.get("/ogc/edr", environ_overrides={"QUERY_STRING": "f=json&bad=\xff\xfe"})
+    assert response.status_code == 400
+
+
+def test_edr_render_disallowed_chars_are_stripped(client_edr):
+    """Characters outside the allowlist are removed from query values before the handler is called."""
+    captured_args = {}
+    original_from_flask = APIRequest.from_flask
+
+    def capturing(request, locales):
+        captured_args.update(request.args)
+        return original_from_flask(request, locales)
+
+    with patch.object(APIRequest, "from_flask", new=capturing):
+        response = client_edr.get("/ogc/edr", environ_overrides={"QUERY_STRING": "f=json&foo=bar!@#$"})
+
+    assert response.status_code == 200
+    assert all(c not in captured_args.get("foo", "") for c in "!@#$")
+
+
+def test_edr_render_format_param_is_lowercased(client_edr):
+    """The f= query parameter is normalized to lowercase before the handler receives it."""
+    captured_args = {}
+    original_from_flask = APIRequest.from_flask
+
+    def capturing(request, locales):
+        captured_args.update(request.args)
+        return original_from_flask(request, locales)
+
+    with patch.object(APIRequest, "from_flask", new=capturing):
+        client_edr.get("/ogc/edr?f=JSON")
+
+    assert captured_args.get("f") == "json"
+
+
+def test_edr_render_wcs_exception_returns_400(client_edr):
+    """WCSException raised by a handler is returned as a 400 XML response."""
+    app = client_edr.application
+
+    def raises_wcs_exception(api_request, *args, **kwargs):
+        raise WCSException("test error")
+
+    wrapper = app.edr_render(raises_wcs_exception)
+    app.add_url_rule("/test_edr_wcs", endpoint="test_edr_wcs", view_func=wrapper, methods=["GET"])
+
+    response = client_edr.get("/test_edr_wcs")
+    assert response.status_code == 400
+    assert "ExceptionReport" in response.get_data(as_text=True)
+
+
+def test_edr_render_exception_returns_500(client_edr):
+    """Unexpected exceptions in a handler are returned as a 500 XML response."""
+    app = client_edr.application
+
+    def raises_runtime_error(api_request, *args, **kwargs):
+        raise RuntimeError("unexpected")
+
+    wrapper = app.edr_render(raises_runtime_error)
+    app.add_url_rule("/test_edr_exc", endpoint="test_edr_exc", view_func=wrapper, methods=["GET"])
+
+    response = client_edr.get("/test_edr_exc")
+    assert response.status_code == 500
+    assert "ExceptionReport" in response.get_data(as_text=True)
