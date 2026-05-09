@@ -180,7 +180,7 @@ class WmtsRoutes(tl.HasTraits):
 
         try:
             fp = coverage.layer.get_map(map_args)
-        except Exception:
+        except Exception:  # noqa: B902
             logger.error("Failed to get_tile from layer: ", exc_info=True)
             raise WMTSException(exception_text=INVALID_ARGUMENTS)
 
