@@ -8,6 +8,8 @@ header {
 
 main {
   background-color: white;
+  padding-bottom: 65px;
+  /* prevent from falling under the footer */
 }
 
 .crumbs {
@@ -19,7 +21,6 @@ main {
   padding: 0px 6px;
   color: black;
   text-decoration: none;
-  /*    text-transform: capitalize;*/
 }
 
 #items-map,
@@ -58,11 +59,6 @@ body {
 
 footer.sticky-bottom {
   margin-top: auto;
-}
-
-main {
-  padding-bottom: 65px;
-  /* prevent from falling under the footer */
 }
 
 table:not(.horizontal) {
