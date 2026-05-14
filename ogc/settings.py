@@ -76,6 +76,7 @@ MAX_QUERY_STRING_BYTES = 8192
 
 # WMS Capabilities limit layers
 WMS_LIMIT_LAYERS = False
+WMS_LAYERS = []
 
 # get front end web address if set
 try:

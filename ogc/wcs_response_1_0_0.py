@@ -279,21 +279,12 @@ class Capabilities(ogc_common.XMLNode):
 
     coverages = tl.List(tl.Instance(klass=Coverage))  # is populated via Traits in constructor
 
-    # Check if list of layers available should be trimmed
-    layer_subset = []
-    limit_layers = False
-    try:
-        limit_layers = settings.WMS_LIMIT_LAYERS
-        layer_subset = settings.WMS_LAYERS
-    except (AttributeError, tl.TraitError) as e:
-        logger.info("Layer limiting settings not enabled: {}".format(e))
-
     def contents(self):
         xml = "  <wcs:ContentMetadata>\n"
 
         # If configured, trim layers list to layers specified in settings
-        if self.limit_layers:
-            self.coverages = [layer for layer in self.coverages if layer.identifier in self.layer_subset]
+        if settings.WMS_LIMIT_LAYERS:
+            self.coverages = [layer for layer in self.coverages if layer.identifier in settings.WMS_LAYERS]
 
         for coverage in self.coverages:
             xml += "        <wcs:CoverageOfferingBrief>\n"
