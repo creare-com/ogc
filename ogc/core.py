@@ -86,10 +86,11 @@ class OGC(tl.HasTraits):
         for coverage in self.wcs_capabilities.coverages:
             if coverage.identifier == identifier:
                 return coverage
+        logger.warning("OGC: get_coverage_from_id invalid identifier: %r", identifier)
         raise WCSException(
             exception_code="InvalidParameterValue",
             locator="COVERAGE",
-            exception_text="Invalid coverage {}".format(identifier),
+            exception_text="Invalid coverage identifier",
         )
 
     def get_capabilities_wcs(self, args):
@@ -172,10 +173,11 @@ class OGC(tl.HasTraits):
             wcs_response = wcs_response_1_0_0
             wcs_request = wcs_request_1_0_0
         else:
+            logger.warning("OGC: handle_wcs_kv unsupported version: %r", args.get("version"))
             raise WCSException(
                 exception_code="InvalidParameterValue",
                 locator="VERSION",
-                exception_text="Unsupported version: %s" % (args["version"] if "version" in args else "None"),
+                exception_text="Unsupported version",
             )
 
         if args["request"] == "DescribeCoverage":
@@ -184,7 +186,8 @@ class OGC(tl.HasTraits):
         elif args["request"] == "GetCoverage":
             return self.get_coverage_wcs(args, wcs_request)
 
-        raise WCSException(exception_text="KV Request not handled properly: " + str(args))
+        logger.warning("OGC: handle_wcs_kv unhandled request args: %r", args)
+        raise WCSException(exception_text=INVALID_ARGUMENTS)
 
     def get_capabilities_wms(self, args):
         get_capabilities = wms_request_1_3_0.GetCapabilities()
@@ -280,10 +283,11 @@ class OGC(tl.HasTraits):
         if "version" in args and args["version"] == "1.3.0":
             wms_request = wms_request_1_3_0
         else:
+            logger.warning("OGC: handle_wms_kv unsupported version: %r", args.get("version"))
             raise WCSException(
                 exception_code="InvalidParameterValue",
                 locator="VERSION",
-                exception_text="Unsupported version: %s" % (args["version"] if "version" in args else "None"),
+                exception_text="Unsupported version",
             )
 
         if args["request"].lower() == "getlegendgraphic":
@@ -292,7 +296,8 @@ class OGC(tl.HasTraits):
         if args["request"].lower() == "getmap":
             return self.get_map(args, wms_request)
 
-        raise WCSException(exception_text="KV Request not handled properly: " + str(args))
+        logger.warning("OGC: handle_wms_kv unhandled request args: %r", args)
+        raise WCSException(exception_text=INVALID_ARGUMENTS)
 
     def handle_wmts_kv(self, args: Dict[str, Any]) -> Dict[str, Any] | str:
         """Handle WMTS key value server requests if support is enabled.

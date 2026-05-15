@@ -59,7 +59,8 @@ class WmtsRoutes(tl.HasTraits):
         if args["request"].lower() == "gettile":
             return self.get_tile(args)
 
-        raise WMTSException(exception_text="KV Request not handled properly: " + str(args))
+        logger.warning("OGC: handle_kv unhandled request args: %r", args)
+        raise WMTSException(exception_text=INVALID_ARGUMENTS)
 
     def get_coverage_from_id(self, identifier: str) -> Coverage:
         """Find the coverage for a given identifier.
@@ -82,10 +83,11 @@ class WmtsRoutes(tl.HasTraits):
         for coverage in self.coverages:
             if coverage.identifier == identifier:
                 return coverage
+        logger.warning("OGC: get_coverage_from_id invalid identifier: %r", identifier)
         raise WMTSException(
             exception_code="InvalidParameterValue",
             locator="COVERAGE",
-            exception_text="Invalid coverage {}".format(identifier),
+            exception_text="Invalid coverage identifier",
         )
 
     def get_capabilities(self, args: Dict[str, Any]) -> str:
@@ -122,10 +124,11 @@ class WmtsRoutes(tl.HasTraits):
                 service_group_title=self.service_group_title,
             )
         else:
+            logger.warning("OGC: get_capabilities unsupported version: %r", args.get("version"))
             raise WMTSException(
                 exception_code="InvalidParameterValue",
                 locator="VERSION",
-                exception_text="Unsupported version: %s" % (args["version"]),
+                exception_text="Unsupported version",
             )
 
         try:
@@ -162,10 +165,11 @@ class WmtsRoutes(tl.HasTraits):
         if "version" in args and args["version"] == "1.0.0":
             get_tile = wmts_request_1_0_0.GetTile()
         else:
+            logger.warning("OGC: get_tile unsupported version: %r", args.get("version"))
             raise WMTSException(
                 exception_code="InvalidParameterValue",
                 locator="VERSION",
-                exception_text="Unsupported version: %s" % (args["version"] if "version" in args else "None"),
+                exception_text="Unsupported version",
             )
 
         try:
