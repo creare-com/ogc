@@ -494,7 +494,7 @@ class EdrAPI:
                         "label": {"en": value["title"]},
                         "symbol": {
                             "value": value["x-ogc-unit"],
-                            "type": "http://www.opengis.net/def/uom/UCUM/",
+                            "type": "http://www.opengis.net/def/uom/UCUM/",  # NOSONAR(S5332) - This is part of the EDR specification
                         },
                     },
                 }
