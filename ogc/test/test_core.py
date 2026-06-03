@@ -4,6 +4,7 @@ from ogc import podpac as pogc
 import podpac
 import pytest
 import numpy as np
+import lxml.etree
 from ogc.wcs_response_1_0_0 import Coverage
 
 # Create some podpac nodes
@@ -30,6 +31,23 @@ layer2 = pogc.Layer(
     abstract="Layer2 Data",
     group="Layers",
 )
+
+
+def test_ogc_layer_group_validation():
+    """
+    Test the group name for layer creation is sanitized to a URL safe string.
+    """
+    unsanitized_group = "-Group: 1-"
+    sanitized_group = "Group-1"
+    layer = pogc.Layer(
+        node=node1,
+        identifier="layer",
+        title="Layer",
+        abstract="Layer Data",
+        group=unsanitized_group,
+    )
+
+    assert layer.group == sanitized_group
 
 
 def test_ogc_core_get_coverage_from_id():
@@ -156,6 +174,54 @@ def test_ogc_core_handle_wms_kv_get_capabilities():
     response = ogc.handle_wms_kv(args)
     assert isinstance(response, str)
     assert "WMS_Capabilities" in response
+
+
+def test_ogc_core_handle_wms_kv_get_capabilities_hierachical_layers():
+    """
+    Test the handle_wms_kv method of the OGC class with hierarchical layers.
+    Ensure a valid GetCapabilities request returns nested layers.
+    """
+    layer_root = pogc.Layer(
+        node=node1,
+        identifier="layerRoot",
+        title="Layer Root",
+        abstract="Layer Root Data",
+    )
+    layer_nested = pogc.Layer(
+        node=node1,
+        identifier="layerNested",
+        title="Layer Nested",
+        abstract="Layer Nested Data",
+        group_path=["Parent", "Child"],
+    )
+
+    ogc = core.OGC(layers=[layer_root, layer_nested])
+    args = {
+        "request": "GetCapabilities",
+        "service": "WMS",
+        "version": "1.3.0",
+        "base_url": None,
+    }
+    response = ogc.handle_wms_kv(args)
+    assert isinstance(response, str)
+    assert "WMS_Capabilities" in response
+
+    capability = "*[local-name()='Capability']"
+    layer = "*[local-name()='Layer']"
+    title = "*[local-name()='Title']"
+    root = lxml.etree.fromstring(response.encode("utf-8"))
+
+    layers = root.xpath(f".//{capability}/{layer}/{title}/text()")
+    assert {ogc.service_group_title} == set(layers)
+
+    layers = root.xpath(f".//{capability}/{layer}/{layer}/{title}/text()")
+    assert {layer_root.title, layer_nested.group_path[0]} == set(layers)
+
+    layers = root.xpath(f".//{capability}/{layer}/{layer}/{layer}/{title}/text()")
+    assert {layer_nested.group_path[1]} == set(layers)
+
+    layers = root.xpath(f".//{capability}/{layer}/{layer}/{layer}/{layer}/{title}/text()")
+    assert {layer_nested.title} == set(layers)
 
 
 def test_ogc_core_handle_wms_kv_get_capabilities_invalid_service():

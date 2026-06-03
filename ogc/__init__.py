@@ -2,6 +2,7 @@
 OGC WMS/WCS (v1.3.0/v1.0.0) server
 """
 
+import re
 import traitlets as tl
 import datetime
 
@@ -71,6 +72,7 @@ class Layer(tl.HasTraits):
     title = tl.Unicode(default_value="An OGC Layer")
     abstract = tl.Unicode(default_value="This is an example OGC Layer")
     group = tl.Unicode(default_value="Default")
+    group_path = tl.List(trait=tl.Unicode(default_value=None, allow_none=True))
     is_fouo = tl.Bool(default_value=False)
     grid_coordinates = tl.Instance(klass=GridCoordinates, default_value=GridCoordinates())
     valid_times = tl.List(
@@ -83,6 +85,25 @@ class Layer(tl.HasTraits):
     legend_graphic_width_inches = tl.Float(default_value=0.7)  # inches
     legend_graphic_height_inches = tl.Float(default_value=2.5)  # inches
     legend_graphic_dpi = tl.Float(default_value=100)
+
+    @tl.validate("group")
+    def _validate_group(self, proposal: dict) -> str:
+        """Validate the group value to ensure it is URL safe.
+
+        Parameters
+        ----------
+        proposal: dict
+            The traitlet proposal for group.
+
+        Returns
+        -------
+        str
+            The sanitized group string.
+        """
+        validated_group = re.sub(r"[^-A-Za-z0-9_]", "-", proposal["value"])
+        validated_group = re.sub(r"-+", "-", validated_group)
+        validated_group = validated_group.strip("-")
+        return validated_group
 
     @property
     def legend_graphic_width(self):

@@ -3,6 +3,7 @@ from xml.sax.saxutils import escape
 
 import traitlets as tl
 import numpy as np
+from collections import defaultdict
 
 from ogc import ogc_common
 from ogc import settings
@@ -121,18 +122,19 @@ class Capabilities(ogc_common.XMLNode):
 
         return display_times
 
-    def coverage_layer(self, coverage):
-        xml = """       <Layer queryable="0" opaque="0" cascaded="1">\n"""
+    def coverage_layer(self, coverage, depth):
+        indent = "    "
+        xml = indent * depth + """<Layer queryable="0" opaque="0" cascaded="1">\n"""
         if coverage.identifier:
-            xml += f"            <Name>{escape(coverage.identifier)}</Name>\n"
+            xml += indent * (depth + 1) + f"<Name>{escape(coverage.identifier)}</Name>\n"
         if coverage.title:
-            xml += f"            <Title>{escape(coverage.title)}</Title>\n"
+            xml += indent * (depth + 1) + f"<Title>{escape(coverage.title)}</Title>\n"
         else:
             logger.info("Invalid layer. Missing title.")
         if coverage.abstract:
-            xml += f"            <Abstract>{escape(coverage.abstract)}</Abstract>\n"
+            xml += indent * (depth + 1) + f"<Abstract>{escape(coverage.abstract)}</Abstract>\n"
 
-        xml += self._get_CRS_and_BoundingBox()
+        xml += self._get_CRS_and_BoundingBox(depth + 1)
 
         if (
             hasattr(coverage.layer, "valid_times")
@@ -142,7 +144,8 @@ class Capabilities(ogc_common.XMLNode):
             min_time = coverage.layer.valid_times[0]
             max_time = coverage.layer.valid_times[-1]
             time_dimension_str = (
-                """            <Dimension name="TIME" units="ISO8601" default="{default_time}">{times}</Dimension>\n"""
+                indent * (depth + 1)
+                + """<Dimension name="TIME" units="ISO8601" default="{default_time}">{times}</Dimension>\n"""
             )
 
             # Find last time with seconds == 0
@@ -186,36 +189,68 @@ class Capabilities(ogc_common.XMLNode):
         )
 
         # Write the style section
-        xml += """            <Style>\n"""
-        xml += """                <Name>{}</Name>\n""".format(coverage.identifier)
-        xml += """                <Title>{}</Title>\n""".format(coverage.title)
-        xml += """                <LegendURL width="{width}" height="{height}">\n""".format(
+        xml += indent * (depth + 1) + """<Style>\n"""
+        xml += indent * (depth + 2) + """<Name>{}</Name>\n""".format(coverage.identifier)
+        xml += indent * (depth + 2) + """<Title>{}</Title>\n""".format(coverage.title)
+        xml += indent * (depth + 2) + """<LegendURL width="{width}" height="{height}">\n""".format(
             height=legend_graphic_height, width=legend_graphic_width
         )
-        xml += """                    <Format>image/png</Format>\n"""
-        xml += """                    <OnlineResource xlink:type="simple" xlink:href="{}"/>\n""".format(legend_link)
-        xml += """                </LegendURL>\n"""
-        xml += """            </Style>\n"""
-        xml += """        </Layer>\n"""
+        xml += indent * (depth + 3) + """<Format>image/png</Format>\n"""
+        xml += indent * (depth + 3) + """<OnlineResource xlink:type="simple" xlink:href="{}"/>\n""".format(legend_link)
+        xml += indent * (depth + 2) + """</LegendURL>\n"""
+        xml += indent * (depth + 1) + """</Style>\n"""
+        xml += indent * depth + """</Layer>\n"""
 
         return xml
 
-    def layers(self):
-        xml = "    <Layer>\n"
-        xml += "        <Title>{}</Title>\n".format(
-            escape(self.service_group_title) if self.service_group_title else ""
-        )
-        xml += self._get_CRS_and_BoundingBox(depth=2)
+    def render_tree(self, tree: dict, title: str | None, depth=1) -> str:
+        """Create the XML string output for the coverage tree.
 
+        Parameters
+        ----------
+        tree : dict
+            The tree to create the layer XML output for.
+        title : str | None
+            The title of the current tree layer.
+        depth : int, optional
+            The depth for indentation, by default 1.
+
+        Returns
+        -------
+        str
+            The XML layer output for the tree.
+        """
+        indent = "    "
+        xml = indent * depth + "<Layer>\n"
+        xml += indent * (depth + 1) + "<Title>{}</Title>\n".format(escape(title) if title else "")
+        xml += self._get_CRS_and_BoundingBox(depth + 1)
+
+        for child_title, child_item in tree["children"].items():
+            xml += self.render_tree(child_item, child_title, depth + 1)
+
+        for coverage in tree["coverages"]:
+            xml += self.coverage_layer(coverage, depth + 1)
+
+        xml += indent * depth + "</Layer>\n"
+        return xml
+
+    def layers(self):
         # If configured, trim layers list to layers specified in settings
         if self.limit_layers:
             self.coverages = [layer for layer in self.coverages if layer.identifier in self.layer_subset]
 
-        for coverage in self.coverages:
-            xml += self.coverage_layer(coverage)
+        coverage_tree = self.coverage_tree_item()
 
-        # end layers list
-        xml += """    </Layer>"""
+        for coverage in self.coverages:
+            group_path = coverage.layer.group_path if coverage.layer.group_path is not None else []
+
+            tree_item = coverage_tree
+            for group in group_path:
+                tree_item = tree_item["children"][group]
+
+            tree_item["coverages"].append(coverage)
+
+        xml = self.render_tree(coverage_tree, self.service_group_title)
 
         return xml
 
@@ -287,3 +322,17 @@ version="{capabilities.version}">
             ]
         )
         return output_text
+
+    @staticmethod
+    def coverage_tree_item() -> dict:
+        """Create an empty coverage tree item for hierarchical coverage structuring.
+
+        Returns
+        -------
+        dict
+            Dictionary containing coverages and sub-items in the tree.
+        """
+        return {
+            "children": defaultdict(Capabilities.coverage_tree_item),
+            "coverages": [],
+        }
