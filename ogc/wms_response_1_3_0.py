@@ -123,7 +123,21 @@ class Capabilities(ogc_common.XMLNode):
 
         return display_times
 
-    def coverage_layer(self, coverage, depth):
+    def coverage_layer(self, coverage: Coverage, depth: int) -> str:
+        """Create the XML string output for a coverage layer.
+
+        Parameters
+        ----------
+        coverage : Coverage
+            The coverage layer to create XML for.
+        depth : int
+            The depth for indentation.
+
+        Returns
+        -------
+        str
+            The XML string output for the coverage layer.
+        """
         xml = INDENT * depth + """<Layer queryable="0" opaque="0" cascaded="1">\n"""
         if coverage.identifier:
             xml += INDENT * (depth + 1) + f"<Name>{escape(coverage.identifier)}</Name>\n"
