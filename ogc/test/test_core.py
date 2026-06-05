@@ -39,8 +39,9 @@ layer2 = pogc.Layer(
         ("Group", "Group"),
         ("-Group: 1-", "Group-1"),
         ("🌍", "Default"),
-        ("æ", "Default"),
-        ("a" * 255, "Default"),
+        ("æ", "Default"),  # high ascii character
+        ("\x00", "Default"),  # null character
+        ("a" * 255, "Default"),  # oversized string
     ],
 )
 def test_ogc_layer_group_validation(unsanitized: str, sanitized: str):
