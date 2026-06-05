@@ -33,21 +33,35 @@ layer2 = pogc.Layer(
 )
 
 
-def test_ogc_layer_group_validation():
+@pytest.mark.parametrize(
+    "unsanitized, sanitized",
+    [
+        ("Group", "Group"),
+        ("-Group: 1-", "Group-1"),
+        ("🌍", "Default"),
+        ("æ", "Default"),
+        ("a" * 255, "Default"),
+    ],
+)
+def test_ogc_layer_group_validation(unsanitized: str, sanitized: str):
+    """Test the group name for layer creation is sanitized to a URL safe string.
+
+    Parameters
+    ----------
+    unsanitized : str
+        The unsanitized group.
+    sanitized : str
+        The expected sanitized output following validation.
     """
-    Test the group name for layer creation is sanitized to a URL safe string.
-    """
-    unsanitized_group = "-Group: 1-"
-    sanitized_group = "Group-1"
     layer = pogc.Layer(
         node=node1,
         identifier="layer",
         title="Layer",
         abstract="Layer Data",
-        group=unsanitized_group,
+        group=unsanitized,
     )
 
-    assert layer.group == sanitized_group
+    assert layer.group == sanitized
 
 
 def test_ogc_core_get_coverage_from_id():

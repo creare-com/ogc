@@ -68,10 +68,11 @@ class Layer(tl.HasTraits):
           see podpac.Layer for example of a concrete class.
     """
 
+    safe_group_default = "Default"
     identifier = tl.Unicode()
     title = tl.Unicode(default_value="An OGC Layer")
     abstract = tl.Unicode(default_value="This is an example OGC Layer")
-    group = tl.Unicode(default_value="Default")
+    group = tl.Unicode(default_value=safe_group_default)
     group_path = tl.List(trait=tl.Unicode(default_value=None, allow_none=True))
     is_fouo = tl.Bool(default_value=False)
     grid_coordinates = tl.Instance(klass=GridCoordinates, default_value=GridCoordinates())
@@ -88,7 +89,10 @@ class Layer(tl.HasTraits):
 
     @tl.validate("group")
     def _validate_group(self, proposal: dict) -> str:
-        """Validate the group value to ensure it is URL safe.
+        """Validate the group value to ensure it is URL safe, with a default fallback.
+
+        Allow only charcters from the following list (A-Z, a-z, 0-9, -, _, .)
+        Enforce a maximum length of 255 characters.
 
         Parameters
         ----------
@@ -98,12 +102,16 @@ class Layer(tl.HasTraits):
         Returns
         -------
         str
-            The sanitized group string.
+            The sanitized group string or safe default value.
         """
         validated_group = re.sub(r"[^-A-Za-z0-9_]", "-", proposal["value"])
         validated_group = re.sub(r"-+", "-", validated_group)
         validated_group = validated_group.strip("-")
-        return validated_group
+
+        if len(validated_group) > 0 and len(validated_group) < 255:
+            return validated_group
+
+        return self.safe_group_default
 
     @property
     def legend_graphic_width(self):
