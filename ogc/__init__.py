@@ -91,8 +91,8 @@ class Layer(tl.HasTraits):
     def _validate_group(self, proposal: dict) -> str:
         """Validate the group value to ensure it is URL safe, with a default fallback.
 
-        Allow only charcters from the following list (A-Z, a-z, 0-9, -, _, .)
-        Enforce a maximum length of 255 characters.
+        Allow only charcters from the following list (A-Z, a-z, 0-9, -, _)
+        Enforce a maximum length of 254 characters.
 
         Parameters
         ----------

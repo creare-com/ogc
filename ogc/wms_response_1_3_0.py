@@ -11,7 +11,7 @@ from ogc import settings
 logger = logging.getLogger(__name__)
 
 SERVICE_VERSION = "1.3.0"
-INDENT = "    "  # Constant for a single indentation constant
+INDENT = "    "  # Constant for a single XML indentation
 
 from ogc.wcs_response_1_0_0 import Coverage
 
