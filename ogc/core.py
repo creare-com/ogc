@@ -99,7 +99,7 @@ class OGC(tl.HasTraits):
             get_capabilities.load_from_kv(args)
             get_capabilities.validate()
         except Exception:  # noqa: B902
-            logger.error(LOAD_FAILURE, exc_info=True)
+            logger.exception(LOAD_FAILURE)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
         capabilities = self.wcs_capabilities
@@ -115,7 +115,7 @@ class OGC(tl.HasTraits):
             describe_coverage.load_from_kv(args)
             describe_coverage.validate()
         except Exception:  # noqa: B902
-            logger.error(LOAD_FAILURE, exc_info=True)
+            logger.exception(LOAD_FAILURE)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
         coverages = [self.get_coverage_from_id(identifier.value) for identifier in describe_coverage.identifiers]
@@ -129,7 +129,7 @@ class OGC(tl.HasTraits):
             get_coverage.load_from_kv(args)
             get_coverage.validate()
         except Exception:  # noqa: B902
-            logger.error(LOAD_FAILURE, exc_info=True)
+            logger.exception(LOAD_FAILURE)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
         coverage = self.get_coverage_from_id(get_coverage.identifier.value)
@@ -195,7 +195,7 @@ class OGC(tl.HasTraits):
             get_capabilities.load_from_kv(args)
             get_capabilities.validate()
         except Exception:  # noqa: B902
-            logger.error(LOAD_FAILURE, exc_info=True)
+            logger.exception(LOAD_FAILURE)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
         wms_capabilities = self.wms_capabilities
@@ -210,7 +210,7 @@ class OGC(tl.HasTraits):
             get_legend_graphic.load_from_kv(args)
             get_legend_graphic.validate()
         except Exception:  # noqa: B902
-            logger.error(LOAD_FAILURE, exc_info=True)
+            logger.exception(LOAD_FAILURE)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
         coverage = self.get_coverage_from_id(get_legend_graphic.layer.value)
@@ -228,7 +228,7 @@ class OGC(tl.HasTraits):
             get_map.load_from_kv(args)
             get_map.validate()
         except Exception:  # noqa: B902
-            logger.error(LOAD_FAILURE, exc_info=True)
+            logger.exception(LOAD_FAILURE)
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
         coverage = self.get_coverage_from_id(get_map.layer.value)
@@ -257,7 +257,7 @@ class OGC(tl.HasTraits):
         try:
             fp = coverage.layer.get_map(args)
         except Exception:  # noqa: B902
-            logger.error("Failed to get_map from layer: ", exc_info=True)
+            logger.exception("Failed to get_map from layer")
             raise WCSException(exception_text=INVALID_ARGUMENTS)
 
         fn = coverage.identifier.split(".")[-1] + ".png"
