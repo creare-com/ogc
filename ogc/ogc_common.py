@@ -1,9 +1,12 @@
 import logging
+import string
 
 import lxml
 import lxml.etree
 import numpy as np
 import traitlets as tl
+from xml.sax.saxutils import escape
+from typing import Any
 
 logger = logging.getLogger(__file__)
 
@@ -13,6 +16,28 @@ ALLOWED_SRS_VALUES = (
     "urn:ogc:def:crs:EPSG::26910",  # used in an example,
     "urn:ogc:def:crs:EPSG::4326",  # used in an example,
 )
+
+
+class EscapeFormatter(string.Formatter):
+    """Formatter that escapes all values before formatting."""
+
+    def format_field(self, value: Any, format_spec: str) -> str:
+        """Format a single field with escaping applied.
+
+        Parameters
+        ----------
+        value : Any
+            The value to be escaped and formatted.
+        format_spec : str
+            The format specification.
+
+        Returns
+        -------
+        str
+            The escaped and formatted string representation of the value.
+        """
+        escaped_value = escape(str(value))
+        return format(escaped_value, format_spec)
 
 
 class XMLNode(tl.HasTraits):
@@ -126,3 +151,23 @@ class WCSException(Exception):
 </ExceptionReport>
 """.format(self=self, exception_text=exception_text)
         return xml
+
+
+class WMTSException(WCSException):
+    """
+    WMTS Exception based on the WCS Exception.
+    This ensures it can still be caught as a WCS Exception which is the baseline handled server exception.
+    """
+
+    def __init__(
+        self,
+        exception_text="Internal application error.",
+        exception_code="NoApplicableCode",
+        locator="",
+    ):
+        """
+        exception_code: 'NoApplicableCode', 'VersionNegotiationFailed',
+        'InvalidUpdateSequence', 'MissingParameterValue', 'InvalidParameterValue',
+        'OperationNotSupported', 'TileOutOfRange'
+        """
+        super().__init__(exception_text, exception_code, locator)

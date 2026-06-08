@@ -16,7 +16,7 @@ from collections import OrderedDict
 # UPDATE VERSION HERE #
 #######################
 MAJOR = 0
-MINOR = 5
+MINOR = 6
 HOTFIX = 0
 #######################
 
@@ -57,17 +57,17 @@ def version():
         git = "git"
         try:
             subprocess.check_output([git, "--version"])
-        except Exception:
+        except (subprocess.CalledProcessError, OSError):
             git = "/usr/bin/git"
             try:
                 subprocess.check_output([git, "--version"])
-            except Exception:
+            except (subprocess.CalledProcessError, OSError):
                 return version_full
 
         version_full = subprocess.check_output([git, "describe", "--always"], cwd=CWD).strip().decode("ascii")
         version_full = version_full.replace("-", "+", 1).replace("-", ".")  # Make this consistent with PEP440
 
-    except Exception as e:
+    except (subprocess.CalledProcessError, OSError) as e:
         print("Could not determine Project version from git repo.\n" + str(e))
 
     return version_full

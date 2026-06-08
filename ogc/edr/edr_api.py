@@ -6,6 +6,8 @@ import pygeoapi.api.environmental_data_retrieval as pygeoedr
 from http import HTTPStatus
 from datetime import datetime, timezone
 from typing import Tuple, List, Dict, Any, Union
+
+from traitlets import TraitError
 from ogc import podpac as pogc
 from pygeoapi.plugin import load_plugin
 from pygeoapi.util import filter_dict_by_key_value, to_json, get_provider_by_type
@@ -394,7 +396,7 @@ class EdrAPI:
                 layer.grid_coordinates.URC.lon,
                 layer.grid_coordinates.URC.lat,
             )
-        except Exception:
+        except (AttributeError, TraitError):
             crs_extents = settings.EDR_CRS[settings.crs_84_uri_format]
             return (crs_extents["minx"], crs_extents["miny"], crs_extents["maxx"], crs_extents["maxy"])
 
