@@ -307,14 +307,14 @@ class FlaskServer(Flask):
             raise WCSException("No response for this combination of arguments.")
 
         except WCSException as e:
-            logger.error("OGC: server.ogc_render WCSException: %s", str(e), exc_info=True)
+            logger.exception("OGC: server.ogc_render WCSException: %s", str(e))
             # WCSException is raised when the client sends an invalid set of parameters.
             # Therefore it should result in a client error, in the 400 range.
             # Security scans have flagged a security concern when returning a 500 error,
             # since it might imply successful command injection.
             return respond_xml(e.to_xml(), status=400)
         except Exception as e:  # noqa: B902
-            logger.error("OGC: server.ogc_render Exception: %s", str(e), exc_info=True)
+            logger.exception("OGC: server.ogc_render Exception: %s", str(e))
             ee = WCSException()
             return respond_xml(ee.to_xml(), status=500)
 
@@ -389,10 +389,10 @@ class FlaskServer(Flask):
                     response.headers = headers
                 return response
             except WCSException as e:
-                logger.error("OGC: server.edr_render WCSException: %s", str(e), exc_info=True)
+                logger.exception("OGC: server.edr_render WCSException: %s", str(e))
                 return respond_xml(e.to_xml(), status=400)
             except Exception as e:  # noqa: B902
-                logger.error("OGC: server.edr_render Exception: %s", str(e), exc_info=True)
+                logger.exception("OGC: server.edr_render Exception: %s", str(e))
                 ee = WCSException()
                 return respond_xml(ee.to_xml(), status=500)
 

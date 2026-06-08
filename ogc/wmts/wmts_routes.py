@@ -135,7 +135,7 @@ class WmtsRoutes(tl.HasTraits):
             get_capabilities.load_from_kv(args)
             get_capabilities.validate()
         except AssertionError:
-            logger.error(LOAD_FAILURE, exc_info=True)
+            logger.exception(LOAD_FAILURE)
             raise WMTSException(exception_text=INVALID_ARGUMENTS)
 
         return capabilities.to_xml()
@@ -176,7 +176,7 @@ class WmtsRoutes(tl.HasTraits):
             get_tile.load_from_kv(args)
             get_tile.validate()
         except AssertionError:
-            logger.error(LOAD_FAILURE, exc_info=True)
+            logger.exception(LOAD_FAILURE)
             raise WMTSException(exception_text=INVALID_ARGUMENTS)
 
         coverage = self.get_coverage_from_id(get_tile.layer.value)
@@ -185,7 +185,7 @@ class WmtsRoutes(tl.HasTraits):
         try:
             fp = coverage.layer.get_map(map_args)
         except Exception:  # noqa: B902
-            logger.error("Failed to get_tile from layer: ", exc_info=True)
+            logger.exception("Failed to get_tile from layer")
             raise WMTSException(exception_text=INVALID_ARGUMENTS)
 
         fn = coverage.identifier.split(".")[-1] + ".png"
