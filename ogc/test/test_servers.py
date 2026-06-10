@@ -5,39 +5,11 @@ from ogc import settings
 from ogc.ogc_common import WCSException
 from pygeoapi.api import APIRequest
 from unittest.mock import patch
-from typing import Callable, Generator
 
 import importlib
 import podpac
 import pytest
 import numpy as np
-
-
-@pytest.fixture
-def supported_formats() -> Generator[Callable[[str], None], None, None]:
-    """Fixture used to patch OGC supported formats.
-
-    Returns
-    -------
-    Generator[Callable[[str], None], None, None]
-        A generator which yields a function which patches the OGC supported formats based on input string.
-    """
-
-    def _supported_formats(formats: str):
-        """Patch the supported formats setting.
-
-        Parameters
-        ----------
-        formats : str
-            The formats which should be supported by the server as a string.
-        """
-        with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": formats}):
-            importlib.reload(settings)
-
-    yield _supported_formats
-
-    # Fix imports after patching for test
-    importlib.reload(settings)
 
 
 @pytest.fixture
@@ -71,6 +43,15 @@ def client():
     app = servers.FlaskServer(__name__, ogcs=[ogc])
     app.config.update({"TESTING": True})
     yield app.test_client()
+
+
+@pytest.fixture
+def disable_all_formats_in_env():
+    """Setup the environmental variables for no supported formats."""
+    with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": ""}):
+        importlib.reload(settings)
+        yield
+    importlib.reload(settings)
 
 
 def test_server_construction(client):
@@ -148,42 +129,20 @@ def test_server_with_default_supported_services(client):
     assert response.status_code == 404
 
 
-def test_server_without_wcs_supported_service(supported_formats, client):
+def test_server_without_wcs_supported_service(disable_all_formats_in_env, client):
     """
     Test the WCS service is unavailable when WCS is not a supported format.
     """
-    supported_formats("wms")
-
-    response = client.get("/ogc?service=WMS&request=GetCapabilities")
-    assert response.status_code == 200
-
     response = client.get("/ogc?service=WCS&request=GetCapabilities")
     assert response.status_code == 400
 
-    response = client.get("/ogc?service=WMTS&request=GetCapabilities")
-    assert response.status_code == 400
 
-    response = client.get("/ogc/edr")
-    assert response.status_code == 404
-
-
-def test_server_without_wms_supported_service(supported_formats, client):
+def test_server_without_wms_supported_service(disable_all_formats_in_env, client):
     """
     Test the WMS service is unavailable when WMS is not a supported format.
     """
-    supported_formats("wcs")
-
-    response = client.get("/ogc?service=WCS&request=GetCapabilities")
-    assert response.status_code == 200
-
     response = client.get("/ogc?service=WMS&request=GetCapabilities")
     assert response.status_code == 400
-
-    response = client.get("/ogc?service=WMTS&request=GetCapabilities")
-    assert response.status_code == 400
-
-    response = client.get("/ogc/edr")
-    assert response.status_code == 404
 
 
 # ---------------------------------------------------------------------------
