@@ -108,6 +108,8 @@ class EdrRoutes(tl.HasTraits):
         static_path = os.path.join(os.path.dirname(pygeoapi.__file__), "static")
         if "templates" in self.api.config["server"]:
             static_path = self.api.config["server"]["templates"].get("static", static_path)
+
+        # Use a safe join to ensure the untrusted path is a subpath of the trusted static directory
         safe_path = safe_join(static_path, file_path)
         if safe_path is not None and os.path.isfile(safe_path):
             mime_type, _ = mimetypes.guess_type(safe_path)
