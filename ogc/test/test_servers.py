@@ -1,3 +1,5 @@
+import os
+import tempfile
 from ogc import servers
 from ogc import core
 from ogc import podpac as pogc
@@ -177,6 +179,26 @@ def test_edr_render_get_collections(enable_edr_in_env, client):
 def test_edr_render_post_returns_405(enable_edr_in_env, client):
     response = client.post("/ogc/edr")
     assert response.status_code == 405
+
+
+def test_edr_render_static_file_returns_200(enable_edr_in_env, client):
+    static_path = os.path.join(os.path.dirname(__file__), "..", "edr", "static")
+    file_path = static_path
+    with tempfile.NamedTemporaryFile(dir=file_path) as temp_file:
+        relative_path = os.path.relpath(temp_file.name, static_path)
+        response = client.get(f"/ogc/edr/static/{relative_path}")
+        assert os.path.exists(temp_file.name)
+        assert response.status_code == 200
+
+
+def test_edr_render_static_file_path_traversal_returns_404(enable_edr_in_env, client):
+    static_path = os.path.join(os.path.dirname(__file__), "..", "edr", "static")
+    file_path = os.path.join(os.path.dirname(__file__), "..", "edr")
+    with tempfile.NamedTemporaryFile(dir=file_path) as temp_file:
+        relative_path = os.path.relpath(temp_file.name, static_path)
+        response = client.get(f"/ogc/edr/static/{relative_path}")
+        assert os.path.exists(temp_file.name)
+        assert response.status_code == 404
 
 
 def test_edr_render_query_string_too_long_returns_400(enable_edr_in_env, client):

@@ -7,6 +7,7 @@ import pygeoapi.l10n
 import pygeoapi.plugin
 import pygeoapi.api
 from typing import Tuple, Any, Dict, Generator
+from werkzeug.security import safe_join
 from http import HTTPStatus
 from copy import deepcopy
 from pygeoapi.openapi import get_oas
@@ -107,11 +108,13 @@ class EdrRoutes(tl.HasTraits):
         static_path = os.path.join(os.path.dirname(pygeoapi.__file__), "static")
         if "templates" in self.api.config["server"]:
             static_path = self.api.config["server"]["templates"].get("static", static_path)
-        file_path = os.path.join(static_path, file_path)
-        if os.path.isfile(file_path):
-            mime_type, _ = mimetypes.guess_type(file_path)
+
+        # Use a safe join to ensure the untrusted path is a subpath of the trusted static directory
+        safe_path = safe_join(static_path, file_path)
+        if safe_path is not None and os.path.isfile(safe_path):
+            mime_type, _ = mimetypes.guess_type(safe_path)
             mime_type = mime_type or "application/octet-stream"
-            with open(file_path, "rb") as f:
+            with open(safe_path, "rb") as f:
                 content = f.read()
             return {"Content-Type": mime_type}, HTTPStatus.OK, content
         else:

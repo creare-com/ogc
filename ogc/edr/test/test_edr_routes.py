@@ -44,6 +44,20 @@ def test_edr_routes_static_files_valid_path():
     assert headers["Content-Type"] == "image/png"
 
 
+def test_edr_routes_static_files_prevents_path_traversal():
+    """Test the EDR static routes prevents path traversal."""
+    request = mock_request()
+    edr_routes = EdrRoutes(layers=[])
+
+    static_path = os.path.join(os.path.dirname(__file__), "..", "static")
+    file_path = os.path.join(os.path.dirname(__file__), "..")
+    with tempfile.NamedTemporaryFile(dir=file_path) as temp_file:
+        relative_path = os.path.relpath(temp_file.name, static_path)
+        _, status, _ = edr_routes.static_files(request, relative_path)
+        assert os.path.exists(temp_file.name)
+        assert status == HTTPStatus.NOT_FOUND
+
+
 def test_edr_routes_static_files_invalid_path():
     """Test the EDR static routes with an invalid static file path."""
     request = mock_request()
