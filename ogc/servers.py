@@ -20,6 +20,7 @@ from pygeoapi.util import get_api_rules
 from . import settings
 
 logger = logging.getLogger(__name__)
+INVALID_ARGUMENTS = "Invalid arguments"
 
 
 def _check_query_string(raw_qs: bytes) -> None:
@@ -384,7 +385,7 @@ class FlaskServer(Flask):
                     raise EDRException(
                         status_code=400,
                         exception_code="InvalidQuery",
-                        exception_text="Invalid argument provided",
+                        exception_text=INVALID_ARGUMENTS,
                     )
 
                 filtered_args["base_url"] = (

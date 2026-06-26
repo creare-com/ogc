@@ -185,7 +185,7 @@ class EDRException(Exception):
         exception_text="Internal application error.",
     ):
         """
-        exception_code: 'NoApplicableCode', 'NotFound', 'InvalidQuery'
+        exception_code: 'NoApplicableCode', 'NotFound', 'InvalidParameterValue', 'InvalidQuery'
         """
         super().__init__(status_code, exception_text, exception_code)
 
