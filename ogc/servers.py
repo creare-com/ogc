@@ -14,7 +14,7 @@ import logging
 from typing import Callable
 from werkzeug.datastructures import ImmutableMultiDict
 
-from ogc.ogc_common import WCSException
+from ogc.ogc_common import WCSException, EDRException
 from pygeoapi.api import APIRequest
 from pygeoapi.util import get_api_rules
 from . import settings
@@ -23,13 +23,13 @@ logger = logging.getLogger(__name__)
 
 
 def _check_query_string(raw_qs: bytes) -> None:
-    """Raise WCSException if the raw query string exceeds the maximum allowed length or contains invalid UTF-8."""
+    """Raise ValueError if the raw query string exceeds the maximum allowed length or contains invalid UTF-8."""
     if len(raw_qs) > settings.MAX_QUERY_STRING_BYTES:
-        raise WCSException("Request query string exceeds maximum allowed length.")
+        raise ValueError("Request query string exceeds maximum allowed length.")
     try:
         raw_qs.decode("utf-8")
     except UnicodeDecodeError:
-        raise WCSException("Request contains invalid UTF-8 encoding.")
+        raise ValueError("Request contains invalid UTF-8 encoding.")
 
 
 def respond_xml(doc, status=200):
@@ -259,8 +259,9 @@ class FlaskServer(Flask):
 
         try:
             _check_query_string(request.query_string)
-        except WCSException as e:
-            return respond_xml(e.to_xml(), status=400)
+        except ValueError as e:
+            ee = WCSException(exception_code="InvalidParameterValue", exception_text=str(e))
+            return respond_xml(ee.to_xml(), status=400)
 
         if not request.args:
             return self.home_func(ogc.endpoint)
@@ -346,8 +347,9 @@ class FlaskServer(Flask):
 
             try:
                 _check_query_string(request.query_string)
-            except WCSException as e:
-                return respond_xml(e.to_xml(), status=400)
+            except ValueError as e:
+                ee = EDRException(status_code=400, exception_code="InvalidQuery", exception_text=str(e))
+                return Response(ee.to_json(), status=ee.status_code)
 
             try:
                 # We'll filter out any characters from URl parameter values that
@@ -369,11 +371,21 @@ class FlaskServer(Flask):
                 # Replace format with its lowercase version to match pygeoapi expectations
                 query_type = kwargs.get("query_type")
                 default_format = settings.JSON
+                query_formats = [settings.HTML, settings.JSON]
+
                 if query_type is not None:
                     default_format = settings.EDR_QUERY_DEFAULTS.get(query_type, default_format)
-                format_argument = filtered_args.get("f", default_format)
-                if format_argument is not None:
-                    filtered_args["f"] = format_argument.lower()
+                    query_formats = settings.EDR_QUERY_FORMATS.get(query_type, [])
+
+                format_argument = filtered_args.get("f", default_format).lower()
+                filtered_args["f"] = format_argument
+
+                if format_argument not in [item.lower() for item in query_formats]:
+                    raise EDRException(
+                        status_code=400,
+                        exception_code="InvalidQuery",
+                        exception_text="Invalid argument provided",
+                    )
 
                 filtered_args["base_url"] = (
                     xml.sax.saxutils.escape(request.base_url, {'"': "&quot;"}) if request.base_url else None
@@ -388,13 +400,13 @@ class FlaskServer(Flask):
                 if headers:
                     response.headers = headers
                 return response
-            except WCSException as e:
-                logger.exception("OGC: server.edr_render WCSException: %s", str(e))
-                return respond_xml(e.to_xml(), status=400)
+            except EDRException as e:
+                logger.exception("OGC: server.edr_render EDRException: %s", str(e))
+                return Response(e.to_json(), status=e.status_code)
             except Exception as e:  # noqa: B902
                 logger.exception("OGC: server.edr_render Exception: %s", str(e))
-                ee = WCSException()
-                return respond_xml(ee.to_xml(), status=500)
+                ee = EDRException()
+                return Response(ee.to_json(), status=ee.status_code)
 
         return wrapper
 

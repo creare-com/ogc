@@ -1,6 +1,6 @@
 import logging
 import string
-
+import json
 import lxml
 import lxml.etree
 import numpy as np
@@ -69,12 +69,16 @@ class OutputFormat(XMLNode):
 
     value = tl.Unicode(default_value=None, allow_none=True)
 
+    # Allowed values of None mean that all values are allowed, an empty list means no values allowed
+    allowed_values = tl.List(tl.Unicode(), default_value=None, allow_none=True)
+
     def validate(self):
         assert bool(self.value) is True, "error validating output format"
-        # Can check here for specific allowed formats if desired, prob. not necessary.
 
-    def to_xml(self):
-        return "<OutputFormat>%s</OutputFormat>" % self.value
+        if self.allowed_values is not None:
+            assert self.value is not None and self.value.lower() in [
+                allowed_value.lower() for allowed_value in self.allowed_values
+            ], "error validating output format, value not in allowed values"
 
 
 class BoundingBox(XMLNode):
@@ -171,3 +175,36 @@ class WMTSException(WCSException):
         'OperationNotSupported', 'TileOutOfRange'
         """
         super().__init__(exception_text, exception_code, locator)
+
+
+class EDRException(Exception):
+    def __init__(
+        self,
+        status_code=500,
+        exception_code="NoApplicableCode",
+        exception_text="Internal application error.",
+    ):
+        """
+        exception_code: 'NoApplicableCode', 'NotFound', 'InvalidQuery'
+        """
+        super().__init__(status_code, exception_text, exception_code)
+
+        self.status_code = status_code
+        self.exception_code = exception_code
+        self.exception_text = exception_text
+
+    def to_json(self) -> str:
+        """Return JSON string for the exception.
+
+        Returns
+        -------
+        str
+            The exception in JSON string format.
+        """
+        return json.dumps(
+            {
+                "code": self.status_code,
+                "type": self.exception_code,
+                "description": self.exception_text,
+            }
+        )

@@ -206,7 +206,7 @@ class GetCoverage(ogc_common.XMLNode):
                 upper_corner=(float(bbox[3]), float(bbox[2])),
             )
 
-        self.output_format = ogc_common.OutputFormat(value=args["format"])
+        self.output_format = ogc_common.OutputFormat(value=args["format"], allowed_values=["geotiff"])
         if "time" in args:
             # TIME : time1, time2,...
             # or

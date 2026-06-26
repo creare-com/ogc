@@ -4,7 +4,7 @@ from ogc import servers
 from ogc import core
 from ogc import podpac as pogc
 from ogc import settings
-from ogc.ogc_common import WCSException
+from ogc.ogc_common import EDRException
 from pygeoapi.api import APIRequest
 from unittest.mock import patch
 
@@ -243,19 +243,19 @@ def test_edr_render_format_param_is_lowercased(enable_edr_in_env, client):
     assert captured_args.get("f") == "json"
 
 
-def test_edr_render_wcs_exception_returns_400(enable_edr_in_env, client):
+def test_edr_render_edr_exception_returns_400(enable_edr_in_env, client):
     """WCSException raised by a handler is returned as a 400 XML response."""
     app = client.application
 
-    def raises_wcs_exception(api_request, *args, **kwargs):
-        raise WCSException("test error")
+    def raises_edr_exception(api_request, *args, **kwargs):
+        raise EDRException(status_code=400, exception_code="InvalidQuery", exception_text="")
 
-    wrapper = app.edr_render(raises_wcs_exception)
+    wrapper = app.edr_render(raises_edr_exception)
     app.add_url_rule("/test_edr_wcs", endpoint="test_edr_wcs", view_func=wrapper, methods=["GET"])
 
     response = client.get("/test_edr_wcs")
     assert response.status_code == 400
-    assert "ExceptionReport" in response.get_data(as_text=True)
+    assert "InvalidQuery" in response.get_data(as_text=True)
 
 
 def test_edr_render_exception_returns_500(enable_edr_in_env, client):
@@ -270,4 +270,4 @@ def test_edr_render_exception_returns_500(enable_edr_in_env, client):
 
     response = client.get("/test_edr_exc")
     assert response.status_code == 500
-    assert "ExceptionReport" in response.get_data(as_text=True)
+    assert "NoApplicableCode" in response.get_data(as_text=True)

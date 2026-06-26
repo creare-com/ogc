@@ -9,6 +9,7 @@ from typing import Tuple, List, Dict, Any, Union
 
 from traitlets import TraitError
 from ogc import podpac as pogc
+from ogc.ogc_common import EDRException
 from pygeoapi.plugin import load_plugin
 from pygeoapi.util import filter_dict_by_key_value, to_json, get_provider_by_type
 from pygeoapi.api import API, APIRequest
@@ -64,6 +65,9 @@ class EdrAPI:
         Tuple[dict, int, str]
             Headers, HTTP Status, and Content returned as a tuple.
         """
+        if request._args.get("ui") is not None and request._args.get("ui") != "redoc":
+            raise EDRException(status_code=400, exception_code="InvalidQuery", exception_text="")
+
         html_path = "openapi/redoc.html" if request._args.get("ui") == "redoc" else "openapi/swagger.html"
         headers = request.get_response_headers(**api.api_headers)
 
