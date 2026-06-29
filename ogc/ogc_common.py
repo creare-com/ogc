@@ -16,6 +16,8 @@ ALLOWED_SRS_VALUES = (
     "urn:ogc:def:crs:EPSG::26910",  # used in an example,
     "urn:ogc:def:crs:EPSG::4326",  # used in an example,
 )
+INTERNAL_APPLICATION_ERROR = "Internal application error."
+NO_APPLICABLE_CODE = "NoApplicableCode"
 
 
 class EscapeFormatter(string.Formatter):
@@ -125,8 +127,8 @@ class TemporalSubset(XMLNode):
 class WCSException(Exception):
     def __init__(
         self,
-        exception_text="Internal application error.",
-        exception_code="NoApplicableCode",
+        exception_text=INTERNAL_APPLICATION_ERROR,
+        exception_code=NO_APPLICABLE_CODE,
         locator="",
     ):
         """
@@ -165,8 +167,8 @@ class WMTSException(WCSException):
 
     def __init__(
         self,
-        exception_text="Internal application error.",
-        exception_code="NoApplicableCode",
+        exception_text=INTERNAL_APPLICATION_ERROR,
+        exception_code=NO_APPLICABLE_CODE,
         locator="",
     ):
         """
@@ -181,8 +183,8 @@ class EDRException(Exception):
     def __init__(
         self,
         status_code=500,
-        exception_code="NoApplicableCode",
-        exception_text="Internal application error.",
+        exception_code=NO_APPLICABLE_CODE,
+        exception_text=INTERNAL_APPLICATION_ERROR,
     ):
         """
         exception_code: 'NoApplicableCode', 'NotFound', 'InvalidParameterValue', 'InvalidQuery'
