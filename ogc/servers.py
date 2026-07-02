@@ -31,6 +31,14 @@ def _check_query_string(raw_qs: bytes) -> None:
     except UnicodeDecodeError:
         raise WCSException("Request contains invalid UTF-8 encoding.")
 
+def _disable_caching(response: Response) -> Response:
+    """Set headers so browsers/proxies never cache a response, and a later user of the same
+    machine or a shared cache can never be served a stale copy of it. Applied to every
+    response uniformly (not by URL/path pattern) to close off Web Cache Deception vectors."""
+    response.headers["Cache-Control"] = "no-cache, no-store, max-age=0, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "-1"
+    return response
 
 def respond_xml(doc, status=200):
     # First, validate that XML can be parsed.
@@ -137,6 +145,8 @@ class FlaskServer(Flask):
             This function should take 1 input, an instance of the ogc.OGC class.
         """
         super().__init__(*args)
+
+        self.after_request(_disable_caching)
 
         self.home_func = home_func
         if self.home_func is None:
