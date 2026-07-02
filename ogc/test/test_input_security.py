@@ -64,6 +64,12 @@ def test_check_query_string_invalid_utf8():
         _check_query_string(b"SERVICE=WCS&COVERAGE=\xff\xfe")
 
 
+def test_check_query_string_null_byte_injection():
+    """Raises ValueError when the query string contains null bytes."""
+    with pytest.raises(ValueError, match="null bytes"):
+        _check_query_string(b"SERVICE=WCS&COVERAGE=%00")
+
+
 def test_check_query_string_valid_percent_encoded():
     """Does not raise for percent-encoded non-ASCII (all bytes are ASCII in the raw QS)."""
     _check_query_string(b"SERVICE=WCS&COVERAGE=%C3%A9")

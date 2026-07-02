@@ -24,9 +24,26 @@ INVALID_ARGUMENTS = "Invalid arguments"
 
 
 def _check_query_string(raw_qs: bytes) -> None:
-    """Raise ValueError if the raw query string exceeds the maximum allowed length or contains invalid UTF-8."""
+    """Checks the query string for malicious and invalid content.
+
+    Parameters
+    ----------
+    raw_qs : bytes
+        The raw query string bytes.
+
+    Raises
+    ------
+    ValueError
+        Raised if the query string exceeds a maximum allowed size.
+    ValueError
+        Raised if the query string contains null bytes.
+    ValueError
+        Raised if the query string contains invalid UTF-8 character.
+    """
     if len(raw_qs) > settings.MAX_QUERY_STRING_BYTES:
         raise ValueError("Request query string exceeds maximum allowed length.")
+    if b"%00" in raw_qs:
+        raise ValueError("Request contains null bytes.")
     try:
         raw_qs.decode("utf-8")
     except UnicodeDecodeError:
