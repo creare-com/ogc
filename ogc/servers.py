@@ -31,6 +31,7 @@ def _check_query_string(raw_qs: bytes) -> None:
     except UnicodeDecodeError:
         raise WCSException("Request contains invalid UTF-8 encoding.")
 
+
 def _disable_caching(response: Response) -> Response:
     """Set headers so browsers/proxies never cache a response, and a later user of the same
     machine or a shared cache can never be served a stale copy of it. Applied to every
@@ -39,6 +40,7 @@ def _disable_caching(response: Response) -> Response:
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "-1"
     return response
+
 
 def respond_xml(doc, status=200):
     # First, validate that XML can be parsed.
