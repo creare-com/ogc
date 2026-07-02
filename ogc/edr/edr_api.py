@@ -68,7 +68,7 @@ class EdrAPI:
             if isinstance(output, tuple) and len(output) == 3:
                 _, status_code, content = output
 
-                if status_code is not None and not (200 <= status_code < 300):
+                if not (200 <= status_code < 300):
                     logger.warning(f"Unsuccessful Response ({status_code}): {content}")
                     status = HTTPStatus(status_code)
                     raise EDRException(
