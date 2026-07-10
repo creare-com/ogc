@@ -1,5 +1,6 @@
 import os
 import json
+import pytest
 import numpy as np
 import tempfile
 from pygeoapi.api import APIRequest
@@ -9,6 +10,7 @@ from werkzeug.test import create_environ
 from werkzeug.wrappers import Request
 from werkzeug.datastructures import ImmutableMultiDict
 from ogc import podpac as pogc
+from ogc.ogc_common import EDRException
 from ogc.edr.edr_routes import EdrRoutes
 
 
@@ -335,14 +337,15 @@ def test_edr_routes_collection_query_invalid_type(layers: List[pogc.Layer], sing
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
-    _, status, _ = edr_routes.collection_query(
-        request,
-        collection_id=collection_id,
-        instance_id=instance_id,
-        query_type="corridor",
-    )
+    with pytest.raises(EDRException) as exception_info:
+        edr_routes.collection_query(
+            request,
+            collection_id=collection_id,
+            instance_id=instance_id,
+            query_type="corridor",
+        )
 
-    assert status == HTTPStatus.BAD_REQUEST
+    assert exception_info.value.status_code == 400
 
 
 def test_edr_routes_collection_query_invalid_bbox(layers: List[pogc.Layer], single_layer_cube_args: Dict[str, Any]):
@@ -360,14 +363,15 @@ def test_edr_routes_collection_query_invalid_bbox(layers: List[pogc.Layer], sing
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
-    _, status, _ = edr_routes.collection_query(
-        request,
-        collection_id=layers[0].group,
-        instance_id=next(iter(layers[0].time_instances())),
-        query_type="cube",
-    )
+    with pytest.raises(EDRException) as exception_info:
+        edr_routes.collection_query(
+            request,
+            collection_id=layers[0].group,
+            instance_id=next(iter(layers[0].time_instances())),
+            query_type="cube",
+        )
 
-    assert status == HTTPStatus.BAD_REQUEST
+    assert exception_info.value.status_code == 400
 
 
 def test_edr_routes_collection_query_missing_parameter(
