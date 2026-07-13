@@ -111,7 +111,7 @@ class EdrRoutes(tl.HasTraits):
 
         # Use a safe join to ensure the untrusted path is a subpath of the trusted static directory
         safe_path = safe_join(static_path, file_path)
-        if safe_path is not None and os.path.isfile(safe_path):
+        if safe_path is not None and os.path.isfile(safe_path) and not os.path.islink(safe_path):
             mime_type, _ = mimetypes.guess_type(safe_path)
             mime_type = mime_type or "application/octet-stream"
             with open(safe_path, "rb") as f:
