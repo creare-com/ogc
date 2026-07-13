@@ -3,6 +3,7 @@ import json
 import pytest
 import numpy as np
 import tempfile
+from unittest.mock import patch
 from pygeoapi.api import APIRequest
 from http import HTTPStatus
 from typing import Dict, List, Any
@@ -57,6 +58,15 @@ def test_edr_routes_static_files_prevents_path_traversal():
         relative_path = os.path.relpath(temp_file.name, static_path)
         _, status, _ = edr_routes.static_files(request, relative_path)
         assert os.path.exists(temp_file.name)
+        assert status == HTTPStatus.NOT_FOUND
+
+
+def test_edr_routes_static_files_prevents_following_symlinks():
+    """Test the EDR static routes prevents following symlinks."""
+    request = mock_request()
+    edr_routes = EdrRoutes(layers=[])
+    with patch("os.path.islink", returns=True):
+        _, status, _ = edr_routes.static_files(request, "img/logo.png")
         assert status == HTTPStatus.NOT_FOUND
 
 
