@@ -8,7 +8,6 @@ import podpac
 
 from ogc import servers, core, settings
 from ogc import podpac as pogc
-from ogc.ogc_common import WCSException
 from ogc.servers import _check_query_string
 
 # ---------------------------------------------------------------------------
@@ -42,9 +41,9 @@ def client():
 
 
 def test_check_query_string_overflow():
-    """Raises WCSException when byte length exceeds MAX_QUERY_STRING_BYTES."""
+    """Raises ValueError when byte length exceeds MAX_QUERY_STRING_BYTES."""
     oversized = b"A" * (settings.MAX_QUERY_STRING_BYTES + 1)
-    with pytest.raises(WCSException, match="maximum allowed length"):
+    with pytest.raises(ValueError, match="maximum allowed length"):
         _check_query_string(oversized)
 
 
@@ -60,9 +59,15 @@ def test_check_query_string_exactly_at_limit():
 
 
 def test_check_query_string_invalid_utf8():
-    """Raises WCSException when the query string contains raw non-UTF-8 bytes."""
-    with pytest.raises(WCSException, match="invalid UTF-8 encoding"):
+    """Raises ValueError when the query string contains raw non-UTF-8 bytes."""
+    with pytest.raises(ValueError, match="invalid UTF-8 encoding"):
         _check_query_string(b"SERVICE=WCS&COVERAGE=\xff\xfe")
+
+
+def test_check_query_string_null_byte_injection():
+    """Raises ValueError when the query string contains null bytes."""
+    with pytest.raises(ValueError, match="null bytes"):
+        _check_query_string(b"SERVICE=WCS&COVERAGE=%00")
 
 
 def test_check_query_string_valid_percent_encoded():

@@ -11,9 +11,15 @@ import os
 # Settings applied around the OGC server package.
 crs_84 = "crs:84"
 epsg_4326 = "epsg:4326"
-crs_84_uri_format = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
-crs_84h_uri_format = "http://www.opengis.net/def/crs/OGC/0/CRS84h"
-epsg_4326_uri_format = "http://www.opengis.net/def/crs/EPSG/0/4326"
+crs_84_uri_format = (
+    "http://www.opengis.net/def/crs/OGC/1.3/CRS84"  # NOSONAR(S5332) - This is part of the EDR specification
+)
+crs_84h_uri_format = (
+    "http://www.opengis.net/def/crs/OGC/0/CRS84h"  # NOSONAR(S5332) - This is part of the EDR specification
+)
+epsg_4326_uri_format = (
+    "http://www.opengis.net/def/crs/EPSG/0/4326"  # NOSONAR(S5332) - This is part of the EDR specification
+)
 
 # Default/Supported WMS CRS/SRS
 WMS_CRS = {

@@ -1,7 +1,9 @@
 import os
 import json
+import pytest
 import numpy as np
 import tempfile
+from unittest.mock import patch
 from pygeoapi.api import APIRequest
 from http import HTTPStatus
 from typing import Dict, List, Any
@@ -9,6 +11,7 @@ from werkzeug.test import create_environ
 from werkzeug.wrappers import Request
 from werkzeug.datastructures import ImmutableMultiDict
 from ogc import podpac as pogc
+from ogc.ogc_common import EDRException
 from ogc.edr.edr_routes import EdrRoutes
 
 
@@ -27,7 +30,7 @@ def mock_request(request_args: Dict[str, Any] | None = None) -> APIRequest:
         Mock API request for route testing.
     """
     request_args = request_args if request_args is not None else {}
-    environ = create_environ(base_url="http://127.0.0.1:5000/ogc/edr")
+    environ = create_environ(base_url="https://127.0.0.1:5000/ogc/edr")
     request = Request(environ)
     request.args = ImmutableMultiDict(request_args.items())
     return APIRequest(request, ["en"])
@@ -42,6 +45,29 @@ def test_edr_routes_static_files_valid_path():
 
     assert status == HTTPStatus.OK
     assert headers["Content-Type"] == "image/png"
+
+
+def test_edr_routes_static_files_prevents_path_traversal():
+    """Test the EDR static routes prevents path traversal."""
+    request = mock_request()
+    edr_routes = EdrRoutes(layers=[])
+
+    static_path = os.path.join(os.path.dirname(__file__), "..", "static")
+    file_path = os.path.join(os.path.dirname(__file__), "..")
+    with tempfile.NamedTemporaryFile(dir=file_path) as temp_file:
+        relative_path = os.path.relpath(temp_file.name, static_path)
+        _, status, _ = edr_routes.static_files(request, relative_path)
+        assert os.path.exists(temp_file.name)
+        assert status == HTTPStatus.NOT_FOUND
+
+
+def test_edr_routes_static_files_prevents_following_symlinks():
+    """Test the EDR static routes prevents following symlinks."""
+    request = mock_request()
+    edr_routes = EdrRoutes(layers=[])
+    with patch("os.path.islink", returns=True):
+        _, status, _ = edr_routes.static_files(request, "img/logo.png")
+        assert status == HTTPStatus.NOT_FOUND
 
 
 def test_edr_routes_static_files_invalid_path():
@@ -321,14 +347,15 @@ def test_edr_routes_collection_query_invalid_type(layers: List[pogc.Layer], sing
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
-    _, status, _ = edr_routes.collection_query(
-        request,
-        collection_id=collection_id,
-        instance_id=instance_id,
-        query_type="corridor",
-    )
+    with pytest.raises(EDRException) as exception_info:
+        edr_routes.collection_query(
+            request,
+            collection_id=collection_id,
+            instance_id=instance_id,
+            query_type="corridor",
+        )
 
-    assert status == HTTPStatus.BAD_REQUEST
+    assert exception_info.value.status_code == 400
 
 
 def test_edr_routes_collection_query_invalid_bbox(layers: List[pogc.Layer], single_layer_cube_args: Dict[str, Any]):
@@ -346,14 +373,15 @@ def test_edr_routes_collection_query_invalid_bbox(layers: List[pogc.Layer], sing
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
 
-    _, status, _ = edr_routes.collection_query(
-        request,
-        collection_id=layers[0].group,
-        instance_id=next(iter(layers[0].time_instances())),
-        query_type="cube",
-    )
+    with pytest.raises(EDRException) as exception_info:
+        edr_routes.collection_query(
+            request,
+            collection_id=layers[0].group,
+            instance_id=next(iter(layers[0].time_instances())),
+            query_type="cube",
+        )
 
-    assert status == HTTPStatus.BAD_REQUEST
+    assert exception_info.value.status_code == 400
 
 
 def test_edr_routes_collection_query_missing_parameter(
@@ -387,8 +415,8 @@ def test_edr_routes_collection_query_missing_parameter(
 
 def test_edr_routes_request_url_updates_configuration_url():
     """Test the EDR routes request base URL updates the configuration URL."""
-    request_url = "http://test:5000/ogc/edr/static/img/logo.png"
-    expected_config_url = "http://test:5000/ogc/edr"
+    request_url = "https://test:5000/ogc/edr/static/img/logo.png"
+    expected_config_url = "https://test:5000/ogc/edr"
     request = mock_request({"base_url": request_url})
     edr_routes = EdrRoutes(layers=[])
 

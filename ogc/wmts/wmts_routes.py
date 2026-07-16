@@ -134,7 +134,7 @@ class WmtsRoutes(tl.HasTraits):
         try:
             get_capabilities.load_from_kv(args)
             get_capabilities.validate()
-        except AssertionError:
+        except Exception:  # noqa: B902
             logger.exception(LOAD_FAILURE)
             raise WMTSException(exception_text=INVALID_ARGUMENTS)
 
@@ -175,7 +175,7 @@ class WmtsRoutes(tl.HasTraits):
         try:
             get_tile.load_from_kv(args)
             get_tile.validate()
-        except AssertionError:
+        except Exception:  # noqa: B902
             logger.exception(LOAD_FAILURE)
             raise WMTSException(exception_text=INVALID_ARGUMENTS)
 

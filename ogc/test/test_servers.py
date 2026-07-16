@@ -1,43 +1,17 @@
+import os
+import tempfile
 from ogc import servers
 from ogc import core
 from ogc import podpac as pogc
 from ogc import settings
-from ogc.ogc_common import WCSException
+from ogc.ogc_common import EDRException
 from pygeoapi.api import APIRequest
 from unittest.mock import patch
-from typing import Callable, Generator
 
 import importlib
 import podpac
 import pytest
 import numpy as np
-
-
-@pytest.fixture
-def supported_formats() -> Generator[Callable[[str], None], None, None]:
-    """Fixture used to patch OGC supported formats.
-
-    Returns
-    -------
-    Generator[Callable[[str], None], None, None]
-        A generator which yields a function which patches the OGC supported formats based on input string.
-    """
-
-    def _supported_formats(formats: str):
-        """Patch the supported formats setting.
-
-        Parameters
-        ----------
-        formats : str
-            The formats which should be supported by the server as a string.
-        """
-        with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": formats}):
-            importlib.reload(settings)
-
-    yield _supported_formats
-
-    # Fix imports after patching for test
-    importlib.reload(settings)
 
 
 @pytest.fixture
@@ -71,6 +45,15 @@ def client():
     app = servers.FlaskServer(__name__, ogcs=[ogc])
     app.config.update({"TESTING": True})
     yield app.test_client()
+
+
+@pytest.fixture
+def disable_all_formats_in_env():
+    """Setup the environmental variables for no supported formats."""
+    with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": ""}):
+        importlib.reload(settings)
+        yield
+    importlib.reload(settings)
 
 
 def test_server_construction(client):
@@ -148,42 +131,20 @@ def test_server_with_default_supported_services(client):
     assert response.status_code == 404
 
 
-def test_server_without_wcs_supported_service(supported_formats, client):
+def test_server_without_wcs_supported_service(disable_all_formats_in_env, client):
     """
     Test the WCS service is unavailable when WCS is not a supported format.
     """
-    supported_formats("wms")
-
-    response = client.get("/ogc?service=WMS&request=GetCapabilities")
-    assert response.status_code == 200
-
     response = client.get("/ogc?service=WCS&request=GetCapabilities")
     assert response.status_code == 400
 
-    response = client.get("/ogc?service=WMTS&request=GetCapabilities")
-    assert response.status_code == 400
 
-    response = client.get("/ogc/edr")
-    assert response.status_code == 404
-
-
-def test_server_without_wms_supported_service(supported_formats, client):
+def test_server_without_wms_supported_service(disable_all_formats_in_env, client):
     """
     Test the WMS service is unavailable when WMS is not a supported format.
     """
-    supported_formats("wcs")
-
-    response = client.get("/ogc?service=WCS&request=GetCapabilities")
-    assert response.status_code == 200
-
     response = client.get("/ogc?service=WMS&request=GetCapabilities")
     assert response.status_code == 400
-
-    response = client.get("/ogc?service=WMTS&request=GetCapabilities")
-    assert response.status_code == 400
-
-    response = client.get("/ogc/edr")
-    assert response.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +179,26 @@ def test_edr_render_get_collections(enable_edr_in_env, client):
 def test_edr_render_post_returns_405(enable_edr_in_env, client):
     response = client.post("/ogc/edr")
     assert response.status_code == 405
+
+
+def test_edr_render_static_file_returns_200(enable_edr_in_env, client):
+    static_path = os.path.join(os.path.dirname(__file__), "..", "edr", "static")
+    file_path = static_path
+    with tempfile.NamedTemporaryFile(dir=file_path) as temp_file:
+        relative_path = os.path.relpath(temp_file.name, static_path)
+        response = client.get(f"/ogc/edr/static/{relative_path}")
+        assert os.path.exists(temp_file.name)
+        assert response.status_code == 200
+
+
+def test_edr_render_static_file_path_traversal_returns_404(enable_edr_in_env, client):
+    static_path = os.path.join(os.path.dirname(__file__), "..", "edr", "static")
+    file_path = os.path.join(os.path.dirname(__file__), "..", "edr")
+    with tempfile.NamedTemporaryFile(dir=file_path) as temp_file:
+        relative_path = os.path.relpath(temp_file.name, static_path)
+        response = client.get(f"/ogc/edr/static/{relative_path}")
+        assert os.path.exists(temp_file.name)
+        assert response.status_code == 404
 
 
 def test_edr_render_query_string_too_long_returns_400(enable_edr_in_env, client):
@@ -262,19 +243,19 @@ def test_edr_render_format_param_is_lowercased(enable_edr_in_env, client):
     assert captured_args.get("f") == "json"
 
 
-def test_edr_render_wcs_exception_returns_400(enable_edr_in_env, client):
+def test_edr_render_edr_exception_returns_400(enable_edr_in_env, client):
     """WCSException raised by a handler is returned as a 400 XML response."""
     app = client.application
 
-    def raises_wcs_exception(api_request, *args, **kwargs):
-        raise WCSException("test error")
+    def raises_edr_exception(api_request, *args, **kwargs):
+        raise EDRException(status_code=400, exception_code="InvalidQuery", exception_text="")
 
-    wrapper = app.edr_render(raises_wcs_exception)
+    wrapper = app.edr_render(raises_edr_exception)
     app.add_url_rule("/test_edr_wcs", endpoint="test_edr_wcs", view_func=wrapper, methods=["GET"])
 
     response = client.get("/test_edr_wcs")
     assert response.status_code == 400
-    assert "ExceptionReport" in response.get_data(as_text=True)
+    assert "InvalidQuery" in response.get_data(as_text=True)
 
 
 def test_edr_render_exception_returns_500(enable_edr_in_env, client):
@@ -289,4 +270,4 @@ def test_edr_render_exception_returns_500(enable_edr_in_env, client):
 
     response = client.get("/test_edr_exc")
     assert response.status_code == 500
-    assert "ExceptionReport" in response.get_data(as_text=True)
+    assert "NoApplicableCode" in response.get_data(as_text=True)

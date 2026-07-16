@@ -1,20 +1,25 @@
 import json
+import logging
 import pyproj
 import numpy as np
 import pygeoapi.api
 import pygeoapi.api.environmental_data_retrieval as pygeoedr
+from functools import wraps
 from http import HTTPStatus
 from datetime import datetime, timezone
-from typing import Tuple, List, Dict, Any, Union
+from typing import Tuple, List, Dict, Any, Union, Callable
 
 from traitlets import TraitError
 from ogc import podpac as pogc
+from ogc.ogc_common import EDRException
 from pygeoapi.plugin import load_plugin
 from pygeoapi.util import filter_dict_by_key_value, to_json, get_provider_by_type
 from pygeoapi.api import API, APIRequest
 from pygeoapi.linked_data import jsonldify
 from .edr_provider import EdrProvider
 from .. import settings
+
+logger = logging.getLogger(__file__)
 
 
 class EdrAPI:
@@ -29,7 +34,56 @@ class EdrAPI:
     )
     SCHEMA_CLASS = "https://schemas.opengis.net/ogcapi/edr/1.1/openapi"
 
+    @staticmethod
+    def raise_edr_exception(func: Callable[..., Tuple[dict, int, str]]) -> Callable[..., Tuple[dict, int, str]]:
+        """Decorator that raises an EDRException for non-success HTTP status codes.
+
+        The decorated function must return a tuple containing (headers, status_code, contents).
+        An internal error is raised if the return does not match the expected tuple.
+        This decorator is useful to ensure output sanitization occurs before returning responses to client.
+
+        Parameters
+        ----------
+        func : Callable[..., Tuple[dict, int, str]]
+            Function returning a tuple containing (headers, status_code, contents).
+
+        Returns
+        -------
+        Callable[..., Tuple[dict, int, str]]
+            A wrapped function that validates the response status code.
+
+        Raises
+        ------
+        EDRException
+            If the returned response has a non-success status code.
+        EDRException
+            If the function did not return the expected tuple.
+        """
+
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            output = func(*args, **kwargs)
+
+            # Handle (headers, status_code, contents)
+            if isinstance(output, tuple) and len(output) == 3:
+                _, status_code, content = output
+
+                if not (200 <= status_code < 300):
+                    logger.warning(f"Unsuccessful Response ({status_code}): {content}")
+                    status = HTTPStatus(status_code)
+                    raise EDRException(
+                        status_code=status.value, exception_code=status.phrase, exception_text=status.description
+                    )
+            else:
+                logger.warning("Unhandled return type.")
+                raise EDRException()
+
+            return output
+
+        return wrapper
+
     @jsonldify
+    @raise_edr_exception
     @staticmethod
     def landing_page(api: API, request: APIRequest) -> Tuple[dict, int, str]:
         """Provide the API landing page.
@@ -48,6 +102,7 @@ class EdrAPI:
         """
         return pygeoapi.api.landing_page(api, request)
 
+    @raise_edr_exception
     @staticmethod
     def openapi_(api: API, request: APIRequest) -> Tuple[dict, int, str]:
         """Provide the OpenAPI documentation.
@@ -64,6 +119,9 @@ class EdrAPI:
         Tuple[dict, int, str]
             Headers, HTTP Status, and Content returned as a tuple.
         """
+        if request._args.get("ui") is not None and request._args.get("ui") != "redoc":
+            raise EDRException(status_code=400, exception_code="InvalidQuery", exception_text="")
+
         html_path = "openapi/redoc.html" if request._args.get("ui") == "redoc" else "openapi/swagger.html"
         headers = request.get_response_headers(**api.api_headers)
 
@@ -83,6 +141,7 @@ class EdrAPI:
         else:
             return headers, HTTPStatus.OK, api.openapi
 
+    @raise_edr_exception
     @staticmethod
     def conformance(api: API, request: APIRequest) -> Tuple[dict, int, str]:
         """Provide the conformance definition.
@@ -113,6 +172,7 @@ class EdrAPI:
         return headers, HTTPStatus.OK, to_json(conformance, api.pretty_print)
 
     @jsonldify
+    @raise_edr_exception
     @staticmethod
     def describe_collections(api: API, request: APIRequest, dataset: str | None = None) -> Tuple[dict, int, str]:
         """Provide the collection/collections metadata.
@@ -174,6 +234,7 @@ class EdrAPI:
 
         return headers, status, to_json(collection_description, api.pretty_print)
 
+    @raise_edr_exception
     @staticmethod
     def get_collection_edr_instances(
         api: API, request: APIRequest, dataset: str, instance_id: str | None = None
@@ -232,6 +293,7 @@ class EdrAPI:
 
         return headers, status, to_json(instance_description, api.pretty_print)
 
+    @raise_edr_exception
     @staticmethod
     def get_collection_edr_query(
         api: API,
@@ -494,7 +556,7 @@ class EdrAPI:
                         "label": {"en": value["title"]},
                         "symbol": {
                             "value": value["x-ogc-unit"],
-                            "type": "http://www.opengis.net/def/uom/UCUM/",
+                            "type": "http://www.opengis.net/def/uom/UCUM/",  # NOSONAR(S5332) - This is part of the EDR specification
                         },
                     },
                 }
