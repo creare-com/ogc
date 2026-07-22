@@ -1,4 +1,13 @@
 # Changelog
+## 0.6.1
+### Introduction
+Covered additional security-relevant cases.
+
+### Maintenance
+* Added input validation
+* Added exception sanitization
+* Added checks for invalid relative paths and symlinks
+
 ## 0.6.0
 
 ### Introduction
