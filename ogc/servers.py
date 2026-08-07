@@ -301,7 +301,7 @@ class FlaskServer(Flask):
             # Note the parameter with key "params" has a serialized JSON value,
             # so we allow braces, brackets, and quotes.
             # Allowed chars are:
-            #   -, A through Z, a through z, 0 through 9,
+            #   -, A through Z, a through z, 0 through 9, ^, and %
             #   and the characters + . , _ / : * { } ( ) [ ] " % ^
             allowed_chars = r'-A-Za-z0-9+.,_/:*\{\}\(\)\[\]"%^'
             match_one_unallowed_char = "[^%s]" % allowed_chars
@@ -387,7 +387,7 @@ class FlaskServer(Flask):
                 # Note the parameter with key "params" has a serialized JSON value,
                 # so we allow braces, brackets, and quotes.
                 # Allowed chars are:
-                #   -, A through Z, a through z, 0 through 9, spaces
+                #   -, A through Z, a through z, 0 through 9, spaces, ^, and %
                 #   and the characters + . , _ / : * { } ( ) [ ] "
                 allowed_chars = r'-A-Za-z0-9 +.,_/:*\{\}\(\)\[\]"%^'
                 match_one_unallowed_char = "[^%s]" % allowed_chars
