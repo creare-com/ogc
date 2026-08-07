@@ -302,8 +302,8 @@ class FlaskServer(Flask):
             # so we allow braces, brackets, and quotes.
             # Allowed chars are:
             #   -, A through Z, a through z, 0 through 9,
-            #   and the characters + . , _ / : * { } ( ) [ ] "
-            allowed_chars = r'-A-Za-z0-9+.,_/:*\{\}\(\)\[\]"'
+            #   and the characters + . , _ / : * { } ( ) [ ] " % ^
+            allowed_chars = r'-A-Za-z0-9+.,_/:*\{\}\(\)\[\]"%^'
             match_one_unallowed_char = "[^%s]" % allowed_chars
             args = {
                 # WCS standard says argument keys can come in with any
@@ -389,7 +389,7 @@ class FlaskServer(Flask):
                 # Allowed chars are:
                 #   -, A through Z, a through z, 0 through 9, spaces
                 #   and the characters + . , _ / : * { } ( ) [ ] "
-                allowed_chars = r'-A-Za-z0-9 +.,_/:*\{\}\(\)\[\]"'
+                allowed_chars = r'-A-Za-z0-9 +.,_/:*\{\}\(\)\[\]"%^'
                 match_one_unallowed_char = "[^%s]" % allowed_chars
                 filtered_args = {
                     # Convert keys to lower-case.
