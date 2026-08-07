@@ -48,6 +48,37 @@ def client():
 
 
 @pytest.fixture
+def client_with_percent_and_caret_layer():
+    """
+    Create a test client for the Flask server whose layer identifier
+    contains a % and a ^, mirroring real-world layer names such as
+    "Relative_humidity_[%]" and "Total_precipitation_[kg/(m^2)]".
+
+    Yields
+    ------
+    client : FlaskClient
+        A test client for the Flask server.
+    """
+    lat = np.linspace(90, -90, 11)
+    lon = np.linspace(-180, 180, 21)
+    data = np.random.default_rng(1).random((11, 21))
+    coords = podpac.Coordinates([lat, lon], dims=["lat", "lon"])
+    node = podpac.data.Array(source=data, coordinates=coords)
+
+    layer = pogc.Layer(
+        node=node,
+        identifier="Total_precipitation_[kg/(m^2)]_[%]",
+        title="Total Precipitation",
+        abstract="Total Precipitation Data",
+        group="Layers",
+    )
+    ogc = core.OGC(layers=[layer])
+    app = servers.FlaskServer(__name__, ogcs=[ogc])
+    app.config.update({"TESTING": True})
+    yield app.test_client()
+
+
+@pytest.fixture
 def disable_all_formats_in_env():
     """Setup the environmental variables for no supported formats."""
     with patch.dict("os.environ", {"OGC_SUPPORTED_FORMATS": ""}):
@@ -271,3 +302,76 @@ def test_edr_render_exception_returns_500(enable_edr_in_env, client):
     response = client.get("/test_edr_exc")
     assert response.status_code == 500
     assert "NoApplicableCode" in response.get_data(as_text=True)
+
+
+def test_ogc_render_percent_and_caret_are_preserved(client):
+    """% and ^ are legitimate characters in layer identifiers (e.g. units
+    like "[%]" or "[kg/(m^2)]") and must survive the KV allowlist filter
+    used by the main WMS/WCS endpoint, while characters that are genuinely
+    outside the allowlist are still stripped."""
+    captured_args = {}
+    original_handle_wms_kv = core.OGC.handle_wms_kv
+
+    def capturing(self, args):
+        captured_args.update(args)
+        return original_handle_wms_kv(self, args)
+
+    with patch.object(core.OGC, "handle_wms_kv", new=capturing):
+        client.get(
+            "/ogc",
+            query_string={
+                "SERVICE": "WMS",
+                "REQUEST": "GetLegendGraphic",
+                "VERSION": "1.3.0",
+                "LAYER": "Relative_humidity_[%]^unsafe!@#$",
+            },
+        )
+
+    layer_value = captured_args.get("layer", "")
+    # % and ^ must survive the filter...
+    assert "%" in layer_value
+    assert "^" in layer_value
+    # ...but characters outside the allowlist must still be stripped.
+    assert all(c not in layer_value for c in "!@#$")
+
+
+def test_get_map_with_percent_and_caret_in_layer_name_returns_200(client_with_percent_and_caret_layer):
+    """Regression test: a real GetMap request against a layer whose
+    identifier contains % and ^ must succeed end-to-end, rather than
+    the identifier being corrupted by the allowlist filter and failing
+    the coverage lookup."""
+    response = client_with_percent_and_caret_layer.get(
+        "/ogc",
+        query_string={
+            "SERVICE": "WMS",
+            "REQUEST": "GetMap",
+            "VERSION": "1.3.0",
+            "LAYERS": "Total_precipitation_[kg/(m^2)]_[%]",
+            "CRS": "EPSG:4326",
+            "BBOX": "-180,-90,180,90",
+            "FORMAT": "image/png",
+            "HEIGHT": 512,
+            "WIDTH": 512,
+        },
+    )
+    assert response.status_code == 200
+    assert response.content_type == "image/png"
+
+
+def test_get_legend_graphic_with_percent_and_caret_in_layer_name_returns_200(
+    client_with_percent_and_caret_layer,
+):
+    """Regression test: a real GetLegendGraphic request against a layer
+    whose identifier contains % and ^ must succeed end-to-end."""
+    response = client_with_percent_and_caret_layer.get(
+        "/ogc",
+        query_string={
+            "SERVICE": "WMS",
+            "REQUEST": "GetLegendGraphic",
+            "VERSION": "1.3.0",
+            "LAYER": "Total_precipitation_[kg/(m^2)]_[%]",
+            "FORMAT": "image/png",
+        },
+    )
+    assert response.status_code == 200
+    assert response.content_type == "image/png"
