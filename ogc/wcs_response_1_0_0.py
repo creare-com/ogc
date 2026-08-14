@@ -174,7 +174,7 @@ class CoverageDescription(ogc_common.XMLNode):
         xml += "\n".join(
             [
                 "            <wcs:requestResponseCRSs>{epsg}</wcs:requestResponseCRSs>".format(epsg=epsg.upper())
-                for epsg in list(settings.WCS_CRS.keys())
+                for epsg in settings.WCS_CRS.keys()
             ]
         )
         xml += """

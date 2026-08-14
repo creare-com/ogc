@@ -328,12 +328,12 @@ class EdrAPI:
         return pygeoedr.get_collection_edr_query(api, request, dataset, instance, query_type, location_id)
 
     @staticmethod
-    def _temporal_extents(times: List[Union[np.datetime64, datetime]], trs: str | None) -> Dict[str, Any]:
+    def _temporal_extents(times: List[np.datetime64 | datetime], trs: str | None) -> Dict[str, Any]:
         """Get the temporal extents for the provided times and reference system.
 
         Parameters
         ----------
-        times : List[Union[np.datetime64, datetime]]
+        times : List[np.datetime64 | datetime]
             Times used to create the temporal extent.
         trs : str | None
             The reference system for the times.

@@ -227,16 +227,16 @@ def test_ogc_core_handle_wms_kv_get_capabilities_hierachical_layers():
     root = lxml.etree.fromstring(response.encode("utf-8"))
 
     layers = root.xpath(f".//{capability}/{layer}/{title}/text()")
-    assert {ogc.service_group_title} == set(layers)
+    assert set(layers) == {ogc.service_group_title}
 
     layers = root.xpath(f".//{capability}/{layer}/{layer}/{title}/text()")
-    assert {layer_root.title, layer_nested.group_path[0]} == set(layers)
+    assert set(layers) == {layer_root.title, layer_nested.group_path[0]}
 
     layers = root.xpath(f".//{capability}/{layer}/{layer}/{layer}/{title}/text()")
-    assert {layer_nested.group_path[1]} == set(layers)
+    assert set(layers) == {layer_nested.group_path[1]}
 
     layers = root.xpath(f".//{capability}/{layer}/{layer}/{layer}/{layer}/{title}/text()")
-    assert {layer_nested.title} == set(layers)
+    assert set(layers) == {layer_nested.title}
 
 
 def test_ogc_core_handle_wms_kv_get_capabilities_invalid_service():

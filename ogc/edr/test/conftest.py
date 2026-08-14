@@ -62,7 +62,7 @@ def set_env_vars():
     importlib.reload(settings)
 
 
-@pytest.fixture()
+@pytest.fixture
 def layers() -> List[pogc.Layer]:
     """List of test layers.
 
@@ -74,7 +74,7 @@ def layers() -> List[pogc.Layer]:
     return [layer1, layer2]
 
 
-@pytest.fixture()
+@pytest.fixture
 def layers_no_instance() -> List[pogc.Layer]:
     """List of test layers without instances.
 
@@ -86,7 +86,7 @@ def layers_no_instance() -> List[pogc.Layer]:
     return [layer3]
 
 
-@pytest.fixture()
+@pytest.fixture
 def single_layer_cube_args() -> Dict[str, Any]:
     """Dictionary of valid request arguments that align to a single test layer cube request.
 
@@ -104,7 +104,7 @@ def single_layer_cube_args() -> Dict[str, Any]:
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def single_layer_cube_args_internal() -> Dict[str, Any]:
     """Dictionary of valid arguments that align to a single test layer request with internal pygeoapi keys.
 
@@ -123,7 +123,7 @@ def single_layer_cube_args_internal() -> Dict[str, Any]:
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def single_layer_cube_args_no_instance_internal() -> Dict[str, Any]:
     """Dictionary of valid arguments that align to a single non-instance test layer request with internal pygeoapi keys.
 
