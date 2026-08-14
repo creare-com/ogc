@@ -7,7 +7,7 @@ import pygeoapi.api.environmental_data_retrieval as pygeoedr
 from functools import wraps
 from http import HTTPStatus
 from datetime import datetime, timezone
-from typing import Tuple, List, Dict, Any, Union, Callable
+from typing import Tuple, List, Dict, Any, Callable
 
 from traitlets import TraitError
 from ogc import podpac as pogc
