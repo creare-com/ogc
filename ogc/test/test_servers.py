@@ -19,7 +19,7 @@ def client():
     """
     Create a test client for the Flask server.
 
-    Yields
+    Returns
     ------
     client : FlaskClient
         A test client for the Flask server.
@@ -44,7 +44,7 @@ def client():
     # Create a FlaskServer instance
     app = servers.FlaskServer(__name__, ogcs=[ogc])
     app.config.update({"TESTING": True})
-    yield app.test_client()
+    return app.test_client()
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def client_with_percent_and_caret_layer():
     contains a % and a ^, mirroring real-world layer names such as
     "Relative_humidity_[%]" and "Total_precipitation_[kg/(m^2)]".
 
-    Yields
+    Returns
     ------
     client : FlaskClient
         A test client for the Flask server.
@@ -75,7 +75,7 @@ def client_with_percent_and_caret_layer():
     ogc = core.OGC(layers=[layer])
     app = servers.FlaskServer(__name__, ogcs=[ogc])
     app.config.update({"TESTING": True})
-    yield app.test_client()
+    return app.test_client()
 
 
 @pytest.fixture

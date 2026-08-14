@@ -372,12 +372,13 @@ def test_edr_routes_collection_query_invalid_bbox(layers: List[pogc.Layer], sing
     single_layer_cube_args["bbox"] = "invalid"
     request = mock_request(single_layer_cube_args)
     edr_routes = EdrRoutes(layers=layers)
+    instance = next(iter(layers[0].time_instances()))
 
     with pytest.raises(EDRException) as exception_info:
         edr_routes.collection_query(
             request,
             collection_id=layers[0].group,
-            instance_id=next(iter(layers[0].time_instances())),
+            instance_id=instance,
             query_type="cube",
         )
 

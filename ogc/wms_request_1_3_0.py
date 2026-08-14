@@ -69,7 +69,7 @@ class GetMap(ogc_common.XMLNode):
         lons = [self.bbox.lower_corner[0], self.bbox.upper_corner[0]]
         lats = [self.bbox.lower_corner[1], self.bbox.upper_corner[1]]
         bbox = lons + lats
-        if any([abs(round(x, 9)) > 20037508.342789244 for x in bbox]):
+        if any(abs(round(x, 9)) > 20037508.342789244 for x in bbox):
             raise ogc_common.WCSException(
                 exception_code="InvalidParameterValue",
                 locator="BBOX",
