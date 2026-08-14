@@ -1,4 +1,9 @@
 # Changelog
+## 1.0.0
+Summary release of all features since inception.
+
+No changes since 0.6.1.
+
 ## 0.6.1
 ### Introduction
 Covered additional security-relevant cases.
