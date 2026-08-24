@@ -17,6 +17,13 @@ RUN addgroup --gid "${HOST_GID}" "${HOST_USER}" \
     && usermod -aG sudo "${HOST_USER}" \
     && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
+# create & activate venv
+ENV VIRTUAL_ENV=/app/.venv
+RUN /usr/local/bin/python3 -m venv "$VIRTUAL_ENV"
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV LD_LIBRARY_PATH="$VIRTUAL_ENV/lib:$LD_LIBRARY_PATH"
+RUN chown -R "${HOST_USER}" /app
+
 ENV HOME /home/${HOST_USER}
 ENV TMPDIR=/tmp
 WORKDIR /home/${HOST_USER}
