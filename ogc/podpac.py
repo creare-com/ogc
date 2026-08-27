@@ -88,31 +88,31 @@ class Layer(ogc.Layer):
         if self.node is None:
             return None
 
-        coords_list = []
+        output_coordinates_list = []
         spatial_dims = ["lat", "lon"]
+        coordinates_list = self.node.find_coordinates()
 
-        coordinates = self.node.find_coordinates()
-
-        if len(coordinates) == 0:
+        if len(coordinates_list) == 0:
             return None
 
         # Only use one spatial coordinate source
-        coordinate_temp = coordinates[0]
+        spatial_coordinates = coordinates_list[0]
         for dim in spatial_dims:
-            coords_list.append(
+            output_coordinates_list.append(
                 Coordinates(
-                    [coordinate_temp[dim].coordinates],
+                    [spatial_coordinates[dim].coordinates],
                     dims=[dim],
-                    crs=coordinate_temp.crs,
+                    crs=spatial_coordinates.crs,
                 )
             )
 
-        # Use all sources for remaining dimensions, removing duplicates
-        remaining_coords = union([coords.drop(spatial_dims) for coords in coordinates])
-        coords_list.append(remaining_coords)
+        # Use all sources for remaining dimensions, removing duplicates and enforce matching CRS
+        remaining_coords = union(
+            [coords.drop(spatial_dims).transform(spatial_coordinates.crs) for coords in coordinates_list]
+        )
+        output_coordinates_list.append(remaining_coords)
 
-        # Merge with bypass on CRS validation, this will use spatial coordinates CRS
-        return merge_dims(coords_list, False)
+        return merge_dims(output_coordinates_list)
 
     def get_units(self) -> str | None:
         """Retrieve the units from the node.
