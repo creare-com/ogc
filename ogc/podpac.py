@@ -111,7 +111,8 @@ class Layer(ogc.Layer):
         remaining_coords = union([coords.drop(spatial_dims) for coords in coordinates])
         coords_list.append(remaining_coords)
 
-        return merge_dims(coords_list)
+        # Merge with bypass on CRS validation, this will use spatial coordinates CRS
+        return merge_dims(coords_list, False)
 
     def get_units(self) -> str | None:
         """Retrieve the units from the node.
