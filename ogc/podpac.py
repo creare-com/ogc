@@ -4,7 +4,7 @@ Podpac implementations of needed OGC interfaces
 
 import ogc
 import podpac
-from podpac.core.coordinates import Coordinates
+from podpac.core.coordinates import Coordinates, union, merge_dims
 import traitlets as tl
 from typing import List
 from matplotlib import pyplot as plt
@@ -88,19 +88,30 @@ class Layer(ogc.Layer):
         if self.node is None:
             return None
 
-        coordinates_list = self.node.find_coordinates()
-        dimension_set = set()
-        coordinates = None
+        coords_list = []
+        spatial_dims = ["lat", "lon"]
 
-        for coords in coordinates_list:
-            dimension_set.update(coords.udims)
-            if coordinates is None or len(coords.udims) > len(coordinates.udims):
-                coordinates = coords
+        coordinates = self.node.find_coordinates()
 
-        if coordinates is not None and not all(dim in coordinates.udims for dim in dimension_set):
-            raise ValueError("Not all node coordinate dimensions contained in the layer coordinates.")
+        if len(coordinates) == 0:
+            return None
 
-        return coordinates
+        # Only use one spatial coordinate source
+        coordinate_temp = coordinates[0]
+        for dim in spatial_dims:
+            coords_list.append(
+                Coordinates(
+                    [coordinate_temp[dim].coordinates],
+                    dims=[dim],
+                    crs=coordinate_temp.crs,
+                )
+            )
+
+        # Use all sources for remaining dimensions, removing duplicates
+        remaining_coords = union([coords.drop(spatial_dims) for coords in coordinates])
+        coords_list.append(remaining_coords)
+
+        return merge_dims(coords_list)
 
     def get_units(self) -> str | None:
         """Retrieve the units from the node.
