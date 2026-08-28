@@ -11,7 +11,7 @@ from ogc import core
 from ogc import servers
 from ogc import settings
 from ogc import podpac as pogc
-from ogc.settings import EDR_TIME_INSTANCE_DIMENSION
+from ogc.settings import EDR_TIME_INSTANCE_DIMENSION, crs_84_uri_format
 
 lat = np.linspace(90, -90, 11)
 lon = np.linspace(-180, 180, 21)
@@ -73,7 +73,7 @@ def client():
     """
     Create a test client for the Flask server.
 
-    Yields
+    Returns
     ------
     client : FlaskClient
         A test client for the Flask server.
@@ -84,7 +84,7 @@ def client():
     # Create a FlaskServer instance
     app = servers.FlaskServer(__name__, ogcs=[ogc])
     app.config.update({"TESTING": True})
-    yield app.test_client()
+    return app.test_client()
 
 
 def make_valid_ogc_wms_get_capabilities_args() -> dict:
@@ -332,7 +332,7 @@ def make_valid_ogc_edr_static_cube_args(layer: str) -> dict:
     return {
         "f": "CoverageJSON",
         "bbox": "-180,-90,180,90",
-        "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "crs": crs_84_uri_format,
         "parameter-name": layer,
         "resolution-x": 512,
         "resolution-y": 512,
@@ -355,7 +355,7 @@ def make_valid_ogc_edr_static_area_args(layer: str) -> dict:
     return {
         "f": "CoverageJSON",
         "coords": "POLYGON((-180 90, -180 -90, 180 -90, 180 90, -180 90))",
-        "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "crs": crs_84_uri_format,
         "parameter-name": layer,
         "resolution-x": 512,
         "resolution-y": 512,
@@ -378,7 +378,7 @@ def make_valid_ogc_edr_static_position_args(layer: str) -> dict:
     return {
         "f": "CoverageJSON",
         "coords": "POINT(40 50)",
-        "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "crs": crs_84_uri_format,
         "parameter-name": layer,
     }
 
@@ -401,7 +401,7 @@ def make_valid_ogc_edr_instance_cube_args(layer: str, time: str) -> dict:
     return {
         "f": "CoverageJSON",
         "bbox": "-180,-90,180,90",
-        "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "crs": crs_84_uri_format,
         "datetime": time,
         "parameter-name": layer,
         "resolution-x": 512,
@@ -427,7 +427,7 @@ def make_valid_ogc_edr_instance_area_args(layer: str, time: str) -> dict:
     return {
         "f": "CoverageJSON",
         "coords": "POLYGON((-180 90, -180 -90, 180 -90, 180 90, -180 90))",
-        "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "crs": crs_84_uri_format,
         "datetime": time,
         "parameter-name": layer,
         "resolution-x": 512,
@@ -453,7 +453,7 @@ def make_valid_ogc_edr_instance_position_args(layer: str, time: str) -> dict:
     return {
         "f": "CoverageJSON",
         "coords": "POINT(40 50)",
-        "crs": "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
+        "crs": crs_84_uri_format,
         "datetime": time,
         "parameter-name": layer,
     }

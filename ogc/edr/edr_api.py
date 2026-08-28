@@ -7,7 +7,7 @@ import pygeoapi.api.environmental_data_retrieval as pygeoedr
 from functools import wraps
 from http import HTTPStatus
 from datetime import datetime, timezone
-from typing import Tuple, List, Dict, Any, Union, Callable
+from typing import Tuple, List, Dict, Any, Callable
 
 from traitlets import TraitError
 from ogc import podpac as pogc
@@ -328,12 +328,12 @@ class EdrAPI:
         return pygeoedr.get_collection_edr_query(api, request, dataset, instance, query_type, location_id)
 
     @staticmethod
-    def _temporal_extents(times: List[Union[np.datetime64, datetime]], trs: str | None) -> Dict[str, Any]:
+    def _temporal_extents(times: List[np.datetime64 | datetime], trs: str | None) -> Dict[str, Any]:
         """Get the temporal extents for the provided times and reference system.
 
         Parameters
         ----------
-        times : List[Union[np.datetime64, datetime]]
+        times : List[np.datetime64 | datetime]
             Times used to create the temporal extent.
         trs : str | None
             The reference system for the times.

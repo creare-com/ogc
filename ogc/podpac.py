@@ -4,7 +4,7 @@ Podpac implementations of needed OGC interfaces
 
 import ogc
 import podpac
-from podpac.core.coordinates import Coordinates
+from podpac.core.coordinates import Coordinates, union, merge_dims
 import traitlets as tl
 from typing import List
 from matplotlib import pyplot as plt
@@ -80,27 +80,50 @@ class Layer(ogc.Layer):
     def get_coordinates(self) -> Coordinates | None:
         """Retrieve the coordinates from the node.
 
+        This enforces that all coordinates implement unstacked latitude and longitude dimensions.
+
         Returns
         -------
         Coordinates | None
             Coordinates from the node or None if not found.
+
+        Raises
+        ------
+        ValueError
+            If any coordinates do not have unstacked latitude and longitude dimensions.
         """
         if self.node is None:
             return None
 
+        output_coordinates_list = []
+        shared_dims = ["lat", "lon"]
         coordinates_list = self.node.find_coordinates()
-        dimension_set = set()
-        coordinates = None
 
-        for coords in coordinates_list:
-            dimension_set.update(coords.udims)
-            if coordinates is None or len(coords.udims) > len(coordinates.udims):
-                coordinates = coords
+        if len(coordinates_list) == 0:
+            return None
 
-        if coordinates is not None and not all(dim in coordinates.udims for dim in dimension_set):
-            raise ValueError("Not all node coordinate dimensions contained in the layer coordinates.")
+        # Verify all coordinates define unstacked latitude and longitude
+        if not all(dim in coordinates.dims for coordinates in coordinates_list for dim in shared_dims):
+            raise ValueError("Invalid dimensions for coordinate retrieval.")
 
-        return coordinates
+        # Only use one source for shared coordinates
+        shared_coordinates_source = coordinates_list[0]
+        for dim in shared_dims:
+            output_coordinates_list.append(
+                Coordinates(
+                    [shared_coordinates_source[dim].coordinates],
+                    dims=[dim],
+                    crs=shared_coordinates_source.crs,
+                )
+            )
+
+        # Use all sources for remaining dimensions, removing duplicates and enforce matching CRS
+        remaining_coords = union(
+            [coords.drop(shared_dims).transform(shared_coordinates_source.crs) for coords in coordinates_list]
+        )
+        output_coordinates_list.append(remaining_coords)
+
+        return merge_dims(output_coordinates_list)
 
     def get_units(self) -> str | None:
         """Retrieve the units from the node.

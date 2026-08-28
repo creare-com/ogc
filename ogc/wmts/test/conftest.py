@@ -35,7 +35,7 @@ layer2 = pogc.Layer(
 )
 
 
-@pytest.fixture()
+@pytest.fixture
 def layers() -> List[pogc.Layer]:
     """List of test layers.
 
@@ -47,7 +47,7 @@ def layers() -> List[pogc.Layer]:
     return [layer1, layer2]
 
 
-@pytest.fixture()
+@pytest.fixture
 def coverages() -> List[Coverage]:
     """List of coverages based on layers.
 

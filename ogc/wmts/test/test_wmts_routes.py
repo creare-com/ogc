@@ -51,7 +51,8 @@ def test_handle_wmts_kv_get_capabilities_from_ogc_core(layers: List[pogc.Layer])
     }
     response = ogc.handle_wmts_kv(args)
     assert isinstance(response, str)
-    assert "Capabilities" in response and "wmts/1.0" in response
+    assert "Capabilities" in response
+    assert "wmts/1.0" in response
 
 
 def test_handle_kv_get_capabilities(coverages: List[Coverage]):
@@ -71,7 +72,8 @@ def test_handle_kv_get_capabilities(coverages: List[Coverage]):
     }
     response = wmts_routes.handle_kv(args)
     assert isinstance(response, str)
-    assert "Capabilities" in response and "wmts/1.0" in response
+    assert "Capabilities" in response
+    assert "wmts/1.0" in response
 
 
 def test_handle_kv_get_capabilities_invalid_service(coverages: List[Coverage]):

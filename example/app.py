@@ -110,13 +110,13 @@ app = servers.FlaskServer(__name__, ogcs=[NonFouoOGC, FouoOGC], home_func=api_ho
 
 
 # add in some other endpoints.
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
     return """This is an example OGC flask app.
     See <a href="/ogc_full"> FULL </a> and <a href="/ogc"> PARTIAL </a> endpoints."""
 
 
-@app.route("/layers/<layer>")
+@app.route("/layers/<layer>", methods=["GET"])
 def check_layers(layer):
     match_object = re.match("[a-zA-Z0-9]+", layer)
 

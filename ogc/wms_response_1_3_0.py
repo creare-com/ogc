@@ -169,7 +169,7 @@ class Capabilities(ogc_common.XMLNode):
                     None,
                 )
             except AttributeError:
-                latest_lis_time = next((t for t in reversed(coverage.layer.valid_times)), None)
+                latest_lis_time = next((reversed(coverage.layer.valid_times)), None)
 
             if latest_lis_time is not None:
                 # default to latest LIS time, if available
@@ -303,7 +303,7 @@ version="{capabilities.version}">
             "\n".join(
                 [
                     INDENT * depth + """<CRS>{epsg}</CRS>""".format(epsg=epsg.upper())
-                    for epsg, bbox in list(settings.WMS_CRS.items())
+                    for epsg, bbox in settings.WMS_CRS.items()
                 ]
             )
             + "\n"
@@ -329,7 +329,7 @@ version="{capabilities.version}">
                     maxx=Capabilities._format_number(bbox["maxx"]),
                     maxy=Capabilities._format_number(bbox["maxy"]),
                 )
-                for epsg, bbox in list(settings.WMS_CRS.items())
+                for epsg, bbox in settings.WMS_CRS.items()
             ]
         )
         return output_text

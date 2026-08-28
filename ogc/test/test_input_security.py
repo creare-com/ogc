@@ -32,7 +32,7 @@ def client():
     ogc_instance = core.OGC(layers=[layer])
     app = servers.FlaskServer(__name__, ogcs=[ogc_instance])
     app.config["TESTING"] = True
-    yield app.test_client()
+    return app.test_client()
 
 
 # ---------------------------------------------------------------------------
