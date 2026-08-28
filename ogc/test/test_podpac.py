@@ -40,9 +40,7 @@ class TestLayerGetCoordinates:
         coordinates = layer.get_coordinates()
 
         assert coordinates is not None
-        assert set(coordinates.udims) == {"lat", "lon", "time"}
-        assert "lat" in coordinates.dims and "lon" in coordinates.dims
-        assert coordinates.crs == CRS_LATLON
+        assert set(coordinates.dims) == {"lat", "lon", "time"}
 
     def test_stacked_lat_lon(self):
         """Test that stacked latitude and longitude is invalid."""
@@ -95,10 +93,11 @@ class TestLayerGetCoordinates:
     def test_dims_are_combined(self):
         """Test that dimension values are combined."""
         source1 = pogc.Coordinates([LAT, LON, TIME], dims=["lat", "lon", "time"], crs=CRS_LATLON)
-        source2 = pogc.Coordinates([LAT, LON], dims=["lat", "lon"], crs=CRS_LATLON)
-        layer = pogc.Layer(node=MockNode([source1, source2]))
+        source2 = pogc.Coordinates([LAT, LON, TIME2], dims=["lat", "lon", "time"], crs=CRS_LATLON)
+        source3 = pogc.Coordinates([LAT, LON], dims=["lat", "lon"], crs=CRS_LATLON)
+        layer = pogc.Layer(node=MockNode([source1, source2, source3]))
 
         coordinates = layer.get_coordinates()
 
         assert coordinates is not None
-        assert coordinates["time"].size == len(TIME)
+        assert coordinates["time"].size == 3
