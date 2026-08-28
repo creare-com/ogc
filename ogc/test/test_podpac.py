@@ -93,7 +93,7 @@ class TestLayerGetCoordinates:
         assert coordinates["time"].size == len(TIME)
 
     def test_dims_are_combined(self):
-        """Test that duplicate values are removed."""
+        """Test that dimension values are combined."""
         source1 = pogc.Coordinates([LAT, LON, TIME], dims=["lat", "lon", "time"], crs=CRS_LATLON)
         source2 = pogc.Coordinates([LAT, LON], dims=["lat", "lon"], crs=CRS_LATLON)
         layer = pogc.Layer(node=MockNode([source1, source2]))
