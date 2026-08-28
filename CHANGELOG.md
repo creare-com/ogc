@@ -1,4 +1,14 @@
 # Changelog
+## 1.0.1
+### Introduction
+Address SonarQube findings and fix coordinate retrieval for layers.
+
+### Maintenance
+* Addressed SonarQube findings.
+
+### Bugfixes
+* Fixed layer coordinate retrieval to allow multiple coordinates in a list to be combined together.
+
 ## 1.0.0
 Summary release of all features since inception.
 
