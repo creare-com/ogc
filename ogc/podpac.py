@@ -80,35 +80,46 @@ class Layer(ogc.Layer):
     def get_coordinates(self) -> Coordinates | None:
         """Retrieve the coordinates from the node.
 
+        This enforces that all coordinates implement unstacked latitude and longitude dimensions.
+
         Returns
         -------
         Coordinates | None
             Coordinates from the node or None if not found.
+
+        Raises
+        ------
+        ValueError
+            If any coordinates do not have unstacked latitude and longitude dimensions.
         """
         if self.node is None:
             return None
 
         output_coordinates_list = []
-        spatial_dims = ["lat", "lon"]
+        shared_dims = ["lat", "lon"]
         coordinates_list = self.node.find_coordinates()
 
         if len(coordinates_list) == 0:
             return None
 
-        # Only use one spatial coordinate source
-        spatial_coordinates = coordinates_list[0]
-        for dim in spatial_dims:
+        # Verify all coordinates define unstacked latitude and longitude
+        if not all(dim in coordinates.dims for coordinates in coordinates_list for dim in shared_dims):
+            raise ValueError("Invalid dimensions for coordinate retrieval.")
+
+        # Only use one source for shared coordinates
+        shared_coordinates_source = coordinates_list[0]
+        for dim in shared_dims:
             output_coordinates_list.append(
                 Coordinates(
-                    [spatial_coordinates[dim].coordinates],
+                    [shared_coordinates_source[dim].coordinates],
                     dims=[dim],
-                    crs=spatial_coordinates.crs,
+                    crs=shared_coordinates_source.crs,
                 )
             )
 
         # Use all sources for remaining dimensions, removing duplicates and enforce matching CRS
         remaining_coords = union(
-            [coords.drop(spatial_dims).transform(spatial_coordinates.crs) for coords in coordinates_list]
+            [coords.drop(shared_dims).transform(shared_coordinates_source.crs) for coords in coordinates_list]
         )
         output_coordinates_list.append(remaining_coords)
 
