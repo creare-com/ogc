@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 import traitlets as tl
 from datetime import datetime
 from xml.sax.saxutils import escape
@@ -215,20 +216,19 @@ version="{version}">
         coordinates = coverage.layer.get_coordinates()
         extra_dims = [dim for dim in coordinates.udims if dim not in ["lat", "lon"]]
         for extra_dim in extra_dims:
-            if coordinates[extra_dim].coordinates.size > 0:
+            unique_coord_array = np.unique(coordinates[extra_dim].coordinates)
+            if unique_coord_array.size > 0:
                 units = "number"
                 if extra_dim == "alt":
                     units = coordinates.alt_units if coordinates.alt_units is not None else units
-                elif self._is_iso_datetime(str(coordinates[extra_dim].coordinates[-1])):
+                elif self._is_iso_datetime(str(unique_coord_array[-1])):
                     units = "ISO8601"
 
                 xml += self.indent * (depth + 1) + """<Dimension>\n"""
                 xml += self.indent * (depth + 2) + escape_format("""<ows:Identifier>{}</ows:Identifier>\n""", extra_dim)
                 xml += self.indent * (depth + 2) + escape_format("""<UOM>{}</UOM>\n""", units)
-                xml += self.indent * (depth + 2) + escape_format(
-                    """<Default>{}</Default>\n""", coordinates[extra_dim].coordinates[-1]
-                )
-                for value in coordinates[extra_dim].coordinates:
+                xml += self.indent * (depth + 2) + escape_format("""<Default>{}</Default>\n""", unique_coord_array[-1])
+                for value in unique_coord_array:
                     xml += self.indent * (depth + 2) + escape_format("""<Value>{}</Value>\n""", value)
                 xml += self.indent * (depth + 1) + """</Dimension>\n"""
 
