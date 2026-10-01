@@ -239,6 +239,47 @@ def test_ogc_core_handle_wms_kv_get_capabilities_hierachical_layers():
     assert set(layers) == {layer_nested.title}
 
 
+def test_ogc_core_handle_wms_kv_get_capabilities_keyword_list():
+    """
+    Test the handle_wms_kv method of the OGC class with service and layer keyword lists.
+    """
+    layer_keywords = pogc.Layer(
+        node=node1,
+        identifier="Layer Keyword",
+        keyword_list=["Layer Keyword 1", "Layer Keyword 2"],
+    )
+
+    ogc = core.OGC(layers=[layer_keywords, layer1], service_keyword_list=["Service Keyword 1", "Service Keyword 2"])
+    args = {
+        "request": "GetCapabilities",
+        "service": "WMS",
+        "version": "1.3.0",
+        "base_url": None,
+    }
+    response = ogc.handle_wms_kv(args)
+    assert isinstance(response, str)
+    assert "WMS_Capabilities" in response
+
+    service = "*[local-name()='Service']"
+    layer = "*[local-name()='Layer']"
+    name = "*[local-name()='Name']"
+    keyword_list = "*[local-name()='KeywordList']"
+    keyword = "*[local-name()='Keyword']"
+    root = lxml.etree.fromstring(response.encode("utf-8"))
+
+    # Service which defined keywords
+    keywords = root.xpath(f".//{service}/{keyword_list}/{keyword}/text()")
+    assert set(keywords) == set(ogc.service_keyword_list)
+
+    # Layer which defined keywords
+    keywords = root.xpath(f".//{layer}[{name}='{layer_keywords.identifier}']/{keyword_list}/{keyword}/text()")
+    assert set(keywords) == set(layer_keywords.keyword_list)
+
+    # Layer which did not define keywords
+    keywords = root.xpath(f".//{layer}[{name}='{layer1.identifier}']/{keyword_list}/{keyword}/text()")
+    assert set(keywords) == set()
+
+
 def test_ogc_core_handle_wms_kv_get_capabilities_invalid_service():
     """
     Test the handle_wms_kv method of the OGC class with an invalid GetCapabilities request.

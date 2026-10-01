@@ -72,6 +72,7 @@ class Layer(tl.HasTraits):
     identifier = tl.Unicode()
     title = tl.Unicode(default_value="An OGC Layer")
     abstract = tl.Unicode(default_value="This is an example OGC Layer")
+    keyword_list = tl.List(trait=tl.Unicode())
     group = tl.Unicode(default_value=safe_group_default)
     group_path = tl.List(trait=tl.Unicode(default_value=None, allow_none=True))
     is_fouo = tl.Bool(default_value=False)

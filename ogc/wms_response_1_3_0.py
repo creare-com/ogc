@@ -3,6 +3,7 @@ from xml.sax.saxutils import escape
 
 import traitlets as tl
 import numpy as np
+from typing import List
 from collections import defaultdict
 
 from ogc import ogc_common
@@ -37,6 +38,7 @@ class Capabilities(ogc_common.XMLNode):
     service_title = tl.Unicode(default_value=None, allow_none=True)
     service_abstract = tl.Unicode(default_value=None, allow_none=True)
     service_keywords = tl.List(trait=tl.Unicode(default_value=None, allow_none=True))
+    service_keyword_list = tl.List(trait=tl.Unicode())
     service_group_title = tl.Unicode(default_value=None, allow_none=True)
 
     # Service Identification Part
@@ -47,23 +49,19 @@ class Capabilities(ogc_common.XMLNode):
 
     def service(self):
         title = escape(self.service_title) if self.service_title else ""
-        return """\
-    <Service>
-        <Name>WMS</Name>
-        <Title>{title}</Title>
-        <OnlineResource xlink:href="{self.base_url}"/>
-        <AccessConstraints>{constraints}</AccessConstraints>
-        <LayerLimit>1</LayerLimit>
-        <MaxWidth>{maxWidthWMS}</MaxWidth>
-        <MaxHeight>{maxHeightWMS}</MaxHeight>
-    </Service>
-""".format(
-            title=title,
-            self=self,
-            constraints=settings.CONSTRAINTS,
-            maxWidthWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE)),
-            maxHeightWMS=int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE)),
-        )
+        max_size = int(np.sqrt(settings.MAX_GRID_COORDS_REQUEST_SIZE))
+
+        xml = INDENT + "<Service>\n"
+        xml += INDENT * 2 + "<Name>WMS</Name>\n"
+        xml += INDENT * 2 + f"<Title>{title}</Title>\n"
+        xml += self._get_keyword_list(self.service_keyword_list, 2)
+        xml += INDENT * 2 + f'<OnlineResource xlink:href="{self.base_url}"/>\n'
+        xml += INDENT * 2 + f"<AccessConstraints>{settings.CONSTRAINTS}</AccessConstraints>\n"
+        xml += INDENT * 2 + "<LayerLimit>1</LayerLimit>\n"
+        xml += INDENT * 2 + f"<MaxWidth>{max_size}</MaxWidth>\n"
+        xml += INDENT * 2 + f"<MaxHeight>{max_size}</MaxHeight>\n"
+        xml += INDENT + "</Service>\n"
+        return xml
 
     base_url = tl.Unicode(default_value=None, allow_none=True)  # e.g., http://hostname:port/path?
 
@@ -148,6 +146,7 @@ class Capabilities(ogc_common.XMLNode):
         if coverage.abstract:
             xml += INDENT * (depth + 1) + f"<Abstract>{escape(coverage.abstract)}</Abstract>\n"
 
+        xml += self._get_keyword_list(coverage.layer.keyword_list, depth + 1)
         xml += self._get_CRS_and_BoundingBox(depth + 1)
 
         if (
@@ -333,6 +332,31 @@ version="{capabilities.version}">
             ]
         )
         return output_text
+
+    @staticmethod
+    def _get_keyword_list(keyword_list: List[str], depth: int) -> str:
+        """Create the XML string output for a KeywordList.
+
+        Parameters
+        ----------
+        keyword_list : List[str]
+            The keywords to include in the KeywordList.
+        depth : int
+            The depth for indentation.
+
+        Returns
+        -------
+        str
+            The XML string output for the KeywordList, or an empty string if there are no keywords.
+        """
+        if not keyword_list:
+            return ""
+
+        xml = INDENT * depth + "<KeywordList>\n"
+        for keyword in keyword_list:
+            xml += INDENT * (depth + 1) + f"<Keyword>{escape(keyword)}</Keyword>\n"
+        xml += INDENT * depth + "</KeywordList>\n"
+        return xml
 
     @staticmethod
     def coverage_tree_item() -> dict:
