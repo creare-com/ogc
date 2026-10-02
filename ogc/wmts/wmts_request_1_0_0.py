@@ -20,7 +20,7 @@ class TileMatrixSet(ogc_common.XMLNode):
     crs = tl.Unicode()
     wkss = tl.Unicode()
     bounds = tl.Dict(key_trait=tl.Unicode(), value_trait=tl.Float())
-    matrix_levels = tl.List(tl.Int(), default_value=list(range(0, 21)))
+    matrix_levels = tl.List(tl.Int(), default_value=list(range(0, 22)))
     depth = tl.Int(default_value=2)
     indent = "    "
 
