@@ -1,4 +1,18 @@
 # Changelog
+
+## 1.0.2
+### Introduction
+Add optional support for WMS KeywordList and minor bug fixes.
+
+### Features
+* Support WMS KeywordList at the service and queryable layer level.
+
+### Maintenance
+* Increase default allowable zoom for WMTS to include level 21.
+
+### Bugfixes
+* Use only unique dimension values in WMTS Get Capabilities response.
+
 ## 1.0.1
 ### Introduction
 Address SonarQube findings and fix coordinate retrieval for layers.
