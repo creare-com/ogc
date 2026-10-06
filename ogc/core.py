@@ -33,6 +33,7 @@ class OGC(tl.HasTraits):
     endpoint = tl.Unicode(default_value="/ogc", allow_none=True)
     service_title = tl.Unicode(default_value="OGC Server", allow_none=True)
     service_abstract = tl.Unicode(default_value="An example OGC Server", allow_none=True)
+    service_keyword_list = tl.List(trait=tl.Unicode())
     server_address = tl.Unicode(default_value="http://127.0.0.1:5000", allow_none=True)
     service_group_title = tl.Unicode(default_value="Data Products", allow_none=True)
 
@@ -63,6 +64,7 @@ class OGC(tl.HasTraits):
             base_url=self.base_url,
             service_title=self.service_title,
             service_abstract=self.service_abstract,
+            service_keyword_list=self.service_keyword_list,
             service_group_title=self.service_group_title,
         )
         self.edr_routes = (
