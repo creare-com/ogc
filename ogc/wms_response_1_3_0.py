@@ -194,23 +194,36 @@ class Capabilities(ogc_common.XMLNode):
         legend_graphic_width = coverage.layer.legend_graphic_width
         legend_graphic_height = coverage.layer.legend_graphic_height
 
-        legend_link = "{base}SERVICE={service}&amp;VERSION={version}&amp;REQUEST=GetLegendGraphic&amp;LAYER={layer}&amp;STYLE=default&amp;FORMAT=image/png; mode=8bit".format(
-            base=self.base_url if self.base_url.endswith("?") else self.base_url + "?",
-            service=self.service_type,
-            version=self.version,
-            layer=coverage.identifier,
-        )
+        legend_links = [
+            (
+                legend_format,
+                "{base}SERVICE={service}&amp;VERSION={version}&amp;REQUEST=GetLegendGraphic&amp;LAYER={layer}&amp;STYLE=default&amp;FORMAT={format}".format(
+                    base=self.base_url if self.base_url.endswith("?") else self.base_url + "?",
+                    service=self.service_type,
+                    version=self.version,
+                    layer=coverage.identifier,
+                    format=format_query_value,
+                ),
+            )
+            for legend_format, format_query_value in [
+                ("image/png", "image%2Fpng"),
+                ("image/svg+xml", "image%2Fsvg%2Bxml"),
+            ]
+        ]
 
         # Write the style section
         xml += INDENT * (depth + 1) + """<Style>\n"""
         xml += INDENT * (depth + 2) + """<Name>{}</Name>\n""".format(coverage.identifier)
         xml += INDENT * (depth + 2) + """<Title>{}</Title>\n""".format(coverage.title)
-        xml += INDENT * (depth + 2) + """<LegendURL width="{width}" height="{height}">\n""".format(
-            height=legend_graphic_height, width=legend_graphic_width
-        )
-        xml += INDENT * (depth + 3) + """<Format>image/png</Format>\n"""
-        xml += INDENT * (depth + 3) + """<OnlineResource xlink:type="simple" xlink:href="{}"/>\n""".format(legend_link)
-        xml += INDENT * (depth + 2) + """</LegendURL>\n"""
+        for legend_format, legend_href in legend_links:
+            xml += INDENT * (depth + 2) + """<LegendURL width="{width}" height="{height}">\n""".format(
+                height=legend_graphic_height, width=legend_graphic_width
+            )
+            xml += INDENT * (depth + 3) + """<Format>{}</Format>\n""".format(legend_format)
+            xml += INDENT * (depth + 3) + """<OnlineResource xlink:type="simple" xlink:href="{}"/>\n""".format(
+                legend_href
+            )
+            xml += INDENT * (depth + 2) + """</LegendURL>\n"""
         xml += INDENT * (depth + 1) + """</Style>\n"""
         xml += INDENT * depth + """</Layer>\n"""
 

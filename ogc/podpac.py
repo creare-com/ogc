@@ -16,6 +16,7 @@ import textwrap
 import re
 from datetime import datetime
 from ogc.settings import EDR_TIME_INSTANCE_DIMENSION
+from ogc.ogc_common import get_legend_graphic_extension
 
 
 def _uppercase_for_dict_keys(lower_dict):
@@ -212,6 +213,7 @@ class Layer(ogc.Layer):
         return body
 
     def get_legend_graphic(self, request_args):
+        legend_graphic_extension = get_legend_graphic_extension(request_args.get("format"))
         if self.node is not None:
             units = self.node.style.units
             cmap = self.node.style.cmap
@@ -247,6 +249,7 @@ class Layer(ogc.Layer):
             enumeration_legend=enumeration_legend,
             enumeration_colors=enumeration_colors,
             clim=clim,
+            img_format=legend_graphic_extension,
         )
         return legend_graphic.legend_image()
 

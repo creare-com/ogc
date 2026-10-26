@@ -19,6 +19,31 @@ ALLOWED_SRS_VALUES = (
 INTERNAL_APPLICATION_ERROR = "Internal application error."
 NO_APPLICABLE_CODE = "NoApplicableCode"
 
+# Supported legend graphic output formats (lowercase) and the file extension of each
+LEGEND_GRAPHIC_FORMATS = {
+    "image/png": "png",
+    "image/png; mode=8bit": "png",
+    "image/png;mode=8-bit": "png",
+    "image/svg+xml": "svg",
+    "image/svg": "svg",
+}
+
+
+def get_legend_graphic_extension(output_format: str | None) -> str:
+    """Get the legend graphic file extension for an output format, default to png.
+
+    Parameters
+    ----------
+    output_format : str | None
+        The requested output format.
+
+    Returns
+    -------
+    str
+        The file extension.
+    """
+    return LEGEND_GRAPHIC_FORMATS.get((output_format or "").lower(), "png")
+
 
 class EscapeFormatter(string.Formatter):
     """Formatter that escapes all values before formatting."""
