@@ -331,6 +331,81 @@ def test_ogc_core_handle_wms_kv_get_legend_graphic():
     assert response["fp"] is not None
 
 
+@pytest.mark.parametrize(
+    "legend_format, expected_extension",
+    [
+        ("image/svg+xml", ".svg"),
+        ("image/svg", ".svg"),
+        ("IMAGE/SVG+XML", ".svg"),
+        ("svg", ".svg"),
+        ("SVG", ".svg"),
+        ("png", ".png"),
+        ("Image/PNG", ".png"),
+        ("image/png", ".png"),
+        ("image/png; mode=8bit", ".png"),
+        ("image/png;mode=8-bit", ".png"),
+        (None, ".png"),
+    ],
+)
+def test_ogc_core_handle_wms_kv_get_legend_graphic_format(legend_format, expected_extension):
+    """
+    Test the GetLegendGraphic output format matches requested format.
+    """
+    ogc = core.OGC(layers=[layer1, layer2])
+    args = {
+        "request": "GetLegendGraphic",
+        "service": "WMS",
+        "version": "1.3.0",
+        "layer": layer1.identifier,
+        "style": "default",
+    }
+    if legend_format is not None:
+        args["format"] = legend_format
+    response = ogc.handle_wms_kv(args)
+    assert response["fn"].endswith(expected_extension)
+    content = response["fp"].read()
+    if expected_extension == ".svg":
+        assert b"<svg" in content
+    else:
+        assert content.startswith(b"\x89PNG")
+
+
+@pytest.mark.parametrize("legend_format", ["image/jpeg", "image/svgxml", ""])
+def test_ogc_core_handle_wms_kv_get_legend_graphic_invalid_format(legend_format):
+    """
+    Test the GetLegendGraphic request fails for unsupported output formats.
+    """
+    ogc = core.OGC(layers=[layer1, layer2])
+    args = {
+        "request": "GetLegendGraphic",
+        "service": "WMS",
+        "version": "1.3.0",
+        "layer": layer1.identifier,
+        "style": "default",
+        "format": legend_format,
+    }
+    with pytest.raises(core.WCSException):
+        ogc.handle_wms_kv(args)
+
+
+def test_ogc_core_handle_wms_kv_get_capabilities_legend_formats():
+    """
+    Test the WMS capabilities advertise png and svg legend graphics.
+    """
+    ogc = core.OGC(layers=[layer1, layer2])
+    args = {
+        "request": "GetCapabilities",
+        "service": "WMS",
+        "version": "1.3.0",
+        "base_url": None,
+    }
+    response = ogc.handle_wms_kv(args)
+    assert "<Format>image/png</Format>" in response
+    assert "<Format>image/svg+xml</Format>" in response
+    assert "FORMAT=image%2Fpng" in response
+    assert "FORMAT=image%2Fsvg%2Bxml" in response
+
+
 def test_ogc_core_handle_wms_kv_get_legend_graphic_invalid_version():
     """
     Test the handle_wms_kv method of the OGC class with an invalid GetLegendGraphic request.

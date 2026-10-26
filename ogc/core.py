@@ -17,7 +17,7 @@ from . import wms_response_1_3_0
 from .edr import EdrRoutes
 from .wmts import WmtsRoutes
 
-from ogc.ogc_common import WCSException, WMTSException
+from ogc.ogc_common import WCSException, WMTSException, get_legend_graphic_extension
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,8 @@ class OGC(tl.HasTraits):
 
         fp = coverage.layer.get_legend_graphic(args)
 
-        fn = coverage.identifier.split(".")[-1] + ".png"
+        legend_graphic_extension = get_legend_graphic_extension(args.get("format"))
+        fn = coverage.identifier.split(".")[-1] + "." + legend_graphic_extension
 
         response = {"fp": fp, "fn": fn}
         return response

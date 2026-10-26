@@ -358,11 +358,18 @@ def test_get_map_with_percent_and_caret_in_layer_name_returns_200(client_with_pe
     assert response.content_type == "image/png"
 
 
+@pytest.mark.parametrize(
+    "legend_format, expected_content_type, expected_signature",
+    [
+        ("image/png", "image/png", b"\x89PNG"),
+        ("image/svg+xml", "image/svg+xml", b"<svg"),
+    ],
+)
 def test_get_legend_graphic_with_percent_and_caret_in_layer_name_returns_200(
-    client_with_percent_and_caret_layer,
+    client_with_percent_and_caret_layer, legend_format, expected_content_type, expected_signature
 ):
     """Regression test: a real GetLegendGraphic request against a layer
-    whose identifier contains % and ^ must succeed end-to-end."""
+    whose identifier contains % and ^ must succeed end-to-end in each format."""
     response = client_with_percent_and_caret_layer.get(
         "/ogc",
         query_string={
@@ -370,8 +377,9 @@ def test_get_legend_graphic_with_percent_and_caret_in_layer_name_returns_200(
             "REQUEST": "GetLegendGraphic",
             "VERSION": "1.3.0",
             "LAYER": "Total_precipitation_[kg/(m^2)]_[%]",
-            "FORMAT": "image/png",
+            "FORMAT": legend_format,
         },
     )
     assert response.status_code == 200
-    assert response.content_type == "image/png"
+    assert response.content_type.split(";")[0] == expected_content_type
+    assert expected_signature in response.data

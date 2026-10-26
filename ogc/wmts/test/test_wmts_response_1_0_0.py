@@ -78,6 +78,15 @@ def test_bounding_box_tile_matrix_set():
     assert contains_text(xml, "<ows:UpperCorner>")
 
 
+def test_tile_matrix_sets_contains_supported_sets():
+    """Ensure all supported tile matrix sets are listed in the capabilities."""
+    capabilities = make_capabilities()
+    xml = capabilities._tile_matrix_sets()
+
+    for name in ["WebMercatorQuad", "WorldCRS84Quad", "EPSG:900913", "EPSG:4326", "EPSG:3575", "EPSG:3031"]:
+        assert contains_text(xml, "<ows:Identifier>{}</ows:Identifier>".format(name))
+
+
 @pytest.mark.parametrize(
     "value,expected",
     [
