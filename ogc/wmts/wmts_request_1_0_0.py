@@ -1,7 +1,8 @@
 import logging
 import json
+import pyproj
 import traitlets as tl
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, List, Tuple
 
 from ogc import ogc_common
 from ogc import settings
@@ -21,23 +22,36 @@ class TileMatrixSet(ogc_common.XMLNode):
     wkss = tl.Unicode()
     bounds = tl.Dict(key_trait=tl.Unicode(), value_trait=tl.Float())
     matrix_levels = tl.List(tl.Int(), default_value=list(range(0, 22)))
+    axis_order_yx = tl.Bool(default_value=False)  # True when the crs lists the y (northing/latitude) axis first
+    level_zero_matrix_width = tl.Int(default_value=1)  # Tile columns at matrix level zero, which has a single tile row
     depth = tl.Int(default_value=2)
     indent = "    "
-
-    row = tl.Int()
-    column = tl.Int()
-    matrix_level = tl.Int()
 
     def validate(self):
         """Validate the tile matrix set."""
         assert len(self.name) > 0, "WMTS Request validation error: tile matrix set name not found"
         assert len(self.crs) > 0, "WMTS Request validation error: tile matrix set crs not found"
-        assert len(self.wkss) > 0, "WMTS Request validation error: tile matrix set wkss not found"
         assert len(self.bounds) > 0, "WMTS Request validation error: tile matrix set bounds not found"
         assert len(self.matrix_levels) > 0, "WMTS Request validation error: tile matrix levels not found"
-        assert self.matrix_level >= 0 and self.matrix_level <= max(
+
+    def validate_tile(self, row: int, column: int, matrix_level: int):
+        """Validate the requested tile indices against the tile matrix set.
+
+        Parameters
+        ----------
+        row : int
+            The tile row.
+        column : int
+            The tile column.
+        matrix_level : int
+            The tile matrix level.
+        """
+        assert matrix_level >= 0 and matrix_level <= max(
             self.matrix_levels
         ), "WMTS Request validation error: tile matrix level not in range"
+        matrix_width, matrix_height = self.calculate_matrix_sizes(matrix_level)
+        assert row >= 0 and row < int(matrix_height), "WMTS Request validation error: invalid tile row"
+        assert column >= 0 and column < int(matrix_width), "WMTS Request validation error: invalid tile column"
 
     def to_xml(self):
         xml = ""
@@ -45,7 +59,10 @@ class TileMatrixSet(ogc_common.XMLNode):
         xml += self.indent * (self.depth + 1) + escape_format("<ows:Identifier>{}</ows:Identifier>\n", self.name)
         xml += self.indent * (self.depth + 1) + escape_format("<ows:SupportedCRS>{}</ows:SupportedCRS>\n", self.crs)
         xml += self._bounding_box_tile_matrix_set() if self.crs is not None else ""
-        xml += self.indent * (self.depth + 1) + escape_format("<WellKnownScaleSet>{}</WellKnownScaleSet>\n", self.wkss)
+        if self.wkss:
+            xml += self.indent * (self.depth + 1) + escape_format(
+                "<WellKnownScaleSet>{}</WellKnownScaleSet>\n", self.wkss
+            )
         top_left_corner = self._top_left_corner() if self.crs is not None else ""
 
         for matrix_level in self.matrix_levels:
@@ -76,10 +93,6 @@ class TileMatrixSet(ogc_common.XMLNode):
         xml += self.indent * self.depth + """</TileMatrixSet>\n"""
         return xml
 
-    def calculate_eval_bounding_box(self) -> str:
-        """Determine the bounding box for evaluation."""
-        raise NotImplementedError
-
     def _top_left_corner(self) -> str | None:
         """Get the top left corner of the bounded area defined by the tile matrix set.
 
@@ -89,9 +102,7 @@ class TileMatrixSet(ogc_common.XMLNode):
             The top left corner as a string or None if the CRS is not valid for WMTS.
         """
         if self.bounds is not None:
-            x_min = self.format_number(self.bounds["minx"])
-            y_max = self.format_number(self.bounds["maxy"])
-            return "{} {}".format(x_min, y_max)
+            return self._format_corner(self.bounds["minx"], self.bounds["maxy"])
 
         return None
 
@@ -107,28 +118,35 @@ class TileMatrixSet(ogc_common.XMLNode):
         if self.bounds is not None:
             xml += self.indent * (self.depth + 1) + """<ows:BoundingBox>\n"""
             xml += self.indent * (self.depth + 2) + escape_format(
-                """<ows:LowerCorner>{x} {y}</ows:LowerCorner>\n""",
-                x=self.format_number(self.bounds["minx"]),
-                y=self.format_number(self.bounds["miny"]),
+                """<ows:LowerCorner>{}</ows:LowerCorner>\n""",
+                self._format_corner(self.bounds["minx"], self.bounds["miny"]),
             )
             xml += self.indent * (self.depth + 2) + escape_format(
-                """<ows:UpperCorner>{x} {y}</ows:UpperCorner>\n""",
-                x=self.format_number(self.bounds["maxx"]),
-                y=self.format_number(self.bounds["maxy"]),
+                """<ows:UpperCorner>{}</ows:UpperCorner>\n""",
+                self._format_corner(self.bounds["maxx"], self.bounds["maxy"]),
             )
             xml += self.indent * (self.depth + 1) + """</ows:BoundingBox>\n"""
 
         return xml
 
-    @staticmethod
-    def calculate_scale_denominator(matrix_level: int) -> str:
-        """Calculate the scale denominator for the zoom level."""
-        raise NotImplementedError
+    def _format_corner(self, x: float, y: float) -> str:
+        """Format a corner coordinate as a string in the axis order of the CRS.
 
-    @staticmethod
-    def calculate_matrix_sizes(matrix_level) -> Tuple[str, str]:
-        """Calculate the scale denominator for the matrix level."""
-        raise NotImplementedError
+        Parameters
+        ----------
+        x : float
+            The x (easting/longitude) coordinate.
+        y : float
+            The y (northing/latitude) coordinate.
+
+        Returns
+        -------
+        str
+            The corner coordinate as a string.
+        """
+        if self.axis_order_yx:
+            return "{} {}".format(self.format_number(y), self.format_number(x))
+        return "{} {}".format(self.format_number(x), self.format_number(y))
 
     @staticmethod
     def format_number(input_number: float | int, float_decimals: int = 9) -> str:
@@ -151,51 +169,34 @@ class TileMatrixSet(ogc_common.XMLNode):
         else:
             return "{}".format(input_number)
 
-
-class WebMercatorQuad(TileMatrixSet):
-    """Tile matrix set for Web Mercator Quad format."""
-
-    name = tl.Unicode(default_value="WebMercatorQuad")
-    crs = tl.Unicode(default_value="urn:ogc:def:crs:EPSG::3857")
-    wkss = tl.Unicode(default_value="urn:ogc:def:wkss:OGC:1.0:GoogleMapsCompatible")
-    bounds = tl.Dict(
-        key_trait=tl.Unicode(),
-        value_trait=tl.Float(),
-        default_value={
-            "minx": -20037508.342789244,
-            "miny": -20037508.342789244,
-            "maxx": 20037508.342789244,
-            "maxy": 20037508.342789244,
-        },
-    )
-
-    def validate(self):
-        """Validate the tile matrix set."""
-        super().validate()
-        assert self.row >= 0 and self.row < 2**self.matrix_level, "WMTS Request validation error: invalid tile row"
-        assert (
-            self.column >= 0 and self.column < 2**self.matrix_level
-        ), "WMTS Request validation error: invalid tile column"
-
-    def calculate_eval_bounding_box(self) -> str:
+    def calculate_eval_bounding_box(self, row: int, column: int, matrix_level: int) -> str:
         """Determine the bounding box for evaluation.
 
         A zero pixel row and column corresponds to the top left corner.
+
+        Parameters
+        ----------
+        row : int
+            The tile row.
+        column : int
+            The tile column.
+        matrix_level : int
+            The tile matrix level.
 
         Returns
         -------
         str
             The bounding box for the provided tile indices.
         """
-        resolution = settings.WMTS_INITIAL_RESOLUTION / (2**self.matrix_level)
+        resolution = self.calculate_resolution(matrix_level)
         origin_x = self.bounds["minx"]
         origin_y = self.bounds["maxy"]
-        tile_size_m = settings.WMTS_TILE_SIZE * resolution
+        tile_size = settings.WMTS_TILE_SIZE * resolution
 
-        min_x = self.column * tile_size_m + origin_x
-        max_x = (self.column + 1) * tile_size_m + origin_x
-        min_y = origin_y - (self.row * tile_size_m)
-        max_y = origin_y - ((self.row + 1) * tile_size_m)
+        min_x = column * tile_size + origin_x
+        max_x = (column + 1) * tile_size + origin_x
+        min_y = origin_y - (row * tile_size)
+        max_y = origin_y - ((row + 1) * tile_size)
 
         # Hack: Reverse x, y order to get around issues with Coordinates.from_url assuming lat, lon order
         min_x, min_y = min_y, min_x
@@ -203,8 +204,23 @@ class WebMercatorQuad(TileMatrixSet):
 
         return ",".join(str(x) for x in [min_x, min_y, max_x, max_y])
 
-    @staticmethod
-    def calculate_scale_denominator(matrix_level: int) -> str:
+    def calculate_resolution(self, matrix_level: int) -> float:
+        """Calculate the resolution in crs units per pixel for the matrix level.
+
+        Parameters
+        ----------
+        matrix_level : int
+            The matrix level to calculate resolution for.
+
+        Returns
+        -------
+        float
+            The resolution in crs units per pixel.
+        """
+        matrix_width, _ = self.calculate_matrix_sizes(matrix_level)
+        return (self.bounds["maxx"] - self.bounds["minx"]) / (settings.WMTS_TILE_SIZE * int(matrix_width))
+
+    def calculate_scale_denominator(self, matrix_level: int) -> str:
         """Calculate the scale denominator for the matrix level.
 
         Parameters
@@ -217,12 +233,11 @@ class WebMercatorQuad(TileMatrixSet):
         str
             The scaled denominator as a string or empty string on failure.
         """
-        resolution = settings.WMTS_INITIAL_RESOLUTION / (2 ** (matrix_level))
-        scale_denominator = resolution / settings.WMTS_PIXEL_SIZE_METERS
+        meters_per_unit = settings.EARTH_CIRCUMFERENCE_METERS / 360 if pyproj.CRS(self.crs).is_geographic else 1.0
+        scale_denominator = self.calculate_resolution(matrix_level) * meters_per_unit / settings.WMTS_PIXEL_SIZE_METERS
         return TileMatrixSet.format_number(scale_denominator)
 
-    @staticmethod
-    def calculate_matrix_sizes(matrix_level: int) -> Tuple[str, str]:
+    def calculate_matrix_sizes(self, matrix_level: int) -> Tuple[str, str]:
         """Calculate the matrix width and height from matrix level.
 
         Parameters
@@ -235,93 +250,20 @@ class WebMercatorQuad(TileMatrixSet):
         Tuple[str, str]
             The matrix width and height as strings or empty strings on failure.
         """
-        matrix_width = 2**matrix_level
+        matrix_width = self.level_zero_matrix_width * 2**matrix_level
         matrix_height = 2**matrix_level
         return TileMatrixSet.format_number(matrix_width), TileMatrixSet.format_number(matrix_height)
 
 
-class WorldCRS84Quad(TileMatrixSet):
-    """Tile matrix set for World CRS84 Quad format."""
+def supported_tile_matrix_sets() -> List[TileMatrixSet]:
+    """Get the tile matrix sets supported by the WMTS service.
 
-    name = tl.Unicode(default_value="WorldCRS84Quad")
-    crs = tl.Unicode(default_value="urn:ogc:def:crs:OGC:2:84")
-    wkss = tl.Unicode(default_value="urn:ogc:def:wkss:OGC:1.0:GlobalCRS84Pixel")
-    bounds = tl.Dict(
-        key_trait=tl.Unicode(),
-        value_trait=tl.Float(),
-        default_value={"minx": -180, "miny": -90, "maxx": 180, "maxy": 90},
-    )
-
-    def validate(self):
-        """Validate the tile matrix set."""
-        super().validate()
-        assert self.row >= 0 and self.row < 2**self.matrix_level, "WMTS Request validation error: invalid tile row"
-        assert self.column >= 0 and self.column < 2 ** (
-            self.matrix_level + 1
-        ), "WMTS Request validation error: invalid tile column"
-
-    def calculate_eval_bounding_box(self) -> str:
-        """Determine the bounding box for evaluation.
-
-        A zero pixel row and column corresponds to the top left corner.
-
-        Returns
-        -------
-        str
-            The bounding box for the provided tile indices.
-        """
-        tiles_per_width = 2 ** (self.matrix_level + 1)
-        tiles_per_height = 2**self.matrix_level
-
-        tile_width = abs(self.bounds["maxx"] - self.bounds["minx"]) / tiles_per_width
-        tile_height = abs(self.bounds["maxy"] - self.bounds["miny"]) / tiles_per_height
-
-        min_x = self.column * tile_width + self.bounds["minx"]
-        max_x = (self.column + 1) * tile_width + self.bounds["minx"]
-        min_y = self.bounds["maxy"] - (self.row * tile_height)
-        max_y = self.bounds["maxy"] - ((self.row + 1) * tile_height)
-
-        # Hack: Reverse x, y order to get around issues with Coordinates.from_url assuming lat, lon order
-        min_x, min_y = min_y, min_x
-        max_x, max_y = max_y, max_x
-
-        return ",".join(str(x) for x in [min_x, min_y, max_x, max_y])
-
-    @staticmethod
-    def calculate_scale_denominator(matrix_level: int) -> str:
-        """Calculate the scale denominator for the matrix level.
-
-        Parameters
-        ----------
-        matrix_level : int
-            The matrix level to calculate scale denominator for.
-
-        Returns
-        -------
-        str
-            The scaled denominator as a string or empty string on failure.
-        """
-        resolution = settings.WMTS_INITIAL_RESOLUTION / (2 ** (matrix_level + 1))
-        scale_denominator = resolution / settings.WMTS_PIXEL_SIZE_METERS
-        return TileMatrixSet.format_number(scale_denominator)
-
-    @staticmethod
-    def calculate_matrix_sizes(matrix_level: int) -> Tuple[str, str]:
-        """Calculate the matrix width and height from matrix level.
-
-        Parameters
-        ----------
-        matrix_level : int
-            The matrix level to calculate width and height for.
-
-        Returns
-        -------
-        Tuple[str, str]
-            The matrix width and height as strings or empty strings on failure.
-        """
-        matrix_width = 2 ** (matrix_level + 1)
-        matrix_height = 2**matrix_level
-        return TileMatrixSet.format_number(matrix_width), TileMatrixSet.format_number(matrix_height)
+    Returns
+    -------
+    List[TileMatrixSet]
+        New instances of each supported tile matrix set.
+    """
+    return [TileMatrixSet(name=name, **kwargs) for name, kwargs in settings.WMTS_TILE_MATRIX_SETS.items()]
 
 
 class GetCapabilities(ogc_common.XMLNode):
@@ -370,6 +312,9 @@ class GetTile(ogc_common.XMLNode):
 
     layer = tl.Instance(klass=Identifier)
     tile_matrix_set = tl.Instance(klass=TileMatrixSet)
+    row = tl.Int()
+    column = tl.Int()
+    matrix_level = tl.Int()
     output_format = tl.Enum(
         default_value=None,
         values=["image/png", "image/png; mode=8bit", "image/png;mode=8-bit"],
@@ -381,7 +326,7 @@ class GetTile(ogc_common.XMLNode):
         assert self.service == "WMTS", WMTS_VALIDATION_ERROR
         assert self.output_format is not None, "WMTS Request validation error: no output format specified"
         self.layer.validate()
-        self.tile_matrix_set.validate()
+        self.tile_matrix_set.validate_tile(self.row, self.column, self.matrix_level)
 
     def _load_from_kv(self, args: Dict[str, Any]):
         """Initialize traitlet properties from a key-value argument dictionary.
@@ -399,15 +344,15 @@ class GetTile(ogc_common.XMLNode):
         row = args.get("tilerow")
         column = args.get("tilecol")
         matrix_level = args.get("tilematrix")
-        row = int(row) if row is not None else None
-        column = int(column) if column is not None else None
-        matrix_level = int(matrix_level) if matrix_level is not None else None
+        self.row = int(row) if row is not None else None
+        self.column = int(column) if column is not None else None
+        self.matrix_level = int(matrix_level) if matrix_level is not None else None
         tile_matrix_set_name = args.get("tilematrixset", "")
 
-        if tile_matrix_set_name.lower() == "webmercatorquad":
-            self.tile_matrix_set = WebMercatorQuad(row=row, column=column, matrix_level=matrix_level)
-        elif tile_matrix_set_name.lower() == "worldcrs84quad":
-            self.tile_matrix_set = WorldCRS84Quad(row=row, column=column, matrix_level=matrix_level)
+        for tile_matrix_set in supported_tile_matrix_sets():
+            if tile_matrix_set_name.lower() == tile_matrix_set.name.lower():
+                self.tile_matrix_set = tile_matrix_set
+                break
 
         if "format" in args:
             self.output_format = str(args["format"])
@@ -446,7 +391,7 @@ class GetTile(ogc_common.XMLNode):
             "crs": self.tile_matrix_set.crs,
             "height": settings.WMTS_TILE_SIZE,
             "width": settings.WMTS_TILE_SIZE,
-            "bbox": self.tile_matrix_set.calculate_eval_bounding_box(),
+            "bbox": self.tile_matrix_set.calculate_eval_bounding_box(self.row, self.column, self.matrix_level),
             "format": self.output_format,
             "version": self.version,
             "service": self.service,

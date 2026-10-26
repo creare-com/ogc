@@ -18,12 +18,13 @@ ALLOWED_SRS_VALUES = (
 )
 INTERNAL_APPLICATION_ERROR = "Internal application error."
 NO_APPLICABLE_CODE = "NoApplicableCode"
-
 # Supported legend graphic output formats (lowercase) and the file extension of each
 LEGEND_GRAPHIC_FORMATS = {
+    "png": "png",
     "image/png": "png",
     "image/png; mode=8bit": "png",
     "image/png;mode=8-bit": "png",
+    "svg": "svg",
     "image/svg+xml": "svg",
     "image/svg": "svg",
 }

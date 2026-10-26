@@ -7,7 +7,7 @@ from xml.sax.saxutils import escape
 from ogc import ogc_common
 from ogc import settings
 from ogc.wcs_response_1_0_0 import Coverage
-from .wmts_request_1_0_0 import WebMercatorQuad, WorldCRS84Quad, TileMatrixSet
+from .wmts_request_1_0_0 import supported_tile_matrix_sets, TileMatrixSet
 
 logger = logging.getLogger(__name__)
 escape_format = ogc_common.EscapeFormatter().format
@@ -241,7 +241,7 @@ version="{version}">
         xml += self.indent * (depth + 1) + """<Format>image/png</Format>\n"""
 
         # Tile matrix set links
-        matrix_sets = [WebMercatorQuad(), WorldCRS84Quad()]
+        matrix_sets = supported_tile_matrix_sets()
         for matrix_set in matrix_sets:
             xml += self.indent * (depth + 1) + """<TileMatrixSetLink>\n"""
             xml += self.indent * (depth + 2) + escape_format("""<TileMatrixSet>{}</TileMatrixSet>\n""", matrix_set.name)
@@ -278,7 +278,7 @@ version="{version}">
         str
             XML data as a string.
         """
-        matrix_sets = [WebMercatorQuad(), WorldCRS84Quad()]
+        matrix_sets = supported_tile_matrix_sets()
         xml = ""
         for matrix_set in matrix_sets:
             xml += matrix_set.to_xml()
