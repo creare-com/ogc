@@ -83,7 +83,15 @@ def test_tile_matrix_sets_contains_supported_sets():
     capabilities = make_capabilities()
     xml = capabilities._tile_matrix_sets()
 
-    for name in ["WebMercatorQuad", "WorldCRS84Quad", "EPSG:900913", "EPSG:4326", "EPSG:3575", "EPSG:3031"]:
+    for name in [
+        "WebMercatorQuad",
+        "WorldCRS84Quad",
+        "GoogleCRS84Quad",
+        "EPSG:900913",
+        "EPSG:4326",
+        "EPSG:3575",
+        "EPSG:3031",
+    ]:
         assert contains_text(xml, "<ows:Identifier>{}</ows:Identifier>".format(name))
 
 
