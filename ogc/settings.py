@@ -58,6 +58,12 @@ _wmts_geographic_bounds = {
     "maxx": 180.0,
     "maxy": 90.0,
 }
+_wmts_legacy_geographic_bounds = {
+    "minx": -180.0,
+    "miny": -180.0,
+    "maxx": 180.0,
+    "maxy": 180.0,
+}
 _wmts_web_mercator_bounds = {
     "minx": -20037508.342789244,
     "miny": -20037508.342789244,
@@ -81,6 +87,11 @@ WMTS_TILE_MATRIX_SETS = {
         "wkss": _wkss + "GlobalCRS84Pixel",
         "bounds": _wmts_geographic_bounds,
         "level_zero_matrix_width": 2,
+    },
+    "GoogleCRS84Quad": {
+        "crs": "urn:ogc:def:crs:OGC:2:84",
+        "wkss": _wkss + "GoogleCRS84Quad",
+        "bounds": _wmts_legacy_geographic_bounds,
     },
     "EPSG:900913": {
         "crs": "urn:ogc:def:crs:EPSG::900913",
