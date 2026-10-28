@@ -191,9 +191,6 @@ class Capabilities(ogc_common.XMLNode):
                 default_time=default_time.isoformat() + "Z",
             )
 
-        legend_graphic_width = coverage.layer.legend_graphic_width
-        legend_graphic_height = coverage.layer.legend_graphic_height
-
         legend_links = [
             (
                 legend_format,
@@ -216,9 +213,8 @@ class Capabilities(ogc_common.XMLNode):
         xml += INDENT * (depth + 2) + """<Name>{}</Name>\n""".format(coverage.identifier)
         xml += INDENT * (depth + 2) + """<Title>{}</Title>\n""".format(coverage.title)
         for legend_format, legend_href in legend_links:
-            xml += INDENT * (depth + 2) + """<LegendURL width="{width}" height="{height}">\n""".format(
-                height=legend_graphic_height, width=legend_graphic_width
-            )
+            # width and height are optional, the legend graphic grows and shrinks to fit its labels
+            xml += INDENT * (depth + 2) + """<LegendURL>\n"""
             xml += INDENT * (depth + 3) + """<Format>{}</Format>\n""".format(legend_format)
             xml += INDENT * (depth + 3) + """<OnlineResource xlink:type="simple" xlink:href="{}"/>\n""".format(
                 legend_href
