@@ -432,9 +432,10 @@ class LegendGraphic(tl.HasTraits):
                 verticalalignment="bottom" if self._horizontal else "top",
             )
 
-        # measure around the colorbar to find the length that fills the figure along it
-        start = length if length is not None else (self.width if self._horizontal else self.height)
-        edges = self.measure_legend(fig, ax, units, start)
+        # resize the colorbar to find the length that fills the figure along it
+        legend_length = self.width if self._horizontal else self.height
+        start_length = length if length is not None else legend_length
+        edges = self.resize_legend(fig, ax, units, start_length)
         fig_width, fig_height = self.get_legend_size(edges, length)
         left, right, bottom, top, _, units_height = edges
         if self._horizontal:
@@ -442,8 +443,8 @@ class LegendGraphic(tl.HasTraits):
         else:
             length = max(0.1, fig_height - bottom - top - units_height - 2 * self.pad)
 
-        # measure again at that length as its ticks can change
-        edges = self.measure_legend(fig, ax, units, length)
+        # resize to apply the new tick labels, matplotlib picks them to fit the colorbar length
+        edges = self.resize_legend(fig, ax, units, length)
         fig_width, fig_height = self.get_legend_size(edges, length)
         left, right, bottom, top, _, units_height = edges
 
@@ -458,14 +459,18 @@ class LegendGraphic(tl.HasTraits):
 
         return fig
 
-    def measure_legend(
+    def resize_legend(
         self,
         fig: Figure,
         ax: Axes,
         units: Text | None,
         length: float,
     ) -> Tuple[float, float, float, float, float, float]:
-        """Measure the labels around the colorbar and the units, with the colorbar drawn at the given length.
+        """Resize the figure and colorbar to the given length.
+
+        To measure, the figure is enlarged to leave room around the colorbar so no labels are cut off, and the
+        colorbar is moved to its center. This layout is not restored, so the caller must set the final figure size,
+        colorbar position and units position before saving.
 
         Parameters
         ----------
@@ -537,7 +542,7 @@ class LegendGraphic(tl.HasTraits):
         Parameters
         ----------
         edges : Tuple[float, float, float, float, float, float]
-            The measurements from measure_legend.
+            The measurements from resize_legend.
         length : float | None, optional
             The colorbar length in inches.
 
