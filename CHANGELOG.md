@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.3
+### Introduction
+Add additional WMTS tile matrix set options and new legend graphic options.
+
+### Features
+* Support additional WMTS tile matrix sets, including GoogleCRS84Quad.
+* Support SVG legend graphics.
+* Add a horizontal legend option, selected by an orientation parameter.
+
+### Maintenance
+* Move WMTS tile matrix sets to traitlet-based definitions.
+
 ## 1.0.2
 ### Introduction
 Add optional support for WMS KeywordList and minor bug fixes.
