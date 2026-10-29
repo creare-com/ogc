@@ -29,6 +29,11 @@ LEGEND_GRAPHIC_FORMATS = {
     "image/svg": "svg",
 }
 
+# Supported legend graphic orientations
+LEGEND_GRAPHIC_ORIENTATION_VERTICAL = "vertical"
+LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL = "horizontal"
+LEGEND_GRAPHIC_ORIENTATIONS = (LEGEND_GRAPHIC_ORIENTATION_VERTICAL, LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL)
+
 
 def get_legend_graphic_extension(output_format: str | None) -> str:
     """Get the legend graphic file extension for an output format, default to png.

@@ -5,6 +5,7 @@ OGC WMS/WCS (v1.3.0/v1.0.0) server
 import re
 import traitlets as tl
 import datetime
+from ogc import ogc_common
 
 _default_pix_size = 1.0 / 3600
 _default_geotransform = [-180, _default_pix_size, 0, -90, 0, _default_pix_size]
@@ -84,9 +85,13 @@ class Layer(tl.HasTraits):
     )
     all_times_valid = tl.Bool(default_value=False)
 
-    legend_graphic_width_inches = tl.Float(default_value=0.7)  # inches
-    legend_graphic_height_inches = tl.Float(default_value=2.5)  # inches
+    legend_graphic_width_inches = tl.Float()  # inches
+    legend_graphic_height_inches = tl.Float()  # inches
     legend_graphic_dpi = tl.Float(default_value=100)
+    legend_graphic_orientation = tl.Enum(
+        values=list(ogc_common.LEGEND_GRAPHIC_ORIENTATIONS),
+        default_value=ogc_common.LEGEND_GRAPHIC_ORIENTATION_VERTICAL,
+    )
 
     @tl.validate("group")
     def _validate_group(self, proposal: dict) -> str:
@@ -114,13 +119,15 @@ class Layer(tl.HasTraits):
 
         return self.safe_group_default
 
-    @property
-    def legend_graphic_width(self):
-        return int(self.legend_graphic_width_inches * self.legend_graphic_dpi)
+    @tl.default("legend_graphic_width_inches")
+    def _default_legend_graphic_width_inches(self) -> float:
+        horizontal = self.legend_graphic_orientation == ogc_common.LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL
+        return 2.5 if horizontal else 0.7
 
-    @property
-    def legend_graphic_height(self):
-        return int(self.legend_graphic_height_inches * self.legend_graphic_dpi)
+    @tl.default("legend_graphic_height_inches")
+    def _default_legend_graphic_height_inches(self) -> float:
+        horizontal = self.legend_graphic_orientation == ogc_common.LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL
+        return 0.7 if horizontal else 2.5
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
