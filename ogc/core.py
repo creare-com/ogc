@@ -15,7 +15,7 @@ from . import wms_request_1_3_0
 from . import wcs_response_1_0_0
 from . import wms_response_1_3_0
 from .edr import EdrRoutes
-from .wmts import WmtsRoutes
+from .wmts import TileMatrixSet, WmtsRoutes, default_tile_matrix_sets
 
 from ogc.ogc_common import WCSException, WMTSException, get_legend_graphic_extension
 
@@ -36,6 +36,11 @@ class OGC(tl.HasTraits):
     service_keyword_list = tl.List(trait=tl.Unicode())
     server_address = tl.Unicode(default_value="http://127.0.0.1:5000", allow_none=True)
     service_group_title = tl.Unicode(default_value="Data Products", allow_none=True)
+    tile_matrix_sets = tl.List(trait=tl.Instance(klass=TileMatrixSet))
+
+    @tl.default("tile_matrix_sets")
+    def _default_tile_matrix_sets(self):
+        return default_tile_matrix_sets()
 
     @property
     def base_url(self):
@@ -79,6 +84,7 @@ class OGC(tl.HasTraits):
                 service_title=self.service_title,
                 service_abstract=self.service_abstract,
                 service_group_title=self.service_group_title,
+                tile_matrix_sets=self.tile_matrix_sets,
             )
             if settings.WMTS_ENABLED
             else None

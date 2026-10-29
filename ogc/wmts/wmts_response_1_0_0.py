@@ -7,7 +7,7 @@ from xml.sax.saxutils import escape
 from ogc import ogc_common
 from ogc import settings
 from ogc.wcs_response_1_0_0 import Coverage
-from .wmts_request_1_0_0 import supported_tile_matrix_sets, TileMatrixSet
+from .wmts_tile_matrix_set import TileMatrixSet, default_tile_matrix_sets
 
 logger = logging.getLogger(__name__)
 escape_format = ogc_common.EscapeFormatter().format
@@ -43,12 +43,17 @@ class Capabilities(ogc_common.XMLNode):
     service_type_version = tl.List([SERVICE_VERSION])
 
     coverages = tl.List(trait=tl.Instance(klass=Coverage))
+    tile_matrix_sets = tl.List(trait=tl.Instance(klass=TileMatrixSet))
     base_url = tl.Unicode(default_value=None, allow_none=True)
 
     version = tl.Unicode(default_value=SERVICE_VERSION)
     provider_name = tl.Unicode(default_value="Creare LLC")
     provider_site = tl.Unicode(default_value="https://github.com/creare-com")
     indent = "    "
+
+    @tl.default("tile_matrix_sets")
+    def _default_tile_matrix_sets(self):
+        return default_tile_matrix_sets()
 
     def to_xml(self) -> str:
         """Generate the XML response for service metadata.
@@ -241,8 +246,7 @@ version="{version}">
         xml += self.indent * (depth + 1) + """<Format>image/png</Format>\n"""
 
         # Tile matrix set links
-        matrix_sets = supported_tile_matrix_sets()
-        for matrix_set in matrix_sets:
+        for matrix_set in self.tile_matrix_sets:
             xml += self.indent * (depth + 1) + """<TileMatrixSetLink>\n"""
             xml += self.indent * (depth + 2) + escape_format("""<TileMatrixSet>{}</TileMatrixSet>\n""", matrix_set.name)
             xml += self.indent * (depth + 1) + """</TileMatrixSetLink>\n"""
@@ -278,9 +282,8 @@ version="{version}">
         str
             XML data as a string.
         """
-        matrix_sets = supported_tile_matrix_sets()
         xml = ""
-        for matrix_set in matrix_sets:
+        for matrix_set in self.tile_matrix_sets:
             xml += matrix_set.to_xml()
 
         return xml
