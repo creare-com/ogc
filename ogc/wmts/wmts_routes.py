@@ -8,6 +8,7 @@ from ogc.wcs_response_1_0_0 import Coverage
 
 from . import wmts_response_1_0_0
 from . import wmts_request_1_0_0
+from .wmts_tile_matrix_set import TileMatrixSet, default_tile_matrix_sets
 
 LOAD_FAILURE = "Failed to load and validate: "
 INVALID_ARGUMENTS = "Invalid arguments"
@@ -23,6 +24,11 @@ class WmtsRoutes(tl.HasTraits):
     service_title = tl.Unicode(default_value=None, allow_none=True)
     service_abstract = tl.Unicode(default_value=None, allow_none=True)
     service_group_title = tl.Unicode(default_value=None, allow_none=True)
+    tile_matrix_sets = tl.List(trait=tl.Instance(klass=TileMatrixSet))
+
+    @tl.default("tile_matrix_sets")
+    def _default_tile_matrix_sets(self):
+        return default_tile_matrix_sets()
 
     def handle_kv(self, args: Dict[str, Any]) -> Dict[str, Any] | str:
         """Handle WMTS key value requests.
@@ -122,6 +128,7 @@ class WmtsRoutes(tl.HasTraits):
                 service_title=self.service_title,
                 service_abstract=self.service_abstract,
                 service_group_title=self.service_group_title,
+                tile_matrix_sets=self.tile_matrix_sets,
             )
         else:
             logger.warning("OGC: get_capabilities unsupported version: %r", args.get("version"))
@@ -163,7 +170,7 @@ class WmtsRoutes(tl.HasTraits):
             Exception for errors found during the layer evaluation.
         """
         if "version" in args and args["version"] == "1.0.0":
-            get_tile = wmts_request_1_0_0.GetTile()
+            get_tile = wmts_request_1_0_0.GetTile(tile_matrix_sets=self.tile_matrix_sets)
         else:
             logger.warning("OGC: get_tile unsupported version: %r", args.get("version"))
             raise WMTSException(

@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from ogc import core
 from ogc import podpac as pogc
 from ogc.wmts.wmts_routes import WmtsRoutes
+from ogc.wmts.wmts_tile_matrix_set import TileMatrixSet, WEB_MERCATOR_BOUNDS
 from ogc.wms_response_1_3_0 import Coverage
 
 
@@ -183,3 +184,30 @@ def test_handle_kv_with_invalid_request(coverages: List[Coverage]):
 
     with pytest.raises(core.WMTSException):
         wmts_routes.handle_kv(args)
+
+
+def test_handle_wmts_kv_custom_tile_matrix_sets_from_ogc_core(layers: List[pogc.Layer]):
+    """Test that tile matrix sets set on the OGC class override the defaults for WMTS requests.
+
+    Parameters
+    ----------
+    layers : List[pogc.Layer]
+        Layers provided by a test fixture.
+    """
+    custom = TileMatrixSet(name="CustomQuad", crs="urn:ogc:def:crs:EPSG::3857", bounds=WEB_MERCATOR_BOUNDS)
+    ogc = core.OGC(layers=layers, tile_matrix_sets=[custom])
+
+    response = ogc.handle_wmts_kv(
+        {"request": "GetCapabilities", "service": "WMTS", "version": "1.0.0", "base_url": "/"}
+    )
+    assert "<ows:Identifier>CustomQuad</ows:Identifier>" in response
+    assert "<ows:Identifier>WebMercatorQuad</ows:Identifier>" not in response
+
+    args = make_valid_tile_arguments(ogc.wmts_routes.coverages)
+    args["tilematrixset"] = "CustomQuad"
+    response = ogc.handle_wmts_kv(args)
+    assert response["fn"].endswith(".png")
+
+    args["tilematrixset"] = "WebMercatorQuad"
+    with pytest.raises(core.WMTSException):
+        ogc.handle_wmts_kv(args)

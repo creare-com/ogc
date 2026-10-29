@@ -4,12 +4,13 @@ from typing import Dict, Any
 from podpac import Coordinates
 from ogc import settings
 from ogc.podpac import _uppercase_for_dict_keys
-from ogc.wmts.wmts_request_1_0_0 import GetCapabilities, GetTile, TileMatrixSet, supported_tile_matrix_sets
+from ogc.wmts.wmts_request_1_0_0 import GetCapabilities, GetTile
+from ogc.wmts.wmts_tile_matrix_set import TileMatrixSet, default_tile_matrix_sets
 
 
 def get_tile_matrix_set(name: str) -> TileMatrixSet:
     """Get a supported tile matrix set by name."""
-    return next(supported for supported in supported_tile_matrix_sets() if supported.name == name)
+    return next(supported for supported in default_tile_matrix_sets() if supported.name == name)
 
 
 def make_valid_tile_arguments() -> Dict[str, Any]:
@@ -167,12 +168,6 @@ def test_bbox_world_crs84_returns_valid_string():
         (get_tile_matrix_set("WorldCRS84Quad"), 1, 139770566),
         (get_tile_matrix_set("GoogleCRS84Quad"), 0, 559082264),
         (get_tile_matrix_set("GoogleCRS84Quad"), 1, 279541132),
-        (get_tile_matrix_set("EPSG:900913"), 0, 559082264),
-        (get_tile_matrix_set("EPSG:4326"), 0, 279541132),
-        (get_tile_matrix_set("EPSG:3575"), 0, 117028571.4),
-        (get_tile_matrix_set("EPSG:3575"), 1, 58514285.7),
-        (get_tile_matrix_set("EPSG:3031"), 0, 117028571.4),
-        (get_tile_matrix_set("EPSG:3031"), 1, 58514285.7),
     ],
 )
 def test_calculate_scale_denominator(
@@ -205,10 +200,6 @@ def test_calculate_scale_denominator(
         (get_tile_matrix_set("GoogleCRS84Quad"), 0, "1", "1"),
         (get_tile_matrix_set("GoogleCRS84Quad"), 1, "2", "2"),
         (get_tile_matrix_set("GoogleCRS84Quad"), 2, "4", "4"),
-        (get_tile_matrix_set("EPSG:900913"), 2, "4", "4"),
-        (get_tile_matrix_set("EPSG:4326"), 2, "8", "4"),
-        (get_tile_matrix_set("EPSG:3575"), 2, "4", "4"),
-        (get_tile_matrix_set("EPSG:3031"), 2, "4", "4"),
     ],
 )
 def test_calculate_matrix_sizes(
@@ -233,7 +224,7 @@ def test_calculate_matrix_sizes(
     assert height == expected_height
 
 
-@pytest.mark.parametrize("tile_matrix_set", supported_tile_matrix_sets())
+@pytest.mark.parametrize("tile_matrix_set", default_tile_matrix_sets())
 def test_get_tile_load_from_kv_tile_matrix_set(tile_matrix_set: TileMatrixSet):
     """Ensure each supported tile matrix set is selected by name, ignoring case.
 
@@ -263,7 +254,7 @@ def test_get_tile_load_from_kv_unknown_tile_matrix_set():
         tile.validate()
 
 
-@pytest.mark.parametrize("tile_matrix_set", supported_tile_matrix_sets())
+@pytest.mark.parametrize("tile_matrix_set", default_tile_matrix_sets())
 def test_get_tile_validate_invalid_tile_column(tile_matrix_set: TileMatrixSet):
     """Ensure tile column just past the matrix width raises error for each tile matrix set.
 
@@ -283,13 +274,9 @@ def test_get_tile_validate_invalid_tile_column(tile_matrix_set: TileMatrixSet):
     "tile_matrix_set, row, column, expected_bbox",
     [
         (get_tile_matrix_set("WebMercatorQuad"), 0, 1, [20037508.342789244, 0.0, 0.0, 20037508.342789244]),
-        (get_tile_matrix_set("EPSG:900913"), 1, 0, [0.0, -20037508.342789244, -20037508.342789244, 0.0]),
         (get_tile_matrix_set("WorldCRS84Quad"), 0, 3, [90.0, 90.0, 0.0, 180.0]),
         (get_tile_matrix_set("GoogleCRS84Quad"), 0, 0, [180.0, -180.0, 0.0, 0.0]),
         (get_tile_matrix_set("GoogleCRS84Quad"), 1, 1, [0.0, 0.0, -180.0, 180.0]),
-        (get_tile_matrix_set("EPSG:4326"), 1, 0, [0.0, -180.0, -90.0, -90.0]),
-        (get_tile_matrix_set("EPSG:3575"), 0, 0, [4194304.0, -4194304.0, 0.0, 0.0]),
-        (get_tile_matrix_set("EPSG:3031"), 1, 1, [0.0, 0.0, -4194304.0, 4194304.0]),
     ],
 )
 def test_bbox_tile(tile_matrix_set: TileMatrixSet, row: int, column: int, expected_bbox: list):
@@ -298,24 +285,7 @@ def test_bbox_tile(tile_matrix_set: TileMatrixSet, row: int, column: int, expect
     assert bbox == pytest.approx(expected_bbox)
 
 
-def test_epsg4326_corners_use_lat_lon_axis_order():
-    """Ensure EPSG:4326 corners are written in latitude, longitude order."""
-    xml = get_tile_matrix_set("EPSG:4326").to_xml()
-
-    assert "<TopLeftCorner>90.000000000 -180.000000000</TopLeftCorner>" in xml
-    assert "<ows:LowerCorner>-90.000000000 -180.000000000</ows:LowerCorner>" in xml
-    assert "<ows:UpperCorner>90.000000000 180.000000000</ows:UpperCorner>" in xml
-
-
-def test_projected_quad_omits_well_known_scale_set():
-    """Ensure tile matrix sets without a well known scale set omit the element."""
-    xml = get_tile_matrix_set("EPSG:3031").to_xml()
-
-    assert "<WellKnownScaleSet>" not in xml
-    assert "<TopLeftCorner>-4194304.000000000 4194304.000000000</TopLeftCorner>" in xml
-
-
-@pytest.mark.parametrize("tile_matrix_set", supported_tile_matrix_sets())
+@pytest.mark.parametrize("tile_matrix_set", default_tile_matrix_sets())
 def test_get_tile_podpac_lat_lon_order(tile_matrix_set: TileMatrixSet):
     """Ensure podpac reads the tile with lat as the crs y axis and lon as the crs x axis.
 
