@@ -69,10 +69,6 @@ mark.successful {
   background-color: green;
 }
 
-mark.accepted {
-  background-color: default;
-}
-
 mark.failed {
   background-color: red;
 }
