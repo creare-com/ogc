@@ -3,9 +3,12 @@ from ogc import podpac as pogc
 
 import podpac
 import pytest
+import traitlets
 import numpy as np
 import lxml.etree
+import PIL.Image
 from ogc.wcs_response_1_0_0 import Coverage
+from ogc.ogc_common import LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL
 
 # Create some podpac nodes
 lat = np.linspace(90, -90, 11)
@@ -329,6 +332,160 @@ def test_ogc_core_handle_wms_kv_get_legend_graphic():
     assert isinstance(response["fn"], str)
     assert response["fn"].endswith(".png")
     assert response["fp"] is not None
+
+
+@pytest.mark.parametrize(
+    "legend_format, expected_extension",
+    [
+        ("image/svg+xml", ".svg"),
+        ("image/svg", ".svg"),
+        ("IMAGE/SVG+XML", ".svg"),
+        ("svg", ".svg"),
+        ("SVG", ".svg"),
+        ("png", ".png"),
+        ("Image/PNG", ".png"),
+        ("image/png", ".png"),
+        ("image/png; mode=8bit", ".png"),
+        ("image/png;mode=8-bit", ".png"),
+        (None, ".png"),
+    ],
+)
+def test_ogc_core_handle_wms_kv_get_legend_graphic_format(legend_format, expected_extension):
+    """
+    Test the GetLegendGraphic output format matches requested format.
+    """
+    ogc = core.OGC(layers=[layer1, layer2])
+    args = {
+        "request": "GetLegendGraphic",
+        "service": "WMS",
+        "version": "1.3.0",
+        "layer": layer1.identifier,
+        "style": "default",
+    }
+    if legend_format is not None:
+        args["format"] = legend_format
+    response = ogc.handle_wms_kv(args)
+    assert response["fn"].endswith(expected_extension)
+    content = response["fp"].read()
+    if expected_extension == ".svg":
+        assert b"<svg" in content
+    else:
+        assert content.startswith(b"\x89PNG")
+
+
+@pytest.mark.parametrize("legend_format", ["image/jpeg", "image/svgxml", ""])
+def test_ogc_core_handle_wms_kv_get_legend_graphic_invalid_format(legend_format):
+    """
+    Test the GetLegendGraphic request fails for unsupported output formats.
+    """
+    ogc = core.OGC(layers=[layer1, layer2])
+    args = {
+        "request": "GetLegendGraphic",
+        "service": "WMS",
+        "version": "1.3.0",
+        "layer": layer1.identifier,
+        "style": "default",
+        "format": legend_format,
+    }
+    with pytest.raises(core.WCSException):
+        ogc.handle_wms_kv(args)
+
+
+@pytest.mark.parametrize("orientation", ["vertical", "horizontal"])
+@pytest.mark.parametrize("units", [None, "m", "kilograms per square meter per second"])
+def test_ogc_core_handle_wms_kv_get_legend_graphic_orientation(orientation, units):
+    """
+    Test the layer legend graphic orientation, horizontal legends are wider than they are tall by default.
+    """
+    node = podpac.data.Array(source=data, coordinates=coords, style=podpac.style.Style(units=units))
+    layer = pogc.Layer(
+        node=node,
+        identifier="layer_orientation",
+        title="Layer Orientation",
+        group="Layers",
+        legend_graphic_orientation=orientation,
+    )
+    ogc = core.OGC(layers=[layer])
+    args = {
+        "request": "GetLegendGraphic",
+        "service": "WMS",
+        "version": "1.3.0",
+        "layer": layer.identifier,
+        "style": "default",
+        "format": "image/png",
+    }
+    response = ogc.handle_wms_kv(args)
+    width, height = PIL.Image.open(response["fp"]).size
+    if orientation == LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL:
+        assert width > height
+    else:
+        assert height > width
+
+
+def test_ogc_core_handle_wms_kv_get_legend_graphic_horizontal_enumeration():
+    """
+    Test a horizontal GetLegendGraphic request for an enumerated layer.
+    """
+    style = podpac.style.Style(
+        enumeration_legend={1: "Water", 2: "Forest", 3: "Developed Urban Area"},
+        enumeration_colors={1: "blue", 2: "green", 3: "gray"},
+    )
+    node = podpac.data.Array(source=data, coordinates=coords, style=style)
+    layer = pogc.Layer(
+        node=node,
+        identifier="layer_enumeration",
+        title="Layer Enumeration",
+        group="Layers",
+        legend_graphic_orientation=LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL,
+    )
+    ogc = core.OGC(layers=[layer])
+    args = {
+        "request": "GetLegendGraphic",
+        "service": "WMS",
+        "version": "1.3.0",
+        "layer": layer.identifier,
+        "style": "default",
+        "format": "image/svg+xml",
+    }
+    response = ogc.handle_wms_kv(args)
+    assert response["fn"].endswith(".svg")
+    assert response["fp"].read().lstrip().startswith(b"<?xml")
+
+
+@pytest.mark.parametrize("orientation", ["diagonal", ""])
+def test_ogc_core_layer_invalid_legend_graphic_orientation(orientation):
+    """
+    Test a layer cannot be created with an unsupported legend graphic orientation.
+    """
+    with pytest.raises(traitlets.TraitError):
+        pogc.Layer(
+            node=node1,
+            identifier="layer_invalid",
+            title="Layer Invalid",
+            group="Layers",
+            legend_graphic_orientation=orientation,
+        )
+
+
+def test_ogc_core_handle_wms_kv_get_capabilities_legend_formats():
+    """
+    Test the WMS capabilities advertise png and svg legend graphics.
+    """
+    ogc = core.OGC(layers=[layer1, layer2])
+    args = {
+        "request": "GetCapabilities",
+        "service": "WMS",
+        "version": "1.3.0",
+        "base_url": None,
+    }
+    response = ogc.handle_wms_kv(args)
+    assert "<Format>image/png</Format>" in response
+    assert "<Format>image/svg+xml</Format>" in response
+    assert "FORMAT=image%2Fpng" in response
+    assert "FORMAT=image%2Fsvg%2Bxml" in response
+    # the legend graphic size is not advertised, it grows and shrinks to fit its labels
+    assert "<LegendURL>" in response
+    assert "<LegendURL width" not in response
 
 
 def test_ogc_core_handle_wms_kv_get_legend_graphic_invalid_version():

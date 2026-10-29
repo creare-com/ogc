@@ -18,6 +18,37 @@ ALLOWED_SRS_VALUES = (
 )
 INTERNAL_APPLICATION_ERROR = "Internal application error."
 NO_APPLICABLE_CODE = "NoApplicableCode"
+# Supported legend graphic output formats (lowercase) and the file extension of each
+LEGEND_GRAPHIC_FORMATS = {
+    "png": "png",
+    "image/png": "png",
+    "image/png; mode=8bit": "png",
+    "image/png;mode=8-bit": "png",
+    "svg": "svg",
+    "image/svg+xml": "svg",
+    "image/svg": "svg",
+}
+
+# Supported legend graphic orientations
+LEGEND_GRAPHIC_ORIENTATION_VERTICAL = "vertical"
+LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL = "horizontal"
+LEGEND_GRAPHIC_ORIENTATIONS = (LEGEND_GRAPHIC_ORIENTATION_VERTICAL, LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL)
+
+
+def get_legend_graphic_extension(output_format: str | None) -> str:
+    """Get the legend graphic file extension for an output format, default to png.
+
+    Parameters
+    ----------
+    output_format : str | None
+        The requested output format.
+
+    Returns
+    -------
+    str
+        The file extension.
+    """
+    return LEGEND_GRAPHIC_FORMATS.get((output_format or "").lower(), "png")
 
 
 class EscapeFormatter(string.Formatter):

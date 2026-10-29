@@ -6,16 +6,24 @@ import ogc
 import podpac
 from podpac.core.coordinates import Coordinates, union, merge_dims
 import traitlets as tl
-from typing import List
+from typing import List, Tuple
 from matplotlib import pyplot as plt
 import matplotlib as mpl
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.text import Text
 import io
 import numpy as np
 import json
 import textwrap
-import re
 from datetime import datetime
 from ogc.settings import EDR_TIME_INSTANCE_DIMENSION
+from ogc.ogc_common import (
+    get_legend_graphic_extension,
+    LEGEND_GRAPHIC_ORIENTATIONS,
+    LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL,
+    LEGEND_GRAPHIC_ORIENTATION_VERTICAL,
+)
 
 
 def _uppercase_for_dict_keys(lower_dict):
@@ -212,6 +220,7 @@ class Layer(ogc.Layer):
         return body
 
     def get_legend_graphic(self, request_args):
+        legend_graphic_extension = get_legend_graphic_extension(request_args.get("format"))
         if self.node is not None:
             units = self.node.style.units
             cmap = self.node.style.cmap
@@ -222,7 +231,7 @@ class Layer(ogc.Layer):
             # cmap
             params = json.loads(request_args.get("params", r"{}"))
             colormap = params.get("colormap", "viridis")
-            cmap = mpl.cm.get_cmap(colormap)
+            cmap = mpl.colormaps[colormap]
 
             # clim
             clim = [None, None]
@@ -247,6 +256,8 @@ class Layer(ogc.Layer):
             enumeration_legend=enumeration_legend,
             enumeration_colors=enumeration_colors,
             clim=clim,
+            img_format=legend_graphic_extension,
+            orientation=self.legend_graphic_orientation,
         )
         return legend_graphic.legend_image()
 
@@ -256,17 +267,19 @@ class LegendGraphic(tl.HasTraits):
     A class for generating legend graphics with adjustable properties such as width, height, fonts, and color mappings.
     """
 
-    width = tl.Float(default_value=0.7)  # inches
-    max_width = tl.Float(default_value=1.5)  # inches
-    min_width = tl.Float(default_value=0.8)  # inches
-    height = tl.Float(default_value=2.5)  # inches
-    max_heigth = tl.Float(default_value=5.5)  # inches
+    width = tl.Float()  # inches
+    height = tl.Float()  # inches
+    min_width = tl.Float(default_value=0.0)  # inches
+    min_height = tl.Float(default_value=0.0)  # inches
+    max_width = tl.Float()  # inches
+    max_height = tl.Float()  # inches
+    colorbar_thickness = tl.Float(default_value=0.15)  # inches across the colorbar
     dpi = tl.Float(default_value=100)  # pixels per inch
-    units_fontsize = tl.Float(default_value=13)  # used for units text at top of legend
+    units_fontsize = tl.Float(default_value=13)  # used for units text
     colorbar_fontsize = tl.Float(default_value=10)  # used for tick marks of colorbar
     enumeration_fontsize = tl.Float(default_value=16)  # used for labels of categorical legends
     enumeration_min_fontsize = tl.Float(default_value=5)  # minimum fontsize for categorical legends with lots of labels
-    max_unit_chars = tl.Float(default_value=16)  # maximum characters allowed in a line for units
+    max_unit_chars = tl.Int(default_value=16)  # maximum characters allowed in a line for units
     units = tl.Unicode(default_value=tl.Undefined, allow_none=True)
     img_format = tl.Enum(values=["png", "pdf", "ps", "eps", "svg"], default_value="png")
     cmap = tl.Instance(klass=mpl.colors.Colormap, default_value=mpl.cm.viridis)
@@ -279,208 +292,326 @@ class LegendGraphic(tl.HasTraits):
     )
     enumeration_colors = tl.Dict(key_trait=tl.Int(), default_value=None, allow_none=True)
     clim = tl.List(default_value=[None, None])
+    orientation = tl.Enum(values=list(LEGEND_GRAPHIC_ORIENTATIONS), default_value=LEGEND_GRAPHIC_ORIENTATION_VERTICAL)
+    pad = tl.Float(default_value=0.05)  # inches around the legend and between the labels and units
+    enumeration_label_height = tl.Float(default_value=0.25)  # inches along a vertical colorbar for each category
 
-    def __init__(self, *args, **kwargs):
-        """
-        Initializes the LegendGraphic object with given parameters.
-        """
-        super().__init__(*args, **kwargs)
+    @property
+    def _horizontal(self) -> bool:
+        return self.orientation == LEGEND_GRAPHIC_ORIENTATION_HORIZONTAL
 
-    def legend_image(self):
-        """
-        Generates the legend image based on provided parameters.
+    @tl.default("width")
+    def _default_width(self) -> float:
+        return 2.5 if self._horizontal else 0.7
 
-        Returns:
-            io.BytesIO: A byte stream containing the legend image in the specified format.
+    @tl.default("height")
+    def _default_height(self) -> float:
+        return 0.7 if self._horizontal else 2.5
+
+    @tl.default("max_width")
+    def _default_max_width(self) -> float:
+        return 5.5 if self._horizontal else 1.5
+
+    @tl.default("max_height")
+    def _default_max_height(self) -> float:
+        return 1.5 if self._horizontal else 5.5
+
+    def legend_image(self) -> io.BytesIO:
+        """Generate the legend image.
+
+        A vertical legend has the units above the colorbar and the labels to its right.
+        A horizontal legend has the labels below the colorbar and the units below the labels.
+
+        Returns
+        -------
+        io.BytesIO
+            A byte stream containing the legend image in the specified format.
         """
         fig = plt.figure(figsize=(self.width, self.height), facecolor=self.facecolor, dpi=self.dpi)
-        # check if there are units and see if they are longer than self.max_unit_chars
-        if self.units:
-            fig, needs_wrap, units_str = self.check_if_units_need_to_be_wrapped(fig)
 
-        # add axis to figure, reshape figures if units. Do not reshape for enumerations or just colorbar
-        if self.units and needs_wrap:
-            fig, ax = self.adjust_fig_height_for_wrapped_units(fig, units_str)
-            # add color bars
-            norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
-            mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
-        elif self.units:
-            fig, ax = self.adjust_fig_width_for_unwrapped_units(fig, units_str)
-        elif self.enumeration_colors:
-            # set axis for enumeration
-            ax = fig.add_axes([0.05, 0.0125, 0.1, 0.975])
-            # changes fig size in based on # of labels, add colorbar
-            fig = self.create_enumeration_legend(fig, ax)
-        else:
-            # set axis for enumeration for colorbar and tick marks only
-            ax = fig.add_axes([0.1, 0.05, 0.25, 0.9])
-            # adjust fig size for colorbar and tick mark text length, add colorbar
-            fig = self.adjust_fig_width_for_long_tick_marks(fig, ax)
+        # set axis for colorbar, positioned once the fig is fit to the legend
+        ax = fig.add_axes([0, 0, 1, 1])
+        length = self.create_colorbar(ax)
+
+        # fit fig to the colorbar, labels and units, enumerations have no units
+        units_str = self.wrap_units() if self.units and not self.enumeration_colors else None
+        fig = self.fit_fig_to_legend(fig, ax, length, units_str)
 
         output = io.BytesIO()
         fig.savefig(output, format=self.img_format)
-        plt.close("all")
+        plt.close(fig)
         output.seek(0)
         return output
 
-    def check_if_units_need_to_be_wrapped(self, fig):
+    def create_colorbar(self, ax: Axes) -> float | None:
+        """Add the colorbar with its labels.
+
+        Categorical data has a color for each category, from the bottom or left, with labels shortened to fit within
+        the max width.
+
+        Parameters
+        ----------
+        ax : Axes
+            The axis object.
+
+        Returns
+        -------
+        float | None
+            The colorbar length in inches for categorical data, or None to fill the legend width or height.
         """
-        Checks if the unit text needs wrapping. If so, it divieds the string into bins the
-        size of max_unit_chars.
+        if not self.enumeration_colors:
+            norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
+            mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm, orientation=self.orientation)
+            ax.tick_params(labelsize=self.colorbar_fontsize)
+            return None
 
-        Args:
-            fig (matplotlib.figure.Figure): The figure object.
+        enum_values = list(self.enumeration_colors.keys())
+        enum_colors = [self.enumeration_colors[k] for k in enum_values]
+        enum_labels = [(self.enumeration_legend or {}).get(k, str(k)) for k in enum_values]
 
-        Returns:
-            tuple: Updated figure, boolean flag indicating wrapping, and the wrapped unit string.
+        # smaller font for lots of labels
+        font_size = max(self.enumeration_min_fontsize, self.enumeration_fontsize - (len(enum_values) * 0.35))
+
+        cmap = mpl.colors.ListedColormap(enum_colors)
+        norm = mpl.colors.BoundaryNorm(np.arange(len(enum_colors) + 1) - 0.5, cmap.N)
+        ticks = np.arange(len(enum_colors))
+        mpl.colorbar.ColorbarBase(ax, cmap=cmap, norm=norm, ticks=ticks, orientation=self.orientation)
+
+        if self._horizontal:
+            # each label gets the room it needs under its color, within the max width
+            label_width = self.get_max_text_width(enum_labels, font_size) + 0.1
+            length = min(len(enum_colors) * label_width, self.max_width - 2 * self.pad)
+            max_label_width = length / len(enum_colors) - 0.1
+        else:
+            # each label gets enumeration_label_height next to its color, leaving room for the tick marks and margins
+            length = len(enum_colors) * self.enumeration_label_height
+            max_label_width = self.max_width - self.colorbar_thickness - 0.3
+
+        enum_labels = [self.shorten_label(label, max_label_width, font_size) for label in enum_labels]
+        (ax.xaxis if self._horizontal else ax.yaxis).set_ticklabels(enum_labels)
+        ax.tick_params(labelsize=font_size)
+        return length
+
+    def fit_fig_to_legend(
+        self,
+        fig: Figure,
+        ax: Axes,
+        length: float | None = None,
+        units_str: str | None = None,
+    ) -> Figure:
+        """Size the figure to the legend, within the min and max width and height, and place the colorbar and units.
+
+        Along the colorbar the figure is the legend width or height, or fits the colorbar length when given. Across
+        the colorbar it fits the labels and units. The units are centered above a vertical colorbar and below the
+        labels of a horizontal colorbar.
+
+        Parameters
+        ----------
+        fig : Figure
+            The figure object.
+        ax : Axes
+            The axis object, with the colorbar drawn.
+        length : float | None, optional
+            The colorbar length in inches.
+        units_str : str | None, optional
+            The wrapped unit string.
+
+        Returns
+        -------
+        Figure
+            The updated figure.
+        """
+        units = None
+        if units_str:
+            units = fig.text(
+                0.5,
+                0.5,
+                units_str,
+                fontsize=self.units_fontsize,
+                horizontalalignment="center",
+                verticalalignment="bottom" if self._horizontal else "top",
+            )
+
+        # resize the colorbar to find the length that fills the figure along it
+        legend_length = self.width if self._horizontal else self.height
+        start_length = length if length is not None else legend_length
+        edges = self.resize_legend(fig, ax, units, start_length)
+        fig_width, fig_height = self.get_legend_size(edges, length)
+        left, right, bottom, top, _, units_height = edges
+        if self._horizontal:
+            length = max(0.1, fig_width - left - right - 2 * self.pad)
+        else:
+            length = max(0.1, fig_height - bottom - top - units_height - 2 * self.pad)
+
+        # resize to apply the new tick labels, matplotlib picks them to fit the colorbar length
+        edges = self.resize_legend(fig, ax, units, length)
+        fig_width, fig_height = self.get_legend_size(edges, length)
+        left, right, bottom, top, _, units_height = edges
+
+        # center the colorbar and labels across the figure, at the top below the vertical units
+        bar_width, bar_height = self.get_colorbar_size(length)
+        x0 = (fig_width - left - bar_width - right) / 2 + left
+        y0 = fig_height - self.pad - top - bar_height - (0.0 if self._horizontal else units_height)
+        fig.set_size_inches(fig_width, fig_height, forward=True)
+        ax.set_position((x0 / fig_width, y0 / fig_height, bar_width / fig_width, bar_height / fig_height))
+        if units is not None:
+            units.set_position((0.5, self.pad / fig_height if self._horizontal else 1 - self.pad / fig_height))
+
+        return fig
+
+    def resize_legend(
+        self,
+        fig: Figure,
+        ax: Axes,
+        units: Text | None,
+        length: float,
+    ) -> Tuple[float, float, float, float, float, float]:
+        """Resize the figure and colorbar to the given length.
+
+        To measure, the figure is enlarged to leave room around the colorbar so no labels are cut off, and the
+        colorbar is moved to its center. This layout is not restored, so the caller must set the final figure size,
+        colorbar position and units position before saving.
+
+        Parameters
+        ----------
+        fig : Figure
+            The figure object.
+        ax : Axes
+            The axis object, with the colorbar drawn.
+        units : Text | None
+            The units text, or None.
+        length : float
+            The colorbar length in inches.
+
+        Returns
+        -------
+        Tuple[float, float, float, float, float, float]
+            The labels past the left, right, bottom and top of the colorbar, and the units width and height
+            including the pad to the labels, in inches.
+        """
+        bar_width, bar_height = self.get_colorbar_size(length)
+        room = 2.0  # inches around the colorbar while measuring, more than its labels need
+        fig.set_size_inches(bar_width + 2 * room, bar_height + 2 * room, forward=True)
+        ax.set_position(
+            (
+                room / (bar_width + 2 * room),
+                room / (bar_height + 2 * room),
+                bar_width / (bar_width + 2 * room),
+                bar_height / (bar_height + 2 * room),
+            )
+        )
+        renderer = fig.canvas.get_renderer()
+        bbox = ax.get_tightbbox(renderer)
+        left = room - bbox.x0 / fig.dpi
+        right = bbox.x1 / fig.dpi - room - bar_width
+        bottom = room - bbox.y0 / fig.dpi
+        top = bbox.y1 / fig.dpi - room - bar_height
+
+        units_width, units_height = 0.0, 0.0
+        if units is not None:
+            units_bbox = units.get_window_extent(renderer)
+            units_width = units_bbox.width / fig.dpi
+            units_height = units_bbox.height / fig.dpi + self.pad
+        return left, right, bottom, top, units_width, units_height
+
+    def get_colorbar_size(self, length: float) -> Tuple[float, float]:
+        """Get the colorbar width and height in inches for its length along the orientation.
+
+        Parameters
+        ----------
+        length : float
+            The colorbar length in inches.
+
+        Returns
+        -------
+        Tuple[float, float]
+            The colorbar width and height in inches.
+        """
+        if self._horizontal:
+            return length, self.colorbar_thickness
+        return self.colorbar_thickness, length
+
+    def get_legend_size(
+        self, edges: Tuple[float, float, float, float, float, float], length: float | None = None
+    ) -> Tuple[float, float]:
+        """Get the figure width and height in inches to fit the colorbar, its labels and the units.
+
+        The size stays within the min and max width and height. Along the colorbar, it is the legend width or height
+        when the length is not given, growing so the colorbar keeps at least half of it.
+
+        Parameters
+        ----------
+        edges : Tuple[float, float, float, float, float, float]
+            The measurements from resize_legend.
+        length : float | None, optional
+            The colorbar length in inches.
+
+        Returns
+        -------
+        Tuple[float, float]
+            The figure width and height in inches.
+        """
+        left, right, bottom, top, units_width, units_height = edges
+        size = self.width if self._horizontal else self.height
+        bar_width, bar_height = self.get_colorbar_size(size / 2 if length is None else length)
+        fig_width = max(left + bar_width + right, units_width) + 2 * self.pad
+        fig_height = bottom + bar_height + top + units_height + 2 * self.pad
+        if length is None and self._horizontal:
+            fig_width = max(fig_width, self.width)
+        elif length is None:
+            fig_height = max(fig_height, self.height)
+        fig_width = min(max(fig_width, self.min_width), self.max_width)
+        fig_height = min(max(fig_height, self.min_height), self.max_height)
+        return fig_width, fig_height
+
+    def wrap_units(self) -> str:
+        """Wrap the units into lines of up to max_unit_chars that fit within the max width.
+
+        Keeps as many lines as fit within half the max height, ending the last with an ellipsis.
+
+        Returns
+        -------
+        str
+            The wrapped unit string.
         """
         units = "[%s]" % self.units
-        needs_wrap = (
-            len(units) > self.max_unit_chars
-        )  # if characters are greater than 16 then wrap text, shrink colorbar
-        # currently only allows for 2 lines
-        wrapped_units = self.wrap_text(units, self.max_unit_chars)
-        # format exponents
-        units = re.sub(r"\^(\d+)", r"$^{\1}\!$", units)
-        units = re.sub(r"\^-(\d+)", r"$^{-\1}\!$", units)
-        # add units to figure
-        fig.text(
-            0.5,
-            0.98,
-            wrapped_units,
-            fontsize=self.units_fontsize,
-            horizontalalignment="center",
-            verticalalignment="top",
-            wrap=True,
-        )
-        return fig, needs_wrap, wrapped_units
+        max_chars = self.max_unit_chars
+        units_lines = self.wrap_text(units, max_chars).split("\n")
+        while (
+            max_chars > 1 and self.get_max_text_width(units_lines, self.units_fontsize) > self.max_width - 2 * self.pad
+        ):
+            max_chars -= 1
+            units_lines = self.wrap_text(units, max_chars).split("\n")
 
-    def adjust_fig_height_for_wrapped_units(self, fig, wrapped_units):
+        line_height = self.units_fontsize / 72 * 1.2  # inches, matplotlib spaces lines 1.2 times the font size
+        max_lines = max(1, int(self.max_height / 2 / line_height))
+        if len(units_lines) > max_lines:
+            units_lines = units_lines[:max_lines]
+            units_lines[-1] = units_lines[-1][:-1] + "…"
+        return "\n".join(units_lines)
+
+    def shorten_label(self, label: str, max_width: float, font_size: float) -> str:
+        """Shorten the label with an ellipsis until it fits within max_width inches, to nothing if none of it fits.
+
+        Parameters
+        ----------
+        label : str
+            The label text.
+        max_width : float
+            The maximum label width in inches.
+        font_size : float
+            Font size used for the label.
+
+        Returns
+        -------
+        str
+            The shortened label.
         """
-        Adjusts figure height to accommodate wrapped units. Will increase figure
-        size for each line of wrapped text until maximum figure height is reached
-
-        Args:
-            fig (matplotlib.figure.Figure): The figure object.
-            wrapped_units (str): The wrapped unit string.
-
-        Returns:
-            tuple: Updated figure and adjusted axis.
-        """
-
-        # wrap text and increase height of figure
-        added_lines = wrapped_units.count("\n")
-        added_height = self.additional_height_for_wrapped_text(added_lines, self.units_fontsize)
-        fig_height = min(
-            self.max_heigth, added_height + self.height
-        )  # add extra height to figure ensure it is less than 6.5 in
-        # adjust fig size to fit units
-        fig.set_size_inches(self.max_width, fig_height, forward=True)
-
-        # Standard height ratio (before adjustments)
-        base_figure_height = self.height  # Original figure height in inches
-        base_ax_height_ratio = 0.75  # Initial height of ax as a fraction of fig height
-        # Compute the new height ratio based on the updated figure height
-        adjusted_ax_height_ratio = base_ax_height_ratio * (base_figure_height / fig_height)
-        # make axes smaller to fix units
-        ax = fig.add_axes([0.25, 0.05, 0.15, adjusted_ax_height_ratio])
-        return fig, ax
-
-    def adjust_fig_width_for_unwrapped_units(self, fig, units_str):
-        """
-        Adjusts figure width to accommodate units.
-        Expects units to be under max_unit_chars
-
-        Args:
-            fig (matplotlib.figure.Figure): The figure object.
-            wrapped_units (str): The wrapped unit string.
-
-        Returns:
-            tuple: Updated figure and adjusted axis.
-        """
-        # add space for units
-        ax = fig.add_axes([0.25, 0.05, 0.15, 0.80])
-        # Estimates the max label width assuming fontsize 10
-        max_label_width_units = self.get_max_text_width([units_str], self.units_fontsize)
-
-        # add color bar and see if fig width needs to be bigger for tick marks
-        norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
-        cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
-
-        # Convert ticks to float32 to avoid errors converting float64 to string
-        tick_labels = [str(t) for t in cb.ax.get_yticks().astype("f4")]
-        max_label_width_ticks = self.get_max_text_width(tick_labels, self.colorbar_fontsize)
-
-        # define minimum width need or max_label width + some extra margin
-        fig_width = max(self.min_width, max_label_width_units + 0.2, max_label_width_ticks + 0.4)
-        fig.set_size_inches(fig_width, self.height, forward=True)
-
-        return fig, ax
-
-    def create_enumeration_legend(self, fig, ax):
-        """
-        Creates a legend for categorical data.
-        Dynamically adjusts figure size based on number of labels and label text length
-        Adds colorbar to figure
-
-        Args:
-            fig (matplotlib.figure.Figure): The figure object.
-            ax (matplotlib.axes.Axes): The axis object.
-
-        Returns:
-            matplotlib.figure.Figure: The updated figure.
-        """
-        enum_values = list(self.enumeration_colors.keys())
-        enum_colors = list(self.enumeration_colors.values())
-        enum_labels = list(self.enumeration_legend.values())
-
-        # Dynamically adjust font size based on the number of ticks
-        font_size = max(
-            self.enumeration_min_fontsize, self.enumeration_fontsize - (len(enum_values) * 0.35)
-        )  # Scale font size
-
-        # Change legend dynamically
-        max_label_width = self.get_max_text_width(
-            enum_labels, font_size
-        )  # Estimates the max label width assuming fontsize 10
-        fig_width = 0.5 + max_label_width  # Base width + label-dependent width
-        fig_height = min(self.max_heigth, len(enum_colors) * 0.25)  # Adjust height based on number of labels
-        fig.set_size_inches(fig_width, fig_height, forward=True)
-
-        self.cmap = mpl.colors.ListedColormap(enum_colors)  # create categorical colomap to replace previous cmap
-        bounds = np.array([val - 0.5 for val in np.arange(1, len(enum_values) + 2)])
-        norm = mpl.colors.BoundaryNorm(bounds, self.cmap.N)
-
-        cb = mpl.colorbar.ColorbarBase(
-            ax,
-            cmap=self.cmap,
-            norm=norm,
-            ticks=np.arange(1, len(self.enumeration_legend) + 1),
-        )
-        if self.enumeration_legend:
-            cb.ax.set_yticklabels(enum_labels, fontsize=font_size)
-
-        return fig
-
-    def adjust_fig_width_for_long_tick_marks(self, fig, ax):
-        """
-        Adjusts figure width to accommodate tick marks that are long.
-
-        Args:
-            fig (matplotlib.figure.Figure): The figure object.
-            ax (matplotlib.axes.Axes): The axis object.
-
-        Returns:
-            matplotlib.figure.Figure: The updated figure.
-        """
-        norm = mpl.colors.Normalize(vmin=self.clim[0], vmax=self.clim[1])
-        cb = mpl.colorbar.ColorbarBase(ax, cmap=self.cmap, norm=norm)
-        tick_labels = [str(t) for t in cb.ax.get_yticks().astype("f4")]  # Convert ticks to strings
-        max_label_width = self.get_max_text_width(tick_labels, self.colorbar_fontsize)
-        fig_width = max_label_width + 0.4
-        fig.set_size_inches(fig_width, self.height, forward=True)
-
-        return fig
+        if max_width <= 0:
+            return ""
+        while label and self.get_max_text_width([label], font_size) > max_width:
+            label = label[:-2] + "…" if len(label) > 1 else ""
+        return label
 
     def get_max_text_width(self, labels, font_size=10):
         """
@@ -493,7 +624,7 @@ class LegendGraphic(tl.HasTraits):
         Returns:
             float: The maximum width of the labels in inches.
         """
-        fig, ax = plt.subplots()  # Create a temporary figure
+        fig, ax = plt.subplots(dpi=self.dpi)  # Create a temporary figure
         renderer = fig.canvas.get_renderer()  # Get renderer to measure text
 
         text_widths = []
@@ -509,20 +640,3 @@ class LegendGraphic(tl.HasTraits):
         Split string into sections of length max_width_chars
         """
         return "\n".join(textwrap.wrap(text, width=max_width_chars))
-
-    def additional_height_for_wrapped_text(self, added_lines_num, font_size):
-        """
-        Calculates additional height needed for wrapped text based on number lines needed
-
-        Args:
-            added_lines_num (int): Number of additional wrapped lines.
-            font_size (int): Font size of the text.
-
-        Returns:
-            float: Additional height required in inches.
-        """
-        font_height_px = font_size * (self.dpi / 72)  # Convert to pixels
-        font_height_in = font_height_px / self.dpi  # Convert pixels to inches
-        additional_height = font_height_in * added_lines_num
-
-        return additional_height

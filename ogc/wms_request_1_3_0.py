@@ -133,7 +133,7 @@ class GetLegendGraphic(ogc_common.XMLNode):
     service = tl.Unicode(default_value=None, allow_none=True)
     version = tl.Unicode(default_value=None, allow_none=True)
 
-    output_format = tl.Enum(values=["image/png", "image/png; mode=8bit", "image/png;mode=8-bit"])
+    output_format = tl.CaselessStrEnum(values=list(ogc_common.LEGEND_GRAPHIC_FORMATS))
 
     layer = tl.Instance(klass=Identifier)  # Limited to one
     crs = tl.Enum(values=list(settings.WMS_CRS.keys()))
@@ -148,3 +148,5 @@ class GetLegendGraphic(ogc_common.XMLNode):
 
         assert "," not in args["layer"], "Only one layer supported at a time."
         self.layer = Identifier(value=args["layer"])
+        if "format" in args:
+            self.output_format = args["format"]
