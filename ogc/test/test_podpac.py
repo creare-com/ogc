@@ -136,8 +136,11 @@ def test_legend_graphic_image(orientation, legend_kwargs):
 
     assert width > 0
     assert height > 0
-    assert width <= legend.max_width * legend.dpi + 1
     assert height <= legend.max_height * legend.dpi + 1
+
+    # Enumeration legends show full text exceeding bounds
+    if not legend.enumeration_legend:
+        assert width <= legend.max_width * legend.dpi + 1
 
 
 @pytest.mark.parametrize("orientation", ["vertical", "horizontal"])

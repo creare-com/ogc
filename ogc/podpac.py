@@ -380,14 +380,11 @@ class LegendGraphic(tl.HasTraits):
         if self._horizontal:
             # each label gets the room it needs under its color, within the max width
             label_width = self.get_max_text_width(enum_labels, font_size) + 0.1
-            length = min(len(enum_colors) * label_width, self.max_width - 2 * self.pad)
-            max_label_width = length / len(enum_colors) - 0.1
+            length = len(enum_colors) * label_width
         else:
             # each label gets enumeration_label_height next to its color, leaving room for the tick marks and margins
             length = len(enum_colors) * self.enumeration_label_height
-            max_label_width = self.max_width - self.colorbar_thickness - 0.3
 
-        enum_labels = [self.shorten_label(label, max_label_width, font_size) for label in enum_labels]
         (ax.xaxis if self._horizontal else ax.yaxis).set_ticklabels(enum_labels)
         ax.tick_params(labelsize=font_size)
         return length
@@ -560,7 +557,12 @@ class LegendGraphic(tl.HasTraits):
             fig_width = max(fig_width, self.width)
         elif length is None:
             fig_height = max(fig_height, self.height)
-        fig_width = min(max(fig_width, self.min_width), self.max_width)
+        fig_width = max(fig_width, self.min_width)
+
+        # do not limit width of enumerated legends
+        if not self.enumeration_legend:
+            fig_width = min(fig_width, self.max_width)
+
         fig_height = min(max(fig_height, self.min_height), self.max_height)
         return fig_width, fig_height
 
@@ -589,29 +591,6 @@ class LegendGraphic(tl.HasTraits):
             units_lines = units_lines[:max_lines]
             units_lines[-1] = units_lines[-1][:-1] + "…"
         return "\n".join(units_lines)
-
-    def shorten_label(self, label: str, max_width: float, font_size: float) -> str:
-        """Shorten the label with an ellipsis until it fits within max_width inches, to nothing if none of it fits.
-
-        Parameters
-        ----------
-        label : str
-            The label text.
-        max_width : float
-            The maximum label width in inches.
-        font_size : float
-            Font size used for the label.
-
-        Returns
-        -------
-        str
-            The shortened label.
-        """
-        if max_width <= 0:
-            return ""
-        while label and self.get_max_text_width([label], font_size) > max_width:
-            label = label[:-2] + "…" if len(label) > 1 else ""
-        return label
 
     def get_max_text_width(self, labels, font_size=10):
         """
